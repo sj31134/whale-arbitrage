@@ -31,24 +31,65 @@ else:
 class DataLoader:
     def __init__(self):
         self.db_path = DB_PATH
+        
+        # Streamlit UI에 디버그 정보 표시 (Streamlit Cloud용)
+        try:
+            import streamlit as st
+            with st.spinner("데이터베이스 초기화 중..."):
+                self._initialize_database()
+        except ImportError:
+            # Streamlit이 없는 환경 (테스트 등)
+            self._initialize_database()
+    
+    def _initialize_database(self):
+        """데이터베이스 초기화 로직"""
+        import streamlit as st
+        
+        # 환경 정보 표시 (디버깅용)
+        is_streamlit_cloud = os.path.exists('/mount/src')
+        debug_info = {
+            "환경": "Streamlit Cloud" if is_streamlit_cloud else "로컬/Docker",
+            "DB 경로": str(self.db_path),
+            "파일 존재": self.db_path.exists(),
+            "/tmp 존재": os.path.exists('/tmp'),
+            "/mount/src 존재": os.path.exists('/mount/src'),
+        }
+        
         # 데이터베이스 파일이 없으면 다운로드 시도 (Streamlit Cloud용)
         if not self.db_path.exists():
             try:
+                st.info("📥 데이터베이스 파일을 다운로드하는 중...")
                 self._download_database_if_needed()
+                if self.db_path.exists():
+                    st.success(f"✅ 데이터베이스 다운로드 완료: {self.db_path}")
+                else:
+                    st.error(f"❌ 다운로드 후에도 파일이 없습니다: {self.db_path}")
             except Exception as e:
                 # 다운로드 실패 시 상세한 에러 메시지
-                import logging
-                logging.error(f"데이터베이스 다운로드 실패: {str(e)}")
+                error_msg = f"데이터베이스 다운로드 실패: {str(e)}"
+                logging.error(error_msg)
+                try:
+                    st.error(f"❌ {error_msg}")
+                    st.json(debug_info)
+                except:
+                    pass
                 raise FileNotFoundError(
                     f"데이터베이스 파일을 찾을 수 없습니다: {self.db_path}\n"
                     f"다운로드 시도 실패: {str(e)}\n"
-                    f"Streamlit Cloud의 경우 Secrets에 DATABASE_URL이 설정되어 있는지 확인하세요."
+                    f"Streamlit Cloud의 경우 Secrets에 DATABASE_URL이 설정되어 있는지 확인하세요.\n"
+                    f"디버그 정보: {debug_info}"
                 ) from e
         
         if not self.db_path.exists():
+            try:
+                st.error(f"❌ 데이터베이스 파일을 찾을 수 없습니다: {self.db_path}")
+                st.json(debug_info)
+            except:
+                pass
             raise FileNotFoundError(
                 f"데이터베이스 파일을 찾을 수 없습니다: {self.db_path}\n"
-                f"Streamlit Cloud의 경우 Secrets에 DATABASE_URL이 설정되어 있는지 확인하세요."
+                f"Streamlit Cloud의 경우 Secrets에 DATABASE_URL이 설정되어 있는지 확인하세요.\n"
+                f"디버그 정보: {debug_info}"
             )
         
         # 데이터베이스 연결 (지연 연결 - 필요할 때마다 새로 연결)
@@ -58,6 +99,32 @@ class DataLoader:
         
         # 초기 연결 테스트
         try:
+            import streamlit as st
+            with st.spinner("데이터베이스 연결 테스트 중..."):
+                test_conn = sqlite3.connect(self._db_path, timeout=10.0, check_same_thread=False)
+                cursor = test_conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = cursor.fetchall()
+                table_names = [t[0] for t in tables]
+                test_conn.close()
+                
+                if len(tables) == 0:
+                    error_msg = f"데이터베이스에 테이블이 없습니다. 파일 경로: {self.db_path}"
+                    logging.error(error_msg)
+                    st.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+                
+                # 필수 테이블 확인
+                required_tables = ['upbit_daily', 'binance_spot_daily', 'bitget_spot_daily', 'exchange_rate']
+                missing_tables = [t for t in required_tables if t not in table_names]
+                if missing_tables:
+                    warning_msg = f"일부 테이블이 없습니다: {missing_tables}. 존재하는 테이블: {table_names}"
+                    logging.warning(warning_msg)
+                    st.warning(f"⚠️ {warning_msg}")
+                else:
+                    st.success(f"✅ 데이터베이스 연결 성공 ({len(tables)}개 테이블)")
+        except ImportError:
+            # Streamlit이 없는 환경
             test_conn = sqlite3.connect(self._db_path, timeout=10.0, check_same_thread=False)
             cursor = test_conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -74,10 +141,14 @@ class DataLoader:
             missing_tables = [t for t in required_tables if t not in table_names]
             if missing_tables:
                 logging.warning(f"일부 테이블이 없습니다: {missing_tables}. 존재하는 테이블: {table_names}")
-                
         except sqlite3.Error as e:
             error_msg = f"데이터베이스 연결 실패: {str(e)}\n파일 경로: {self.db_path}\n파일 존재: {self.db_path.exists()}"
             logging.error(error_msg)
+            try:
+                import streamlit as st
+                st.error(f"❌ {error_msg}")
+            except:
+                pass
             raise sqlite3.Error(error_msg) from e
     
     @property
@@ -112,26 +183,43 @@ class DataLoader:
             
             # URL에서 파일 확장자 확인
             if db_url.endswith('.tar.gz'):
+                st.info("📦 .tar.gz 파일 다운로드 중...")
                 # .tar.gz 파일 다운로드
                 temp_tar = temp_dir / "project.db.tar.gz"
-                urllib.request.urlretrieve(db_url, str(temp_tar))
+                try:
+                    urllib.request.urlretrieve(db_url, str(temp_tar))
+                    st.info(f"✅ 다운로드 완료: {temp_tar.stat().st_size / 1024:.2f} KB")
+                except Exception as e:
+                    st.error(f"❌ 다운로드 실패: {str(e)}")
+                    raise
                 
                 # 압축 해제
-                with tarfile.open(temp_tar, 'r:gz') as tar:
-                    # 압축 해제 (temp_dir에)
-                    tar.extractall(temp_dir)
+                st.info("📂 압축 해제 중...")
+                try:
+                    with tarfile.open(temp_tar, 'r:gz') as tar:
+                        # 압축 해제 (temp_dir에)
+                        tar.extractall(temp_dir)
+                    st.info("✅ 압축 해제 완료")
+                except Exception as e:
+                    st.error(f"❌ 압축 해제 실패: {str(e)}")
+                    raise
                 
                 # 임시 파일 삭제
-                temp_tar.unlink()
+                try:
+                    temp_tar.unlink()
+                except:
+                    pass
                 
                 # 압축 해제된 파일 확인 (data/project.db 형태로 압축되어 있음)
                 # 1순위: data/project.db
                 alt_path = temp_dir / "data" / "project.db"
                 if alt_path.exists():
+                    st.info(f"✅ data/project.db 발견: {alt_path}")
                     # 목적지 디렉토리 생성
                     self.db_path.parent.mkdir(parents=True, exist_ok=True)
                     # 파일 이동
                     alt_path.rename(self.db_path)
+                    st.success(f"✅ 파일 이동 완료: {self.db_path}")
                     # 빈 data 디렉토리 정리 (있는 경우)
                     try:
                         if alt_path.parent.exists() and not any(alt_path.parent.iterdir()):
@@ -141,23 +229,37 @@ class DataLoader:
                 # 2순위: temp_dir/project.db
                 elif (temp_dir / "project.db").exists():
                     extracted_db = temp_dir / "project.db"
+                    st.info(f"✅ project.db 발견: {extracted_db}")
                     self.db_path.parent.mkdir(parents=True, exist_ok=True)
                     extracted_db.rename(self.db_path)
+                    st.success(f"✅ 파일 이동 완료: {self.db_path}")
                 else:
                     # 모든 가능한 위치 확인
                     all_db_files = list(temp_dir.rglob("*.db"))
-                    raise FileNotFoundError(
+                    all_files = list(temp_dir.rglob("*"))
+                    error_msg = (
                         f"압축 해제 후 데이터베이스 파일을 찾을 수 없습니다.\n"
                         f"예상 위치: {temp_dir / 'data' / 'project.db'} 또는 {temp_dir / 'project.db'}\n"
-                        f"발견된 .db 파일: {[str(f) for f in all_db_files]}"
+                        f"발견된 .db 파일: {[str(f) for f in all_db_files]}\n"
+                        f"압축 해제된 모든 파일: {[str(f.relative_to(temp_dir)) for f in all_files[:20]]}"
                     )
+                    st.error(f"❌ {error_msg}")
+                    raise FileNotFoundError(error_msg)
             else:
                 # .db 파일 직접 다운로드
+                st.info("📥 .db 파일 직접 다운로드 중...")
                 urllib.request.urlretrieve(db_url, str(self.db_path))
+                st.success(f"✅ 다운로드 완료: {self.db_path}")
             
             # 다운로드 성공 확인
             if not self.db_path.exists():
-                raise FileNotFoundError(f"다운로드 후 파일이 존재하지 않습니다: {self.db_path}")
+                error_msg = f"다운로드 후 파일이 존재하지 않습니다: {self.db_path}"
+                st.error(f"❌ {error_msg}")
+                raise FileNotFoundError(error_msg)
+            
+            # 파일 크기 확인
+            file_size = self.db_path.stat().st_size / 1024
+            st.info(f"📊 데이터베이스 파일 크기: {file_size:.2f} KB")
                 
         except Exception as e:
             # 구체적인 에러 메시지 (Streamlit Cloud 로그에 표시)
