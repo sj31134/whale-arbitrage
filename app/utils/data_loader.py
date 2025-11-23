@@ -51,17 +51,21 @@ class DataLoader:
                 f"Streamlit Cloud의 경우 Secrets에 DATABASE_URL이 설정되어 있는지 확인하세요."
             )
         
-        # 데이터베이스 연결
+        # 데이터베이스 연결 (지연 연결 - 필요할 때마다 새로 연결)
+        # Streamlit Cloud에서는 멀티스레드 환경이므로 연결을 캐싱하지 않음
+        self._conn = None
+        self._db_path = str(self.db_path)
+        
+        # 초기 연결 테스트
         try:
-            self.conn = sqlite3.connect(str(self.db_path), timeout=10.0)
-            # 기본 검증: 테이블 존재 확인
-            cursor = self.conn.cursor()
+            test_conn = sqlite3.connect(self._db_path, timeout=10.0, check_same_thread=False)
+            cursor = test_conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = cursor.fetchall()
             table_names = [t[0] for t in tables]
+            test_conn.close()
             
             if len(tables) == 0:
-                import logging
                 logging.error(f"데이터베이스에 테이블이 없습니다. 파일 경로: {self.db_path}")
                 raise ValueError(f"데이터베이스에 테이블이 없습니다. 파일 경로: {self.db_path}")
             
@@ -69,14 +73,23 @@ class DataLoader:
             required_tables = ['upbit_daily', 'binance_spot_daily', 'bitget_spot_daily', 'exchange_rate']
             missing_tables = [t for t in required_tables if t not in table_names]
             if missing_tables:
-                import logging
                 logging.warning(f"일부 테이블이 없습니다: {missing_tables}. 존재하는 테이블: {table_names}")
                 
         except sqlite3.Error as e:
-            import logging
             error_msg = f"데이터베이스 연결 실패: {str(e)}\n파일 경로: {self.db_path}\n파일 존재: {self.db_path.exists()}"
             logging.error(error_msg)
             raise sqlite3.Error(error_msg) from e
+    
+    @property
+    def conn(self):
+        """데이터베이스 연결 (필요할 때마다 새로 생성)"""
+        if self._conn is None:
+            try:
+                self._conn = sqlite3.connect(self._db_path, timeout=10.0, check_same_thread=False)
+            except sqlite3.Error as e:
+                logging.error(f"데이터베이스 재연결 실패: {str(e)}")
+                raise
+        return self._conn
     
     def _download_database_if_needed(self):
         """Streamlit Cloud에서 데이터베이스 다운로드 및 압축 해제"""
