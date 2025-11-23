@@ -33,7 +33,12 @@ def render():
     st.markdown("특정 기간, 코인, 거래소 조합에 대한 차익거래 비용 및 수익률을 계산합니다.")
     
     # 데이터 로더 초기화
-    data_loader = DataLoader()
+    try:
+        data_loader = DataLoader()
+    except Exception as e:
+        st.error(f"❌ 데이터베이스 초기화 실패: {str(e)}")
+        st.stop()
+    
     calculator = CostCalculator()
     
     # 사용 가능한 날짜 범위 조회

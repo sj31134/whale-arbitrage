@@ -33,7 +33,12 @@ def render():
     st.markdown("특정 날짜에 가장 수익률이 높은 차익거래 방법을 추천합니다.")
     
     # 데이터 로더 초기화
-    data_loader = DataLoader()
+    try:
+        data_loader = DataLoader()
+    except Exception as e:
+        st.error(f"❌ 데이터베이스 초기화 실패: {str(e)}")
+        st.stop()
+    
     recommender = StrategyRecommender()
     
     # 사용 가능한 날짜 범위 조회
