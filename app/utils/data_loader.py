@@ -259,6 +259,10 @@ class DataLoader:
             return []
         
         try:
+            if not hasattr(self, 'conn') or self.conn is None:
+                logging.error("데이터베이스 연결이 없습니다")
+                return []
+            
             date_filter = ""
             if start_date and end_date:
                 date_filter = f"AND date BETWEEN '{start_date}' AND '{end_date}'"
@@ -276,10 +280,21 @@ class DataLoader:
             )
             ORDER BY date
             """
-            df = pd.read_sql(query, self.conn)
-            return df['date'].tolist() if not df.empty else []
+            # pandas.read_sql 대신 직접 cursor 사용
+            cursor = self.conn.cursor()
+            cursor.execute(query)
+            results = cursor.fetchall()
+            return [row[0] for row in results]
+        except sqlite3.Error as e:
+            error_msg = f"SQL 오류 (get_available_dates_list): {str(e)}"
+            logging.error(error_msg)
+            try:
+                import streamlit as st
+                st.error(f"❌ 데이터베이스 오류: {str(e)}")
+            except:
+                pass
+            return []
         except Exception as e:
-            import logging
             error_msg = f"get_available_dates_list 오류: {str(e)}"
             logging.error(error_msg)
             try:
@@ -325,6 +340,10 @@ class DataLoader:
             raise ValueError(f"지원하지 않는 코인: {coin}")
         
         try:
+            if not hasattr(self, 'conn') or self.conn is None:
+                logging.error("데이터베이스 연결이 없습니다")
+                return pd.DataFrame()
+            
             query = f"""
             SELECT 
                 u.date,
@@ -341,6 +360,7 @@ class DataLoader:
             ORDER BY u.date
             """
             
+            # pandas.read_sql 사용 (JOIN 쿼리는 복잡하므로 pandas 사용)
             df = pd.read_sql(query, self.conn)
         except Exception as e:
             import logging
