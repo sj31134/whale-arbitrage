@@ -9,10 +9,15 @@ from pathlib import Path
 import pandas as pd
 import os
 
-# Docker 컨테이너 내부에서는 /app이 루트
-if os.path.exists('/app'):
+# Streamlit Cloud 또는 로컬 환경 감지
+if os.path.exists('/mount/src'):
+    # Streamlit Cloud
+    ROOT = Path('/mount/src/whale-arbitrage')
+elif os.path.exists('/app'):
+    # Docker 컨테이너 내부
     ROOT = Path('/app')
 else:
+    # 로컬 개발 환경
     ROOT = Path(__file__).resolve().parents[2]
 
 sys.path.insert(0, str(ROOT / "app" / "utils"))

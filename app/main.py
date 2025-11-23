@@ -9,10 +9,15 @@ from pathlib import Path
 import sys
 import os
 
-# Docker 컨테이너 내부에서는 /app이 루트
-if os.path.exists('/app'):
+# Streamlit Cloud 또는 로컬 환경 감지
+if os.path.exists('/mount/src'):
+    # Streamlit Cloud
+    ROOT = Path('/mount/src/whale-arbitrage')
+elif os.path.exists('/app'):
+    # Docker 컨테이너 내부
     ROOT = Path('/app')
 else:
+    # 로컬 개발 환경
     ROOT = Path(__file__).resolve().parents[2]
 
 sys.path.insert(0, str(ROOT / "app" / "utils"))
@@ -42,10 +47,18 @@ page = st.sidebar.selectbox(
 
 # 페이지 라우팅
 if page == "📊 차익거래 비용 계산기":
-    from app.pages import cost_calculator_page
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import cost_calculator_page
+    except ImportError:
+        from pages import cost_calculator_page
     cost_calculator_page.render()
 elif page == "🎯 최적 전략 추천":
-    from app.pages import strategy_recommender_page
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import strategy_recommender_page
+    except ImportError:
+        from pages import strategy_recommender_page
     strategy_recommender_page.render()
 
 # 푸터
