@@ -17,10 +17,6 @@ if os.path.exists('/mount/src'):
     # Streamlit Cloud
     ROOT = Path('/mount/src/whale-arbitrage')
     DB_PATH = Path('/tmp') / "project.db"
-elif os.path.exists('/tmp'):
-    # 임시 디렉토리 사용 가능한 환경
-    ROOT = Path('/tmp')
-    DB_PATH = ROOT / "project.db"
 elif os.path.exists('/app'):
     # Docker 컨테이너 내부
     ROOT = Path('/app')
@@ -39,21 +35,104 @@ class DataLoader:
             self._download_database_if_needed()
         
         if not self.db_path.exists():
-            raise FileNotFoundError(f"데이터베이스 파일을 찾을 수 없습니다: {self.db_path}")
+            raise FileNotFoundError(
+                f"데이터베이스 파일을 찾을 수 없습니다: {self.db_path}\n"
+                f"Streamlit Cloud의 경우 Secrets에 DATABASE_URL이 설정되어 있는지 확인하세요."
+            )
         
-        self.conn = sqlite3.connect(self.db_path)
+        # 데이터베이스 연결
+        try:
+            self.conn = sqlite3.connect(str(self.db_path))
+            # 기본 검증: 테이블 존재 확인
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = cursor.fetchall()
+            if len(tables) == 0:
+                raise ValueError("데이터베이스에 테이블이 없습니다.")
+        except sqlite3.Error as e:
+            raise sqlite3.Error(f"데이터베이스 연결 실패: {str(e)}")
     
     def _download_database_if_needed(self):
-        """Streamlit Cloud에서 데이터베이스 다운로드 시도"""
+        """Streamlit Cloud에서 데이터베이스 다운로드 및 압축 해제"""
         try:
             import streamlit as st
-            db_url = st.secrets.get("DATABASE_URL", None)
-            if db_url:
-                import urllib.request
-                self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                db_url = st.secrets.get("DATABASE_URL", None)
+            except (FileNotFoundError, AttributeError):
+                # Streamlit secrets 파일이 없는 경우 (로컬 개발 환경)
+                return
+            if not db_url:
+                return
+            
+            import urllib.request
+            import tarfile
+            
+            # 임시 디렉토리 생성
+            temp_dir = self.db_path.parent
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            
+            # URL에서 파일 확장자 확인
+            if db_url.endswith('.tar.gz'):
+                # .tar.gz 파일 다운로드
+                temp_tar = temp_dir / "project.db.tar.gz"
+                urllib.request.urlretrieve(db_url, str(temp_tar))
+                
+                # 압축 해제
+                with tarfile.open(temp_tar, 'r:gz') as tar:
+                    # 압축 해제 (temp_dir에)
+                    tar.extractall(temp_dir)
+                
+                # 임시 파일 삭제
+                temp_tar.unlink()
+                
+                # 압축 해제된 파일 확인 (data/project.db 형태로 압축되어 있음)
+                # 1순위: data/project.db
+                alt_path = temp_dir / "data" / "project.db"
+                if alt_path.exists():
+                    # 목적지 디렉토리 생성
+                    self.db_path.parent.mkdir(parents=True, exist_ok=True)
+                    # 파일 이동
+                    alt_path.rename(self.db_path)
+                    # 빈 data 디렉토리 정리 (있는 경우)
+                    try:
+                        if alt_path.parent.exists() and not any(alt_path.parent.iterdir()):
+                            alt_path.parent.rmdir()
+                    except:
+                        pass
+                # 2순위: temp_dir/project.db
+                elif (temp_dir / "project.db").exists():
+                    extracted_db = temp_dir / "project.db"
+                    self.db_path.parent.mkdir(parents=True, exist_ok=True)
+                    extracted_db.rename(self.db_path)
+                else:
+                    # 모든 가능한 위치 확인
+                    all_db_files = list(temp_dir.rglob("*.db"))
+                    raise FileNotFoundError(
+                        f"압축 해제 후 데이터베이스 파일을 찾을 수 없습니다.\n"
+                        f"예상 위치: {temp_dir / 'data' / 'project.db'} 또는 {temp_dir / 'project.db'}\n"
+                        f"발견된 .db 파일: {[str(f) for f in all_db_files]}"
+                    )
+            else:
+                # .db 파일 직접 다운로드
                 urllib.request.urlretrieve(db_url, str(self.db_path))
-        except:
-            pass
+            
+            # 다운로드 성공 확인
+            if not self.db_path.exists():
+                raise FileNotFoundError(f"다운로드 후 파일이 존재하지 않습니다: {self.db_path}")
+                
+        except Exception as e:
+            # 구체적인 에러 메시지 (Streamlit Cloud 로그에 표시)
+            error_msg = f"데이터베이스 다운로드 실패: {str(e)}\n경로: {self.db_path}"
+            # 로깅 (Streamlit Cloud 로그에 표시됨)
+            import logging
+            logging.error(error_msg)
+            # Streamlit이 있는 경우 UI에도 표시
+            try:
+                import streamlit as st
+                st.error(f"❌ {error_msg}")
+            except:
+                pass
+            raise FileNotFoundError(error_msg) from e
     
     def close(self):
         """데이터베이스 연결 종료"""
@@ -115,7 +194,7 @@ class DataLoader:
             INTERSECT
             SELECT date FROM bitget_spot_daily WHERE symbol = '{symbol}' {date_filter}
             INTERSECT
-            SELECT date FROM exchange_rate {date_filter} -- 환율 데이터도 필수
+            SELECT date FROM exchange_rate WHERE 1=1 {date_filter} -- 환율 데이터도 필수
         )
         ORDER BY date
         """
@@ -201,3 +280,40 @@ class DataLoader:
         df['bitget_krw'] = df['bitget_price'] * df['krw_usd']
         
         return df
+    
+    def validate_date_range(self, start_date: str, end_date: str, coin: str = 'BTC') -> Tuple[bool, str]:
+        """날짜 범위 검증"""
+        # 날짜 형식 검증
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+        except ValueError:
+            return False, "날짜 형식이 올바르지 않습니다. (YYYY-MM-DD 형식 필요)"
+        
+        # 시작 날짜가 종료 날짜보다 늦은 경우
+        if start_dt > end_dt:
+            return False, "시작 날짜가 종료 날짜보다 늦습니다."
+        
+        # 최소 30일 이상의 데이터 필요
+        days_diff = (end_dt - start_dt).days
+        if days_diff < 30:
+            return False, f"최소 30일 이상의 기간이 필요합니다. (현재: {days_diff}일)"
+        
+        # 사용 가능한 날짜 범위 확인
+        min_date, max_date = self.get_available_dates(coin)
+        if not min_date or not max_date:
+            return False, f"{coin}에 대한 데이터가 없습니다."
+        
+        min_dt = datetime.strptime(min_date, "%Y-%m-%d").date()
+        max_dt = datetime.strptime(max_date, "%Y-%m-%d").date()
+        
+        # 요청한 날짜 범위가 사용 가능한 범위를 벗어나는 경우
+        if start_dt < min_dt or end_dt > max_dt:
+            return False, f"사용 가능한 날짜 범위는 {min_date} ~ {max_date}입니다."
+        
+        # 실제 데이터 존재 확인
+        available_dates = self.get_available_dates_list(coin, start_date, end_date)
+        if len(available_dates) < 30:
+            return False, f"선택한 기간에 사용 가능한 데이터가 부족합니다. (필요: 30일 이상, 현재: {len(available_dates)}일)"
+        
+        return True, ""
