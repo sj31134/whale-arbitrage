@@ -11,6 +11,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Tuple, List, Optional
 import os
+import logging
 
 # Streamlit Cloud 또는 로컬 환경 감지
 if os.path.exists('/mount/src'):
@@ -176,6 +177,12 @@ class DataLoader:
             return None, None
         
         try:
+            # 데이터베이스 연결 확인
+            if not hasattr(self, 'conn') or self.conn is None:
+                import logging
+                logging.error("데이터베이스 연결이 없습니다")
+                return None, None
+            
             # 먼저 테이블 존재 확인
             cursor = self.conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -186,9 +193,16 @@ class DataLoader:
             
             if missing_tables:
                 import logging
-                logging.error(f"필수 테이블이 없습니다: {missing_tables}")
+                error_msg = f"필수 테이블이 없습니다: {missing_tables}. 존재하는 테이블: {list(existing_tables)}"
+                logging.error(error_msg)
+                try:
+                    import streamlit as st
+                    st.error(f"❌ 필수 테이블 누락: {', '.join(missing_tables)}")
+                except:
+                    pass
                 return None, None
             
+            # SQL 쿼리 실행 (pandas 대신 직접 cursor 사용)
             query = f"""
             SELECT 
                 MIN(date) as min_date,
@@ -204,16 +218,28 @@ class DataLoader:
             )
             """
             
-            df = pd.read_sql(query, self.conn)
-            if len(df) > 0 and pd.notna(df['min_date'].iloc[0]):
-                return df['min_date'].iloc[0], df['max_date'].iloc[0]
+            # pandas.read_sql 대신 직접 cursor 사용
+            cursor.execute(query)
+            result = cursor.fetchone()
+            
+            if result and result[0] is not None:
+                return result[0], result[1]
             return None, None
             
+        except sqlite3.Error as e:
+            import logging
+            error_msg = f"SQL 오류 (get_available_dates): {str(e)}\n데이터베이스 경로: {self.db_path}"
+            logging.error(error_msg)
+            try:
+                import streamlit as st
+                st.error(f"❌ 데이터베이스 오류: {str(e)}")
+            except:
+                pass
+            return None, None
         except Exception as e:
             import logging
             error_msg = f"get_available_dates 오류: {str(e)}\n데이터베이스 경로: {self.db_path}"
             logging.error(error_msg)
-            # Streamlit UI에 표시
             try:
                 import streamlit as st
                 st.error(f"❌ 데이터 조회 오류: {str(e)}")
