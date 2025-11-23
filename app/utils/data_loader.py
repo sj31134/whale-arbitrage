@@ -52,15 +52,30 @@ class DataLoader:
         
         # 데이터베이스 연결
         try:
-            self.conn = sqlite3.connect(str(self.db_path))
+            self.conn = sqlite3.connect(str(self.db_path), timeout=10.0)
             # 기본 검증: 테이블 존재 확인
             cursor = self.conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = cursor.fetchall()
+            table_names = [t[0] for t in tables]
+            
             if len(tables) == 0:
-                raise ValueError("데이터베이스에 테이블이 없습니다.")
+                import logging
+                logging.error(f"데이터베이스에 테이블이 없습니다. 파일 경로: {self.db_path}")
+                raise ValueError(f"데이터베이스에 테이블이 없습니다. 파일 경로: {self.db_path}")
+            
+            # 필수 테이블 확인
+            required_tables = ['upbit_daily', 'binance_spot_daily', 'bitget_spot_daily', 'exchange_rate']
+            missing_tables = [t for t in required_tables if t not in table_names]
+            if missing_tables:
+                import logging
+                logging.warning(f"일부 테이블이 없습니다: {missing_tables}. 존재하는 테이블: {table_names}")
+                
         except sqlite3.Error as e:
-            raise sqlite3.Error(f"데이터베이스 연결 실패: {str(e)}\n파일 경로: {self.db_path}") from e
+            import logging
+            error_msg = f"데이터베이스 연결 실패: {str(e)}\n파일 경로: {self.db_path}\n파일 존재: {self.db_path.exists()}"
+            logging.error(error_msg)
+            raise sqlite3.Error(error_msg) from e
     
     def _download_database_if_needed(self):
         """Streamlit Cloud에서 데이터베이스 다운로드 및 압축 해제"""
@@ -160,25 +175,51 @@ class DataLoader:
         else:
             return None, None
         
-        query = f"""
-        SELECT 
-            MIN(date) as min_date,
-            MAX(date) as max_date
-        FROM (
-            SELECT date FROM upbit_daily WHERE market = '{market}'
-            INTERSECT
-            SELECT date FROM binance_spot_daily WHERE symbol = '{symbol}'
-            INTERSECT
-            SELECT date FROM bitget_spot_daily WHERE symbol = '{symbol}'
-            INTERSECT
-            SELECT date FROM exchange_rate
-        )
-        """
-        
-        df = pd.read_sql(query, self.conn)
-        if len(df) > 0 and pd.notna(df['min_date'].iloc[0]):
-            return df['min_date'].iloc[0], df['max_date'].iloc[0]
-        return None, None
+        try:
+            # 먼저 테이블 존재 확인
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            existing_tables = {row[0] for row in cursor.fetchall()}
+            
+            required_tables = ['upbit_daily', 'binance_spot_daily', 'bitget_spot_daily', 'exchange_rate']
+            missing_tables = [t for t in required_tables if t not in existing_tables]
+            
+            if missing_tables:
+                import logging
+                logging.error(f"필수 테이블이 없습니다: {missing_tables}")
+                return None, None
+            
+            query = f"""
+            SELECT 
+                MIN(date) as min_date,
+                MAX(date) as max_date
+            FROM (
+                SELECT date FROM upbit_daily WHERE market = '{market}'
+                INTERSECT
+                SELECT date FROM binance_spot_daily WHERE symbol = '{symbol}'
+                INTERSECT
+                SELECT date FROM bitget_spot_daily WHERE symbol = '{symbol}'
+                INTERSECT
+                SELECT date FROM exchange_rate
+            )
+            """
+            
+            df = pd.read_sql(query, self.conn)
+            if len(df) > 0 and pd.notna(df['min_date'].iloc[0]):
+                return df['min_date'].iloc[0], df['max_date'].iloc[0]
+            return None, None
+            
+        except Exception as e:
+            import logging
+            error_msg = f"get_available_dates 오류: {str(e)}\n데이터베이스 경로: {self.db_path}"
+            logging.error(error_msg)
+            # Streamlit UI에 표시
+            try:
+                import streamlit as st
+                st.error(f"❌ 데이터 조회 오류: {str(e)}")
+            except:
+                pass
+            return None, None
     
     def get_available_dates_list(self, coin: str = 'BTC', start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[str]:
         """사용 가능한 날짜 목록 반환"""
