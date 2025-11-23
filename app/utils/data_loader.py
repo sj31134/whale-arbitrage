@@ -362,16 +362,23 @@ class DataLoader:
             
             # pandas.read_sql 사용 (JOIN 쿼리는 복잡하므로 pandas 사용)
             df = pd.read_sql(query, self.conn)
+        except sqlite3.Error as e:
+            error_msg = f"SQL 오류 (load_exchange_data): {str(e)}"
+            logging.error(error_msg)
+            try:
+                import streamlit as st
+                st.error(f"❌ 데이터베이스 오류: {str(e)}")
+            except:
+                pass
+            return pd.DataFrame()
         except Exception as e:
-            import logging
-            error_msg = f"load_exchange_data 오류: {str(e)}\n쿼리: {query[:200]}..."
+            error_msg = f"load_exchange_data 오류: {str(e)}"
             logging.error(error_msg)
             try:
                 import streamlit as st
                 st.error(f"❌ 데이터 로드 오류: {str(e)}")
             except:
                 pass
-            # 빈 DataFrame 반환
             return pd.DataFrame()
         if len(df) == 0:
             return df
