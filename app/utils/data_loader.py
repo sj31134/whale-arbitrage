@@ -32,7 +32,17 @@ class DataLoader:
         self.db_path = DB_PATH
         # 데이터베이스 파일이 없으면 다운로드 시도 (Streamlit Cloud용)
         if not self.db_path.exists():
-            self._download_database_if_needed()
+            try:
+                self._download_database_if_needed()
+            except Exception as e:
+                # 다운로드 실패 시 상세한 에러 메시지
+                import logging
+                logging.error(f"데이터베이스 다운로드 실패: {str(e)}")
+                raise FileNotFoundError(
+                    f"데이터베이스 파일을 찾을 수 없습니다: {self.db_path}\n"
+                    f"다운로드 시도 실패: {str(e)}\n"
+                    f"Streamlit Cloud의 경우 Secrets에 DATABASE_URL이 설정되어 있는지 확인하세요."
+                ) from e
         
         if not self.db_path.exists():
             raise FileNotFoundError(
@@ -50,7 +60,7 @@ class DataLoader:
             if len(tables) == 0:
                 raise ValueError("데이터베이스에 테이블이 없습니다.")
         except sqlite3.Error as e:
-            raise sqlite3.Error(f"데이터베이스 연결 실패: {str(e)}")
+            raise sqlite3.Error(f"데이터베이스 연결 실패: {str(e)}\n파일 경로: {self.db_path}") from e
     
     def _download_database_if_needed(self):
         """Streamlit Cloud에서 데이터베이스 다운로드 및 압축 해제"""
