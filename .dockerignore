@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Data (데이터베이스는 볼륨으로 마운트)
+data/*.db-shm
+data/*.db-wal
+data/exports/
+data/richlist/
+temp/
+
+# Documentation
+docs/
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment (볼륨으로 마운트)
+# .env는 볼륨으로 마운트되므로 제외하지 않음
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Scripts (일부만 필요)
+scripts/tests/
+scripts/maintenance/
+scripts/collectors/
+scripts/analysis/
+scripts/utils/
+scripts/subprojects/risk_ai/
+scripts/subprojects/arbitrage/test_*.py
+scripts/subprojects/arbitrage/debug_*.py
+scripts/subprojects/arbitrage/fetch_*.py
+# backtest_engine_optimized.py는 필요하므로 제외하지 않음
+scripts/subprojects/arbitrage/run_*.py
+scripts/subprojects/arbitrage/integration_test.py
+scripts/subprojects/arbitrage/verify_*.py
+scripts/subprojects/arbitrage/prepare_*.py
+scripts/subprojects/arbitrage/fill_*.py
+scripts/diagnose_*.py
+scripts/docker_*.sh
+
+# SQL (필요시 포함 가능)
+# sql/
+
+# Other
+*.md
+!README.md
+!README_DOCKER.md
