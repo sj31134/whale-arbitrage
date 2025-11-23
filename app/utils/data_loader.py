@@ -232,25 +232,36 @@ class DataLoader:
         else:
             return []
         
-        date_filter = ""
-        if start_date and end_date:
-            date_filter = f"AND date BETWEEN '{start_date}' AND '{end_date}'"
-        
-        query = f"""
-        SELECT DISTINCT date
-        FROM (
-            SELECT date FROM upbit_daily WHERE market = '{market}' {date_filter}
-            INTERSECT
-            SELECT date FROM binance_spot_daily WHERE symbol = '{symbol}' {date_filter}
-            INTERSECT
-            SELECT date FROM bitget_spot_daily WHERE symbol = '{symbol}' {date_filter}
-            INTERSECT
-            SELECT date FROM exchange_rate WHERE 1=1 {date_filter} -- 환율 데이터도 필수
-        )
-        ORDER BY date
-        """
-        df = pd.read_sql(query, self.conn)
-        return df['date'].tolist() if not df.empty else []
+        try:
+            date_filter = ""
+            if start_date and end_date:
+                date_filter = f"AND date BETWEEN '{start_date}' AND '{end_date}'"
+            
+            query = f"""
+            SELECT DISTINCT date
+            FROM (
+                SELECT date FROM upbit_daily WHERE market = '{market}' {date_filter}
+                INTERSECT
+                SELECT date FROM binance_spot_daily WHERE symbol = '{symbol}' {date_filter}
+                INTERSECT
+                SELECT date FROM bitget_spot_daily WHERE symbol = '{symbol}' {date_filter}
+                INTERSECT
+                SELECT date FROM exchange_rate WHERE 1=1 {date_filter} -- 환율 데이터도 필수
+            )
+            ORDER BY date
+            """
+            df = pd.read_sql(query, self.conn)
+            return df['date'].tolist() if not df.empty else []
+        except Exception as e:
+            import logging
+            error_msg = f"get_available_dates_list 오류: {str(e)}"
+            logging.error(error_msg)
+            try:
+                import streamlit as st
+                st.error(f"❌ 데이터 조회 오류: {str(e)}")
+            except:
+                pass
+            return []
 
     def check_date_available(self, target_date: str, coin: str = 'BTC') -> Tuple[bool, Optional[str], Optional[int]]:
         """특정 날짜의 데이터 존재 여부 확인 및 가장 가까운 날짜 반환"""
@@ -287,23 +298,35 @@ class DataLoader:
         else:
             raise ValueError(f"지원하지 않는 코인: {coin}")
         
-        query = f"""
-        SELECT 
-            u.date,
-            u.trade_price as upbit_price,
-            b.close as binance_price,
-            bg.close as bitget_price,
-            e.krw_usd
-        FROM upbit_daily u
-        LEFT JOIN binance_spot_daily b ON u.date = b.date AND b.symbol = '{symbol}'
-        LEFT JOIN bitget_spot_daily bg ON u.date = bg.date AND bg.symbol = '{symbol}'
-        LEFT JOIN exchange_rate e ON u.date = e.date
-        WHERE u.market = '{market}'
-        AND u.date BETWEEN '{start_date}' AND '{end_date}'
-        ORDER BY u.date
-        """
-        
-        df = pd.read_sql(query, self.conn)
+        try:
+            query = f"""
+            SELECT 
+                u.date,
+                u.trade_price as upbit_price,
+                b.close as binance_price,
+                bg.close as bitget_price,
+                e.krw_usd
+            FROM upbit_daily u
+            LEFT JOIN binance_spot_daily b ON u.date = b.date AND b.symbol = '{symbol}'
+            LEFT JOIN bitget_spot_daily bg ON u.date = bg.date AND bg.symbol = '{symbol}'
+            LEFT JOIN exchange_rate e ON u.date = e.date
+            WHERE u.market = '{market}'
+            AND u.date BETWEEN '{start_date}' AND '{end_date}'
+            ORDER BY u.date
+            """
+            
+            df = pd.read_sql(query, self.conn)
+        except Exception as e:
+            import logging
+            error_msg = f"load_exchange_data 오류: {str(e)}\n쿼리: {query[:200]}..."
+            logging.error(error_msg)
+            try:
+                import streamlit as st
+                st.error(f"❌ 데이터 로드 오류: {str(e)}")
+            except:
+                pass
+            # 빈 DataFrame 반환
+            return pd.DataFrame()
         if len(df) == 0:
             return df
         
