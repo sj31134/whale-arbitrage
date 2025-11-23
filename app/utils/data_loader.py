@@ -162,8 +162,13 @@ class DataLoader:
     
     def close(self):
         """데이터베이스 연결 종료"""
-        if hasattr(self, 'conn'):
-            self.conn.close()
+        if hasattr(self, '_conn') and self._conn is not None:
+            try:
+                self._conn.close()
+            except:
+                pass
+            finally:
+                self._conn = None
     
     def get_available_dates(self, coin: str = 'BTC') -> Tuple[Optional[str], Optional[str]]:
         """사용 가능한 날짜 범위 (최소, 최대) 반환"""
