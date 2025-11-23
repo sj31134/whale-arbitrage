@@ -164,15 +164,25 @@ class DataLoader:
     
     def _download_database_if_needed(self):
         """Streamlit Cloud에서 데이터베이스 다운로드 및 압축 해제"""
+        import streamlit as st
+        
         try:
-            import streamlit as st
+            # Secrets에서 DATABASE_URL 가져오기
             try:
                 db_url = st.secrets.get("DATABASE_URL", None)
-            except (FileNotFoundError, AttributeError):
-                # Streamlit secrets 파일이 없는 경우 (로컬 개발 환경)
+            except (FileNotFoundError, AttributeError, KeyError):
+                # Streamlit secrets 파일이 없거나 키가 없는 경우
+                st.warning("⚠️ DATABASE_URL이 Secrets에 설정되어 있지 않습니다.")
                 return
+            except Exception as e:
+                st.error(f"❌ Secrets 읽기 오류: {str(e)}")
+                return
+            
             if not db_url:
+                st.warning("⚠️ DATABASE_URL이 비어있습니다.")
                 return
+            
+            st.info(f"📥 다운로드 URL: {db_url[:50]}...")
             
             import urllib.request
             import tarfile
