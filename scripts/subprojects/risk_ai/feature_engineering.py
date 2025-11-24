@@ -44,6 +44,20 @@ class FeatureEngineer:
         """파생변수 생성"""
         df = df.copy()
         
+        # 숫자 컬럼을 명시적으로 float로 변환 (SQLite에서 object로 읽히는 경우 방지)
+        numeric_columns = [
+            'avg_funding_rate',
+            'sum_open_interest',
+            'long_short_ratio',
+            'volatility_24h',
+            'top100_richest_pct',
+            'avg_transaction_value_btc'
+        ]
+        
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
         # 1. 고래 집중도 변화율 (7일)
         # top100_richest_pct 데이터가 드물게(일별이 아닐 수 있음) 있을 수 있으므로 주의
         df['whale_conc_change_7d'] = df['top100_richest_pct'].pct_change(7)
@@ -118,6 +132,11 @@ class FeatureEngineer:
         # 모든 feature가 채워졌는지 확인 후 반환
         # target_high_vol만 제외하고 dropna (target은 마지막 행이 NULL일 수 있음)
         df_clean = df.dropna(subset=features)
+        
+        # 최종적으로 모든 특성을 float로 변환 (모델 예측을 위해)
+        for feature in features:
+            if feature in df_clean.columns:
+                df_clean[feature] = pd.to_numeric(df_clean[feature], errors='coerce').fillna(0.0).astype(float)
         
         return df_clean, features
 

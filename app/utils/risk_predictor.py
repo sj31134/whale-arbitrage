@@ -142,9 +142,20 @@ class RiskPredictor:
             
             row = target_df.iloc[0]
             
-            # 특성 추출
-            X = row[self.features].values.reshape(1, -1)
-            X_df = pd.DataFrame(X, columns=self.features)
+            # 특성 추출 및 dtype 변환 (모델 예측을 위해 float로 변환)
+            X_values = []
+            for feature in self.features:
+                value = row[feature]
+                # object 타입이면 float로 변환
+                if pd.isna(value):
+                    X_values.append(0.0)
+                else:
+                    try:
+                        X_values.append(float(value))
+                    except (ValueError, TypeError):
+                        X_values.append(0.0)
+            
+            X_df = pd.DataFrame([X_values], columns=self.features, dtype=float)
             
             # 예측
             prob = self.model.predict_proba(X_df)[0, 1]  # 고변동성 확률
@@ -216,8 +227,14 @@ class RiskPredictor:
             if len(df) == 0:
                 return pd.DataFrame()
             
-            # 예측
-            X = df[self.features]
+            # 예측 (dtype 변환)
+            X = df[self.features].copy()
+            
+            # 모든 특성을 float로 변환
+            for feature in self.features:
+                if feature in X.columns:
+                    X[feature] = pd.to_numeric(X[feature], errors='coerce').fillna(0.0).astype(float)
+            
             probs = self.model.predict_proba(X)[:, 1]
             risk_scores = probs * 100
             

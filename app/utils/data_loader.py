@@ -632,6 +632,20 @@ class DataLoader:
             
             df['date'] = pd.to_datetime(df['date'])
             
+            # 숫자 컬럼을 명시적으로 float로 변환 (SQLite에서 object로 읽히는 경우 방지)
+            numeric_columns = [
+                'avg_funding_rate',
+                'sum_open_interest',
+                'long_short_ratio',
+                'volatility_24h',
+                'top100_richest_pct',
+                'avg_transaction_value_btc'
+            ]
+            
+            for col in numeric_columns:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            
             # 결측치 처리 (Forward Fill)
             df = df.ffill().dropna()
             
