@@ -9,4 +9,5 @@ numpy>=1.24.0
 supabase>=2.0.0
 lightgbm>=4.1.0
 scikit-learn>=1.3.0
+shap>=0.42.0  # 선택적: 특성 분석용 (없어도 기본 기능 동작)
 

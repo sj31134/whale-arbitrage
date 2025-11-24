@@ -85,20 +85,26 @@ class FeatureEngineer:
         df['volatility_ratio'] = df['volatility_ratio'].fillna(1.0)
         
         # 타겟 변수 생성: "다음날" 고변동성 여부
-        # 고변동성 정의: 상위 20% 변동성 (Rolling 90일 기준) 또는 절대 수치(예: 5%)
-        # 여기서는 절대 수치 5% 사용 (변동성 0.05 이상)
-        
-        # Future Volatility (Next Day)
+        # volatility_24h 데이터가 이제 정상적으로 수집되므로 원래 방법 사용
         df['next_day_volatility'] = df['volatility_24h'].shift(-1)
         
-        # Target: 1 if next_day_volatility > threshold else 0
-        # 실제 데이터 분포를 보고 Threshold 조정 필요할 수 있음
-        # volatility_24h가 모두 0이면 threshold를 0으로 설정
+        # 고변동성 정의: 상위 20% (quantile 0.8) 또는 절대 수치 5% 이상
+        # 절대 수치 기준도 함께 고려
         if df['volatility_24h'].max() > 0:
-            threshold = df['volatility_24h'].quantile(0.8) # 상위 20%를 고변동성으로 정의
+            # 방법 1: 상위 20% 기준
+            quantile_threshold = df['volatility_24h'].quantile(0.8)
+            # 방법 2: 절대 수치 5% 기준
+            absolute_threshold = 0.05
+            
+            # 두 기준 중 하나라도 만족하면 고변동성
+            df['target_high_vol'] = (
+                (df['next_day_volatility'] > quantile_threshold) | 
+                (df['next_day_volatility'] > absolute_threshold)
+            ).astype(int)
         else:
-            threshold = 0.0
-        df['target_high_vol'] = (df['next_day_volatility'] > threshold).astype(int)
+            # volatility 데이터가 없으면 모두 0으로 설정
+            df['target_high_vol'] = 0
+        
         # 마지막 행의 target은 NULL이므로 0으로 채움
         df['target_high_vol'] = df['target_high_vol'].fillna(0)
         

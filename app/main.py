@@ -32,7 +32,7 @@ st.set_page_config(
 )
 
 # 메인 타이틀
-st.title("💰 차익거래 분석 서비스")
+st.title("💰 암호화폐 분석 서비스")
 st.markdown("---")
 
 # 사이드바
@@ -41,7 +41,10 @@ page = st.sidebar.selectbox(
     "페이지 선택",
     [
         "📊 차익거래 비용 계산기",
-        "🎯 최적 전략 추천"
+        "🎯 최적 전략 추천",
+        "⚠️ 리스크 예측 대시보드",
+        "📊 역사적 리스크 분석",
+        "🔍 특성 중요도 분석"
     ]
 )
 
@@ -60,9 +63,31 @@ elif page == "🎯 최적 전략 추천":
     except ImportError:
         from pages import strategy_recommender_page
     strategy_recommender_page.render()
+elif page == "⚠️ 리스크 예측 대시보드":
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import risk_dashboard_page
+    except ImportError:
+        from pages import risk_dashboard_page
+    risk_dashboard_page.render()
+elif page == "📊 역사적 리스크 분석":
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import historical_analysis_page
+    except ImportError:
+        from pages import historical_analysis_page
+    historical_analysis_page.render()
+elif page == "🔍 특성 중요도 분석":
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import feature_analysis_page
+    except ImportError:
+        from pages import feature_analysis_page
+    feature_analysis_page.render()
 
 # 푸터
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Project 2: Arbitrage Analysis**")
+st.sidebar.markdown("**Project 3: Risk AI**")
 st.sidebar.markdown("데이터 기간: 2024-01-01 ~ 현재")
 

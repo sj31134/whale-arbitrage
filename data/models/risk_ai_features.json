@@ -1,0 +1,9 @@
+[
+  "avg_funding_rate",
+  "sum_open_interest",
+  "long_position_pct",
+  "whale_conc_change_7d",
+  "funding_rate_zscore",
+  "oi_growth_7d",
+  "volatility_ratio"
+]

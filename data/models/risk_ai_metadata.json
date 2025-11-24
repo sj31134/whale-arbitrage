@@ -1,0 +1,18 @@
+{
+  "auc_roc": 0.644947209653092,
+  "precision": 0.2653061224489796,
+  "recall": 0.5,
+  "f1_score": 0.3466666666666667,
+  "train_size": 639,
+  "test_size": 418,
+  "n_features": 7,
+  "feature_importance": {
+    "avg_funding_rate": 416.0,
+    "sum_open_interest": 0.0,
+    "long_position_pct": 0.0,
+    "whale_conc_change_7d": 372.0,
+    "funding_rate_zscore": 406.0,
+    "oi_growth_7d": 0.0,
+    "volatility_ratio": 421.0
+  }
+}

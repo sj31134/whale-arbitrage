@@ -574,3 +574,84 @@ class DataLoader:
             return False, f"선택한 기간에 사용 가능한 데이터가 부족합니다. (필요: 30일 이상, 현재: {len(available_dates)}일)"
         
         return True, ""
+    
+    def load_risk_data(self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
+        """Project 3 (Risk AI) 데이터 로드
+        
+        Args:
+            start_date: 시작 날짜 (YYYY-MM-DD)
+            end_date: 종료 날짜 (YYYY-MM-DD)
+            coin: 코인 심볼 ('BTC' 또는 'ETH', 기본값: 'BTC')
+        
+        Returns:
+            DataFrame with columns:
+            - date: 날짜
+            - symbol: 심볼 (예: 'BTCUSDT')
+            - avg_funding_rate: 평균 펀딩비
+            - sum_open_interest: 미결제약정 합계
+            - long_short_ratio: 롱/숏 비율
+            - volatility_24h: 24시간 변동성
+            - top100_richest_pct: Top 100 지갑 보유 비중
+            - avg_transaction_value_btc: 평균 거래 금액 (BTC)
+        """
+        if coin == 'BTC':
+            symbol = 'BTCUSDT'
+            coin_label = 'BTC'
+        elif coin == 'ETH':
+            symbol = 'ETHUSDT'
+            coin_label = 'ETH'
+        else:
+            raise ValueError(f"지원하지 않는 코인: {coin}")
+        
+        try:
+            if not hasattr(self, 'conn') or self.conn is None:
+                logging.error("데이터베이스 연결이 없습니다")
+                return pd.DataFrame()
+            
+            query = f"""
+            SELECT 
+                f.date,
+                f.symbol,
+                f.avg_funding_rate,
+                f.sum_open_interest,
+                f.long_short_ratio,
+                f.volatility_24h,
+                b.top100_richest_pct,
+                b.avg_transaction_value_btc
+            FROM binance_futures_metrics f
+            LEFT JOIN bitinfocharts_whale b ON f.date = b.date AND b.coin = '{coin_label}'
+            WHERE f.symbol = '{symbol}'
+            AND f.date BETWEEN '{start_date}' AND '{end_date}'
+            ORDER BY f.date
+            """
+            
+            df = pd.read_sql(query, self.conn)
+            
+            if len(df) == 0:
+                return df
+            
+            df['date'] = pd.to_datetime(df['date'])
+            
+            # 결측치 처리 (Forward Fill)
+            df = df.ffill().dropna()
+            
+            return df
+            
+        except sqlite3.Error as e:
+            error_msg = f"SQL 오류 (load_risk_data): {str(e)}"
+            logging.error(error_msg)
+            try:
+                import streamlit as st
+                st.error(f"❌ 데이터베이스 오류: {str(e)}")
+            except:
+                pass
+            return pd.DataFrame()
+        except Exception as e:
+            error_msg = f"load_risk_data 오류: {str(e)}"
+            logging.error(error_msg)
+            try:
+                import streamlit as st
+                st.error(f"❌ 데이터 로드 오류: {str(e)}")
+            except:
+                pass
+            return pd.DataFrame()

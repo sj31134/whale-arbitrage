@@ -20,6 +20,7 @@ load_dotenv(ROOT / "config" / ".env")
 FUNDING_ENDPOINT = "https://fapi.binance.com/fapi/v1/fundingRate"
 OI_ENDPOINT = "https://fapi.binance.com/futures/data/openInterestHist"
 TICKER_ENDPOINT = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+KLINES_ENDPOINT = "https://fapi.binance.com/fapi/v1/klines"
 
 
 def ensure_db():
@@ -69,6 +70,7 @@ def fetch_oi(symbol, days=30):
 
 
 def fetch_volatility(symbol):
+    """현재 시점의 24시간 변동성 조회 (실시간용)"""
     response = requests.get(TICKER_ENDPOINT, params={"symbol": symbol}, timeout=30)
     response.raise_for_status()
     data = response.json()
@@ -78,6 +80,63 @@ def fetch_volatility(symbol):
     if low == 0:
         return 0.0
     return (high - low) / close
+
+
+def fetch_daily_klines(symbol, start_ts, end_ts):
+    """Binance Futures Klines API를 사용하여 일봉 데이터 수집"""
+    klines_by_date = {}
+    current_start = start_ts
+    
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(max_retries=3)
+    session.mount("https://", adapter)
+    
+    while current_start < end_ts:
+        try:
+            params = {
+                "symbol": symbol,
+                "interval": "1d",  # 일봉
+                "startTime": current_start,
+                "endTime": end_ts,
+                "limit": 1000
+            }
+            response = session.get(KLINES_ENDPOINT, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data:
+                break
+            
+            for kline in data:
+                # kline: [open_time, open, high, low, close, volume, close_time, ...]
+                open_time = int(kline[0])
+                dt = datetime.utcfromtimestamp(open_time / 1000).date()
+                high = float(kline[2])
+                low = float(kline[3])
+                close = float(kline[4])
+                
+                # 변동성 계산: (high - low) / close
+                if close > 0:
+                    volatility = (high - low) / close
+                else:
+                    volatility = 0.0
+                
+                klines_by_date[dt] = volatility
+            
+            # 다음 페이지를 위해 마지막 kline의 close_time + 1을 시작 시간으로 설정
+            if len(data) < 1000:
+                break
+            
+            last_close_time = int(data[-1][6])  # close_time
+            current_start = last_close_time + 1
+            
+            time.sleep(0.1)  # Rate limit 방지
+            
+        except Exception as e:
+            print(f"⚠️ Klines fetch error: {e}")
+            break
+    
+    return klines_by_date
 
 
 def build_daily_metrics(symbol):
@@ -128,12 +187,14 @@ def build_daily_metrics(symbol):
     oi_by_date = defaultdict(list)
     
     # Binance OI History API is limited to last 30 days
+    # 최근 30일 데이터라도 수집하여 활용
     oi_limit_ts = end_ts - (30 * 24 * 60 * 60 * 1000)
     if start_ts < oi_limit_ts:
         curr_start = oi_limit_ts
-        print(f"ℹ️ Open Interest history is limited to last 30 days. Adjusting start time to {datetime.utcfromtimestamp(curr_start/1000)}.")
+        print(f"ℹ️ Open Interest history is limited to last 30 days. Collecting from {datetime.utcfromtimestamp(curr_start/1000).date()}.")
     else:
         curr_start = start_ts
+        print(f"ℹ️ Collecting Open Interest from {datetime.utcfromtimestamp(curr_start/1000).date()}.")
     
     while curr_start < end_ts:
         try:
@@ -183,9 +244,14 @@ def build_daily_metrics(symbol):
             curr_start += 30 * 24 * 60 * 60 * 1000
             time.sleep(1)
 
-    # 3. Aggregate & Save
+    # 3. Daily Klines (Volatility)
+    print("📊 Fetching daily klines for volatility calculation...")
+    klines_by_date = fetch_daily_klines(symbol, start_ts, end_ts)
+    print(f"   ✅ {len(klines_by_date)} days of volatility data collected")
+    
+    # 4. Aggregate & Save
     rows = []
-    all_dates = sorted(list(set(funding_by_date.keys()) | set(oi_by_date.keys())))
+    all_dates = sorted(list(set(funding_by_date.keys()) | set(oi_by_date.keys()) | set(klines_by_date.keys())))
     
     for date_ in all_dates:
         fr_list = funding_by_date.get(date_, [])
@@ -196,10 +262,9 @@ def build_daily_metrics(symbol):
         
         long_short_ratio = 0.0 # API limitation for historical
         
-        # Volatility (Need historical klines, but simple proxy is difficult without full history)
-        # For now, use placeholder 0.0 or fetch daily ticker if available for that day (not available in simple endpoint)
-        # Here we skip volatility calculation for historical batch or use 0.0
-        volatility = 0.0
+        # Volatility from daily klines
+        volatility = klines_by_date.get(date_, 0.0)
+        # Target volatility: 다음날 변동성 (현재는 0.0으로 설정, 추후 계산 가능)
         target_volatility = 0.0
         
         rows.append(
