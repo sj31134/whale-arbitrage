@@ -76,13 +76,18 @@ class RiskAnalyzer:
                 from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
                 
                 y_true = predictions_df['actual_high_vol'].fillna(0).astype(int)
-                y_pred = (predictions_df['high_volatility_prob'] > 0.5).astype(int)
+                # 클래스 불균형을 고려하여 임계값을 0.3으로 낮춤
+                y_pred = (predictions_df['high_volatility_prob'] > 0.3).astype(int)
                 y_pred_proba = predictions_df['high_volatility_prob']
                 
                 try:
-                    auc_roc = roc_auc_score(y_true, y_pred_proba)
+                    # AUC-ROC 계산 - 두 클래스가 모두 존재해야 함
+                    if len(y_true.unique()) > 1:
+                        auc_roc = roc_auc_score(y_true, y_pred_proba)
+                    else:
+                        auc_roc = None
                 except:
-                    auc_roc = 0.0
+                    auc_roc = None
                 
                 accuracy = accuracy_score(y_true, y_pred)
                 precision = precision_score(y_true, y_pred, zero_division=0)

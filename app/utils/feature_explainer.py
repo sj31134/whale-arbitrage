@@ -150,7 +150,7 @@ class FeatureExplainer:
             row = target_df.iloc[0]
             features = self.predictor.features
             X = row[features].values.reshape(1, -1)
-            X_df = pd.DataFrame(X, columns=features)
+            X_df = pd.DataFrame(X, columns=features).astype(float)
             
             # SHAP 값 계산
             model = self.predictor.model
@@ -247,7 +247,8 @@ class FeatureExplainer:
             # 각 샘플링 포인트에 대해 예측
             predictions = []
             
-            # 기준 데이터 (평균값 사용)
+            # 기준 데이터 (평균값 사용) - 숫자형으로 변환
+            df[features] = df[features].apply(pd.to_numeric, errors='coerce')
             baseline = df[features].mean()
             
             for val in sample_values:
