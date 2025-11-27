@@ -65,10 +65,23 @@ def render():
         index=0
     )
     
+    # 데이터 기준 선택
+    st.sidebar.subheader("📊 데이터 기준")
+    data_basis = st.sidebar.radio(
+        "분석 기준",
+        ["일봉 (Daily)", "주봉 (Weekly)"],
+        index=0,
+        help="일봉: 일별 변동성 분석, 주봉: 주간 추세 기반 분석 (노이즈 감소)"
+    )
+    is_weekly = data_basis == "주봉 (Weekly)"
+    
     # 예측 실행
     if st.sidebar.button("🔍 리스크 분석", type="primary"):
         with st.spinner("리스크 분석 중..."):
-            result = predictor.predict_risk(target_date.strftime("%Y-%m-%d"), coin)
+            if is_weekly:
+                result = predictor.predict_risk_weekly(target_date.strftime("%Y-%m-%d"), coin)
+            else:
+                result = predictor.predict_risk(target_date.strftime("%Y-%m-%d"), coin)
             
             if not result['success']:
                 st.error(f"❌ {result.get('error', '예측 실패')}")
@@ -188,13 +201,19 @@ def render():
                 st.plotly_chart(fig_gauge3, use_container_width=True)
             
             # 주요 지표 카드
-            st.subheader("📈 주요 지표 (최근 7일)")
+            if is_weekly:
+                st.subheader("📈 주요 지표 (최근 4주)")
+                start_date = (target_date - timedelta(weeks=4)).strftime("%Y-%m-%d")
+            else:
+                st.subheader("📈 주요 지표 (최근 7일)")
+                start_date = (target_date - timedelta(days=7)).strftime("%Y-%m-%d")
             
-            # 최근 7일 데이터 로드
-            start_date = (target_date - timedelta(days=7)).strftime("%Y-%m-%d")
             end_date = target_date.strftime("%Y-%m-%d")
             
-            risk_df = data_loader.load_risk_data(start_date, end_date, coin)
+            if is_weekly:
+                risk_df = data_loader.load_risk_data_weekly(start_date, end_date, coin)
+            else:
+                risk_df = data_loader.load_risk_data(start_date, end_date, coin)
             
             if len(risk_df) > 0:
                 col1, col2, col3 = st.columns(3)
@@ -214,34 +233,63 @@ def render():
                         st.info("데이터 없음")
                 
                 with col2:
-                    st.markdown("**펀딩비**")
-                    if 'avg_funding_rate' in risk_df.columns:
-                        fig2 = px.line(
-                            risk_df, 
-                            x='date', 
-                            y='avg_funding_rate',
-                            title="평균 펀딩비",
-                            labels={'avg_funding_rate': '펀딩비 (%)', 'date': '날짜'}
-                        )
-                        st.plotly_chart(fig2, use_container_width=True)
+                    if is_weekly:
+                        st.markdown("**RSI**")
+                        if 'rsi' in risk_df.columns:
+                            fig2 = px.line(
+                                risk_df, 
+                                x='date', 
+                                y='rsi',
+                                title="주간 RSI",
+                                labels={'rsi': 'RSI', 'date': '날짜'}
+                            )
+                            fig2.add_hline(y=70, line_dash="dash", line_color="red")
+                            fig2.add_hline(y=30, line_dash="dash", line_color="green")
+                            st.plotly_chart(fig2, use_container_width=True)
+                        else:
+                            st.info("데이터 없음")
                     else:
-                        st.info("데이터 없음")
+                        st.markdown("**펀딩비**")
+                        if 'avg_funding_rate' in risk_df.columns:
+                            fig2 = px.line(
+                                risk_df, 
+                                x='date', 
+                                y='avg_funding_rate',
+                                title="평균 펀딩비",
+                                labels={'avg_funding_rate': '펀딩비 (%)', 'date': '날짜'}
+                            )
+                            st.plotly_chart(fig2, use_container_width=True)
+                        else:
+                            st.info("데이터 없음")
                 
                 with col3:
-                    st.markdown("**OI 변화율**")
-                    if 'sum_open_interest' in risk_df.columns:
-                        # 7일 변화율 계산
-                        risk_df['oi_change_7d'] = risk_df['sum_open_interest'].pct_change(7) * 100
-                        fig3 = px.line(
-                            risk_df, 
-                            x='date', 
-                            y='oi_change_7d',
-                            title="OI 7일 변화율",
-                            labels={'oi_change_7d': '변화율 (%)', 'date': '날짜'}
-                        )
-                        st.plotly_chart(fig3, use_container_width=True)
+                    if is_weekly:
+                        st.markdown("**주간 변동폭**")
+                        if 'weekly_range_pct' in risk_df.columns:
+                            fig3 = px.bar(
+                                risk_df, 
+                                x='date', 
+                                y='weekly_range_pct',
+                                title="주간 고저 변동폭 (%)",
+                                labels={'weekly_range_pct': '변동폭 (%)', 'date': '날짜'}
+                            )
+                            st.plotly_chart(fig3, use_container_width=True)
+                        else:
+                            st.info("데이터 없음")
                     else:
-                        st.info("데이터 없음")
+                        st.markdown("**OI 변화율**")
+                        if 'sum_open_interest' in risk_df.columns:
+                            risk_df['oi_change_7d'] = risk_df['sum_open_interest'].pct_change(7) * 100
+                            fig3 = px.line(
+                                risk_df, 
+                                x='date', 
+                                y='oi_change_7d',
+                                title="OI 7일 변화율",
+                                labels={'oi_change_7d': '변화율 (%)', 'date': '날짜'}
+                            )
+                            st.plotly_chart(fig3, use_container_width=True)
+                        else:
+                            st.info("데이터 없음")
             
             # 예측 상세 정보
             st.subheader("🎯 예측 상세 정보")
@@ -280,13 +328,20 @@ def render():
                     st.markdown("- 리스크가 낮은 수준입니다")
                     st.markdown("- 일반적인 거래 활동 가능")
             
-            # 최근 리스크 이력 (30일)
-            st.subheader("📅 최근 리스크 이력 (최근 30일)")
+            # 최근 리스크 이력
+            if is_weekly:
+                st.subheader("📅 최근 리스크 이력 (최근 12주)")
+                history_start = (target_date - timedelta(weeks=12)).strftime("%Y-%m-%d")
+            else:
+                st.subheader("📅 최근 리스크 이력 (최근 30일)")
+                history_start = (target_date - timedelta(days=30)).strftime("%Y-%m-%d")
             
-            history_start = (target_date - timedelta(days=30)).strftime("%Y-%m-%d")
             history_end = target_date.strftime("%Y-%m-%d")
             
-            history_df = predictor.predict_batch(history_start, history_end, coin)
+            if is_weekly:
+                history_df = predictor.predict_batch_weekly(history_start, history_end, coin)
+            else:
+                history_df = predictor.predict_batch(history_start, history_end, coin)
             
             if len(history_df) > 0:
                 fig_history = go.Figure()

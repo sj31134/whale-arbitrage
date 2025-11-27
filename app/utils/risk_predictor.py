@@ -259,4 +259,144 @@ class RiskPredictor:
             import traceback
             logging.error(f"배치 예측 실패: {str(e)}\n{traceback.format_exc()}")
             return pd.DataFrame()
+    
+    def predict_risk_weekly(self, target_date: str, coin: str = 'BTC') -> Dict:
+        """주봉 기반 특정 주의 리스크 예측
+        
+        Args:
+            target_date: 예측할 주의 종료일 (YYYY-MM-DD, 일요일 기준)
+            coin: 코인 심볼 ('BTC' 또는 'ETH')
+        
+        Returns:
+            일봉 predict_risk()와 동일한 형식
+        """
+        try:
+            target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+            start_date = (target_dt - timedelta(weeks=30)).strftime("%Y-%m-%d")
+            end_date = target_date
+            
+            # 주봉 데이터 로드
+            df = self.data_loader.load_risk_data_weekly(start_date, end_date, coin)
+            
+            if len(df) == 0:
+                return {
+                    'success': False,
+                    'error': f"{target_date}에 대한 주봉 데이터가 없습니다."
+                }
+            
+            # 주봉 특성 계산 (일봉과 다른 특성 사용)
+            df['volatility_ma'] = df['volatility_ratio'].rolling(4).mean()
+            df['whale_conc_change_4w'] = df['whale_conc_change_7d'].rolling(4).sum()
+            df['rsi_zscore'] = (df['rsi'] - df['rsi'].rolling(12).mean()) / df['rsi'].rolling(12).std()
+            df['volume_zscore'] = (df['volume'] - df['volume'].rolling(12).mean()) / df['volume'].rolling(12).std()
+            
+            # 타겟 주 찾기 (가장 가까운 주)
+            df['date_diff'] = (df['date'].dt.date - target_dt.date()).abs()
+            closest_idx = df['date_diff'].idxmin()
+            row = df.loc[closest_idx]
+            actual_date = row['date'].date()
+            
+            days_diff = abs((actual_date - target_dt.date()).days)
+            if days_diff > 7:
+                return {
+                    'success': False,
+                    'error': f"{target_date}에 대한 주봉 데이터가 없습니다. 가장 가까운 주: {actual_date} (차이: {days_diff}일)",
+                    'closest_date': actual_date.strftime("%Y-%m-%d")
+                }
+            
+            # 주봉 기반 리스크 점수 계산 (단순 규칙 기반)
+            volatility_score = min(100, max(0, float(row.get('volatility_ratio', 0) or 0) * 100))
+            whale_score = min(100, max(0, abs(float(row.get('whale_conc_change_7d', 0) or 0)) * 200))
+            rsi_score = abs(float(row.get('rsi', 50) or 50) - 50) * 2  # RSI 극단값일수록 높은 점수
+            
+            # 종합 리스크 점수
+            risk_score = (volatility_score * 0.4 + whale_score * 0.3 + rsi_score * 0.3)
+            high_vol_prob = min(1.0, risk_score / 100)
+            
+            # 청산 리스크 (주봉에서는 변동성 기반으로 계산)
+            weekly_range = float(row.get('weekly_range_pct', 0) or 0)
+            liquidation_risk = min(100, max(0, weekly_range * 10))
+            
+            return {
+                'success': True,
+                'data': {
+                    'date': actual_date.strftime("%Y-%m-%d"),
+                    'high_volatility_prob': float(high_vol_prob),
+                    'risk_score': float(risk_score),
+                    'liquidation_risk': float(liquidation_risk),
+                    'indicators': {
+                        'whale_conc_change_7d': float(row.get('whale_conc_change_7d', 0) or 0),
+                        'volatility_ratio': float(row.get('volatility_ratio', 0) or 0),
+                        'rsi': float(row.get('rsi', 0) or 0),
+                        'weekly_range_pct': float(row.get('weekly_range_pct', 0) or 0),
+                        'weekly_return': float(row.get('weekly_return', 0) or 0)
+                    }
+                }
+            }
+            
+        except Exception as e:
+            import logging
+            import traceback
+            logging.error(f"주봉 예측 실패: {str(e)}\n{traceback.format_exc()}")
+            return {
+                'success': False,
+                'error': f"주봉 예측 중 오류 발생: {str(e)}"
+            }
+    
+    def predict_batch_weekly(self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
+        """주봉 기반 기간별 리스크 예측
+        
+        Args:
+            start_date: 시작 날짜 (YYYY-MM-DD)
+            end_date: 종료 날짜 (YYYY-MM-DD)
+            coin: 코인 심볼 ('BTC' 또는 'ETH')
+        
+        Returns:
+            DataFrame with weekly risk predictions
+        """
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            data_start_date = (start_dt - timedelta(weeks=30)).strftime("%Y-%m-%d")
+            
+            df = self.data_loader.load_risk_data_weekly(data_start_date, end_date, coin)
+            
+            if len(df) == 0:
+                return pd.DataFrame()
+            
+            # 주봉 특성 계산
+            df['volatility_ma'] = df['volatility_ratio'].rolling(4).mean()
+            df['whale_conc_change_4w'] = df['whale_conc_change_7d'].rolling(4).sum()
+            df['rsi_zscore'] = (df['rsi'] - df['rsi'].rolling(12).mean()) / df['rsi'].rolling(12).std()
+            
+            # 기간 필터링
+            df = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
+            
+            if len(df) == 0:
+                return pd.DataFrame()
+            
+            # 리스크 점수 계산
+            volatility_scores = np.minimum(100, np.maximum(0, df['volatility_ratio'].fillna(0) * 100))
+            whale_scores = np.minimum(100, np.maximum(0, np.abs(df['whale_conc_change_7d'].fillna(0)) * 200))
+            rsi_scores = np.abs(df['rsi'].fillna(50) - 50) * 2
+            
+            risk_scores = (volatility_scores * 0.4 + whale_scores * 0.3 + rsi_scores * 0.3)
+            high_vol_probs = np.minimum(1.0, risk_scores / 100)
+            
+            weekly_range = df['weekly_range_pct'].fillna(0)
+            liquidation_risks = np.minimum(100, np.maximum(0, weekly_range * 10))
+            
+            result_df = pd.DataFrame({
+                'date': df['date'].dt.date,
+                'high_volatility_prob': high_vol_probs,
+                'risk_score': risk_scores,
+                'liquidation_risk': liquidation_risks
+            })
+            
+            return result_df
+            
+        except Exception as e:
+            import logging
+            import traceback
+            logging.error(f"주봉 배치 예측 실패: {str(e)}\n{traceback.format_exc()}")
+            return pd.DataFrame()
 

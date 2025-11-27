@@ -31,11 +31,14 @@ class CostCalculator:
         pass
     
     def _convert_exchange_names(self, exchanges: List[str]) -> List[str]:
-        """한글 거래소 쌍 이름을 영문 코드로 변환"""
+        """한글 거래소 쌍 이름을 영문 코드로 변환 (6개 쌍)"""
         mapping = {
             "업비트-바이낸스": "upbit_binance",
             "업비트-비트겟": "upbit_bitget",
-            "바이낸스-비트겟": "binance_bitget"
+            "업비트-바이비트": "upbit_bybit",
+            "바이낸스-비트겟": "binance_bitget",
+            "바이낸스-바이비트": "binance_bybit",
+            "비트겟-바이비트": "bitget_bybit"
         }
         return [mapping.get(ex, ex) for ex in exchanges if ex in mapping]
     

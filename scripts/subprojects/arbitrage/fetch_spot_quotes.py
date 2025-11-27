@@ -19,6 +19,7 @@ DB_PATH = ROOT / "data" / "project.db"
 UPBIT_BASE = "https://api.upbit.com/v1/candles/days"
 BINANCE_BASE = "https://api.binance.com/api/v3/klines"
 BITGET_BASE = "https://api.bitget.com/api/spot/v1/market/candles"
+BYBIT_BASE = "https://api.bybit.com/v5/market/kline"
 
 
 def ensure_db():
@@ -275,11 +276,110 @@ def fetch_bitget_spot(symbol, start_date_str="2024-01-01"):
             break
 
 
+def fetch_bybit_spot(symbol, start_date_str="2024-01-01"):
+    """Bybit 지정 날짜부터 현재까지 수집"""
+    start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end_ts = int(datetime.now().timestamp() * 1000)
+    
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(max_retries=3)
+    session.mount("https://", adapter)
+
+    print(f"🔄 Bybit {symbol} 수집 시작 ({start_date_str} ~ 현재)...")
+    
+    # Bybit API는 최신 데이터부터 역순으로 반환
+    cursor = None
+    all_rows = []
+    
+    while True:
+        params = {
+            "category": "spot",
+            "symbol": symbol,
+            "interval": "D",
+            "limit": 200
+        }
+        if cursor:
+            params["cursor"] = cursor
+        
+        try:
+            response = session.get(BYBIT_BASE, params=params, timeout=10)
+            
+            if response.status_code != 200:
+                print(f"⚠️ Bybit {symbol} HTTP {response.status_code}: {response.text[:200]}")
+                break
+            
+            result = response.json()
+            
+            if result.get("retCode") != 0:
+                print(f"⚠️ Bybit {symbol} API 오류: {result.get('retMsg')}")
+                break
+            
+            data = result.get("result", {}).get("list", [])
+            if not data:
+                break
+            
+            rows = []
+            oldest_ts = None
+            
+            for candle in data:
+                # Bybit 응답: [timestamp, open, high, low, close, volume, turnover]
+                ts = int(candle[0])
+                dt = datetime.utcfromtimestamp(ts / 1000)
+                
+                # 시작일 이전 데이터는 제외
+                if dt < start_dt:
+                    continue
+                
+                if oldest_ts is None or ts < oldest_ts:
+                    oldest_ts = ts
+                
+                dt_str = dt.date().isoformat()
+                rows.append((
+                    symbol,
+                    dt_str,
+                    float(candle[1]),  # open
+                    float(candle[2]),  # high
+                    float(candle[3]),  # low
+                    float(candle[4]),  # close
+                    float(candle[5]),  # volume
+                    float(candle[6])   # turnover (quote_volume)
+                ))
+            
+            if rows:
+                upsert_rows(
+                    "bybit_spot_daily",
+                    rows,
+                    ["symbol", "date", "open", "high", "low", "close", "volume", "quote_volume"],
+                )
+                all_rows.extend(rows)
+                
+                oldest_dt = datetime.utcfromtimestamp(oldest_ts / 1000).strftime('%Y-%m-%d')
+                print(f"✅ Bybit {symbol}: ~{oldest_dt} ({len(rows)}건)")
+            
+            # 다음 페이지 확인
+            next_cursor = result.get("result", {}).get("nextPageCursor")
+            if not next_cursor or oldest_ts and datetime.utcfromtimestamp(oldest_ts / 1000) <= start_dt:
+                break
+            cursor = next_cursor
+            
+            time.sleep(0.1)
+            
+        except Exception as e:
+            print(f"⚠️ Bybit {symbol} fetch error: {e}")
+            import traceback
+            traceback.print_exc()
+            time.sleep(1)
+            break
+    
+    print(f"✅ Bybit {symbol}: 총 {len(all_rows)}건 수집 완료")
+
+
 def main():
     ensure_db()
     upbit_markets = os.getenv("UPBIT_MARKETS", "KRW-BTC,KRW-ETH").split(",")
     binance_symbols = os.getenv("BINANCE_SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
     bitget_symbols = os.getenv("BITGET_SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
+    bybit_symbols = os.getenv("BYBIT_SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
 
     print("📊 업비트 데이터 수집 시작...")
     for market in upbit_markets:
@@ -292,6 +392,10 @@ def main():
     print("\n📊 비트겟 데이터 수집 시작...")
     for symbol in bitget_symbols:
         fetch_bitget_spot(symbol.strip(), start_date_str="2024-01-01")
+    
+    print("\n📊 바이비트 데이터 수집 시작...")
+    for symbol in bybit_symbols:
+        fetch_bybit_spot(symbol.strip(), start_date_str="2024-01-01")
 
 
 if __name__ == "__main__":

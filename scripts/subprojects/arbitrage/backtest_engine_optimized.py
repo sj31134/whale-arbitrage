@@ -1,6 +1,7 @@
 """
 Project 2: 최적화된 차익거래 백테스트 엔진
-- upbit_binance 쌍 제외 또는 조건 강화
+- 4개 거래소 지원 (업비트, 바이낸스, 비트겟, 바이비트)
+- 6개 거래소 쌍 차익거래
 - 진입 조건 강화 (Z-Score > 2.5)
 - 청산 조건 조정 (Z-Score < 0.0)
 """
@@ -17,10 +18,6 @@ if os.path.exists('/mount/src'):
     # Streamlit Cloud
     ROOT = Path('/mount/src/whale-arbitrage')
     DB_PATH = Path('/tmp') / "project.db"
-elif os.path.exists('/tmp'):
-    # 임시 디렉토리 사용 가능한 환경
-    ROOT = Path('/tmp')
-    DB_PATH = ROOT / "project.db"
 elif os.path.exists('/app'):
     # Docker 컨테이너 내부
     ROOT = Path('/app')
@@ -56,17 +53,19 @@ class OptimizedArbitrageBacktest:
         self.conn = sqlite3.connect(DB_PATH)
 
     def load_data(self, start_date, end_date):
-        """3개 거래소 데이터 로드 및 병합"""
+        """4개 거래소 데이터 로드 및 병합"""
         query = f"""
         SELECT 
             u.date,
             u.trade_price as upbit_price,
             b.close as binance_price,
             bg.close as bitget_price,
+            bb.close as bybit_price,
             e.krw_usd
         FROM upbit_daily u
         LEFT JOIN binance_spot_daily b ON u.date = b.date AND b.symbol = 'BTCUSDT'
         LEFT JOIN bitget_spot_daily bg ON u.date = bg.date AND bg.symbol = 'BTCUSDT'
+        LEFT JOIN bybit_spot_daily bb ON u.date = bb.date AND bb.symbol = 'BTCUSDT'
         LEFT JOIN exchange_rate e ON u.date = e.date
         WHERE u.market = 'KRW-BTC'
         AND u.date BETWEEN '{start_date}' AND '{end_date}'
@@ -78,11 +77,12 @@ class OptimizedArbitrageBacktest:
         df['krw_usd'] = df['krw_usd'].ffill().bfill()
         df['binance_krw'] = df['binance_price'] * df['krw_usd']
         df['bitget_krw'] = df['bitget_price'] * df['krw_usd']
+        df['bybit_krw'] = df['bybit_price'] * df['krw_usd']
         
         return df
 
     def calculate_indicators(self, df):
-        """각 거래소 쌍별 프리미엄 및 Z-Score 계산"""
+        """각 거래소 쌍별 프리미엄 및 Z-Score 계산 (6개 쌍)"""
         df = df.copy()
         
         # 1. 업비트 vs 바이낸스 프리미엄
@@ -103,7 +103,16 @@ class OptimizedArbitrageBacktest:
             / df['premium_upbit_bitget_std']
         )
         
-        # 3. 바이낸스 vs 비트겟 프리미엄
+        # 3. 업비트 vs 바이비트 프리미엄
+        df['premium_upbit_bybit'] = (df['upbit_price'] - df['bybit_krw']) / df['bybit_krw']
+        df['premium_upbit_bybit_mean'] = df['premium_upbit_bybit'].rolling(window=self.rolling_window).mean()
+        df['premium_upbit_bybit_std'] = df['premium_upbit_bybit'].rolling(window=self.rolling_window).std()
+        df['z_score_upbit_bybit'] = (
+            (df['premium_upbit_bybit'] - df['premium_upbit_bybit_mean']) 
+            / df['premium_upbit_bybit_std']
+        )
+        
+        # 4. 바이낸스 vs 비트겟 프리미엄
         df['premium_binance_bitget'] = (df['binance_krw'] - df['bitget_krw']) / df['bitget_krw']
         df['premium_binance_bitget_mean'] = df['premium_binance_bitget'].rolling(window=self.rolling_window).mean()
         df['premium_binance_bitget_std'] = df['premium_binance_bitget'].rolling(window=self.rolling_window).std()
@@ -112,10 +121,26 @@ class OptimizedArbitrageBacktest:
             / df['premium_binance_bitget_std']
         )
         
+        # 5. 바이낸스 vs 바이비트 프리미엄
+        df['premium_binance_bybit'] = (df['binance_krw'] - df['bybit_krw']) / df['bybit_krw']
+        df['premium_binance_bybit_mean'] = df['premium_binance_bybit'].rolling(window=self.rolling_window).mean()
+        df['premium_binance_bybit_std'] = df['premium_binance_bybit'].rolling(window=self.rolling_window).std()
+        df['z_score_binance_bybit'] = (
+            (df['premium_binance_bybit'] - df['premium_binance_bybit_mean']) 
+            / df['premium_binance_bybit_std']
+        )
+        
+        # 6. 비트겟 vs 바이비트 프리미엄
+        df['premium_bitget_bybit'] = (df['bitget_krw'] - df['bybit_krw']) / df['bybit_krw']
+        df['premium_bitget_bybit_mean'] = df['premium_bitget_bybit'].rolling(window=self.rolling_window).mean()
+        df['premium_bitget_bybit_std'] = df['premium_bitget_bybit'].rolling(window=self.rolling_window).std()
+        df['z_score_bitget_bybit'] = (
+            (df['premium_bitget_bybit'] - df['premium_bitget_bybit_mean']) 
+            / df['premium_bitget_bybit_std']
+        )
+        
         # NULL 값 처리: 핵심 가격 데이터만 확인
-        # exchange_rate가 NULL이어도 이미 처리되었으므로, 가격 데이터만 확인
-        required_cols = ['upbit_price', 'binance_price', 'bitget_price', 
-                        'premium_upbit_binance', 'premium_upbit_bitget', 'premium_binance_bitget']
+        required_cols = ['upbit_price', 'binance_price', 'bitget_price', 'bybit_price']
         df = df.dropna(subset=required_cols)
         
         # Rolling window 적용: 처음 30일 제거 (이동평균 계산을 위해 필요)
@@ -125,61 +150,48 @@ class OptimizedArbitrageBacktest:
         return df
 
     def generate_signals(self, df):
-        """최적의 차익거래 기회 선택 (개선된 조건)"""
+        """최적의 차익거래 기회 선택 (6개 거래소 쌍)"""
         df = df.copy()
         df['signal'] = 0
         df['signal_pair'] = None
         df['signal_direction'] = None
         
+        # 6개 거래소 쌍 정의
+        all_pairs = [
+            'upbit_binance', 'upbit_bitget', 'upbit_bybit',
+            'binance_bitget', 'binance_bybit', 'bitget_bybit'
+        ]
+        
         for idx, row in df.iterrows():
             z_scores = {}
             
-            # upbit_binance 쌍 제외 옵션
-            if not self.exclude_upbit_binance:
-                z_scores['upbit_binance'] = abs(row['z_score_upbit_binance']) if pd.notna(row['z_score_upbit_binance']) else 0
-            else:
-                z_scores['upbit_binance'] = 0  # 제외
-            
-            z_scores['upbit_bitget'] = abs(row['z_score_upbit_bitget']) if pd.notna(row['z_score_upbit_bitget']) else 0
-            z_scores['binance_bitget'] = abs(row['z_score_binance_bitget']) if pd.notna(row['z_score_binance_bitget']) else 0
+            for pair in all_pairs:
+                z_col = f'z_score_{pair}'
+                if z_col in row and pd.notna(row[z_col]):
+                    # upbit_binance 쌍 제외 옵션
+                    if pair == 'upbit_binance' and self.exclude_upbit_binance:
+                        z_scores[pair] = 0
+                    else:
+                        z_scores[pair] = abs(row[z_col])
+                else:
+                    z_scores[pair] = 0
             
             best_pair = max(z_scores, key=z_scores.get)
             best_z = z_scores[best_pair]
             
             # 강화된 진입 조건
             if best_z > self.entry_z:
-                if best_pair == 'upbit_binance':
-                    z_score = row['z_score_upbit_binance']
-                    if z_score > self.entry_z:
-                        df.at[idx, 'signal'] = 1
-                        df.at[idx, 'signal_pair'] = 'upbit_binance'
-                        df.at[idx, 'signal_direction'] = 'short_premium'
-                    elif z_score < -self.entry_z:
-                        df.at[idx, 'signal'] = -1
-                        df.at[idx, 'signal_pair'] = 'upbit_binance'
-                        df.at[idx, 'signal_direction'] = 'long_premium'
-                        
-                elif best_pair == 'upbit_bitget':
-                    z_score = row['z_score_upbit_bitget']
-                    if z_score > self.entry_z:
-                        df.at[idx, 'signal'] = 1
-                        df.at[idx, 'signal_pair'] = 'upbit_bitget'
-                        df.at[idx, 'signal_direction'] = 'short_premium'
-                    elif z_score < -self.entry_z:
-                        df.at[idx, 'signal'] = -1
-                        df.at[idx, 'signal_pair'] = 'upbit_bitget'
-                        df.at[idx, 'signal_direction'] = 'long_premium'
-                        
-                elif best_pair == 'binance_bitget':
-                    z_score = row['z_score_binance_bitget']
-                    if z_score > self.entry_z:
-                        df.at[idx, 'signal'] = 1
-                        df.at[idx, 'signal_pair'] = 'binance_bitget'
-                        df.at[idx, 'signal_direction'] = 'short_premium'
-                    elif z_score < -self.entry_z:
-                        df.at[idx, 'signal'] = -1
-                        df.at[idx, 'signal_pair'] = 'binance_bitget'
-                        df.at[idx, 'signal_direction'] = 'long_premium'
+                z_col = f'z_score_{best_pair}'
+                z_score = row[z_col]
+                
+                if z_score > self.entry_z:
+                    df.at[idx, 'signal'] = 1
+                    df.at[idx, 'signal_pair'] = best_pair
+                    df.at[idx, 'signal_direction'] = 'short_premium'
+                elif z_score < -self.entry_z:
+                    df.at[idx, 'signal'] = -1
+                    df.at[idx, 'signal_pair'] = best_pair
+                    df.at[idx, 'signal_direction'] = 'long_premium'
         
         return df
 
@@ -211,48 +223,44 @@ class OptimizedArbitrageBacktest:
                     entry_date = current_date
                     entry_index = idx
                     
-                    if current_pair == 'upbit_binance':
+                    # 거래소 쌍별 가격 매핑
+                    pair_prices = {
+                        'upbit_binance': ('upbit_price', 'binance_krw'),
+                        'upbit_bitget': ('upbit_price', 'bitget_krw'),
+                        'upbit_bybit': ('upbit_price', 'bybit_krw'),
+                        'binance_bitget': ('binance_krw', 'bitget_krw'),
+                        'binance_bybit': ('binance_krw', 'bybit_krw'),
+                        'bitget_bybit': ('bitget_krw', 'bybit_krw')
+                    }
+                    
+                    if current_pair in pair_prices:
+                        high_col, low_col = pair_prices[current_pair]
                         if current_direction == 'short_premium':
-                            entry_price_high = row['upbit_price']
-                            entry_price_low = row['binance_krw']
+                            entry_price_high = row[high_col]
+                            entry_price_low = row[low_col]
                         else:
-                            entry_price_high = row['binance_krw']
-                            entry_price_low = row['upbit_price']
-                            
-                    elif current_pair == 'upbit_bitget':
-                        if current_direction == 'short_premium':
-                            entry_price_high = row['upbit_price']
-                            entry_price_low = row['bitget_krw']
-                        else:
-                            entry_price_high = row['bitget_krw']
-                            entry_price_low = row['upbit_price']
-                            
-                    elif current_pair == 'binance_bitget':
-                        if current_direction == 'short_premium':
-                            entry_price_high = row['binance_krw']
-                            entry_price_low = row['bitget_krw']
-                        else:
-                            entry_price_high = row['bitget_krw']
-                            entry_price_low = row['binance_krw']
+                            entry_price_high = row[low_col]
+                            entry_price_low = row[high_col]
             
             elif position != 0:
-                if position_pair == 'upbit_binance':
-                    current_price_high = row['upbit_price'] if position == 1 else row['binance_krw']
-                    current_price_low = row['binance_krw'] if position == 1 else row['upbit_price']
-                    z_score = row['z_score_upbit_binance']
-                    
-                elif position_pair == 'upbit_bitget':
-                    current_price_high = row['upbit_price'] if position == 1 else row['bitget_krw']
-                    current_price_low = row['bitget_krw'] if position == 1 else row['upbit_price']
-                    z_score = row['z_score_upbit_bitget']
-                    
-                elif position_pair == 'binance_bitget':
-                    current_price_high = row['binance_krw'] if position == 1 else row['bitget_krw']
-                    current_price_low = row['bitget_krw'] if position == 1 else row['binance_krw']
-                    z_score = row['z_score_binance_bitget']
-                else:
+                # 거래소 쌍별 가격 매핑
+                pair_prices = {
+                    'upbit_binance': ('upbit_price', 'binance_krw'),
+                    'upbit_bitget': ('upbit_price', 'bitget_krw'),
+                    'upbit_bybit': ('upbit_price', 'bybit_krw'),
+                    'binance_bitget': ('binance_krw', 'bitget_krw'),
+                    'binance_bybit': ('binance_krw', 'bybit_krw'),
+                    'bitget_bybit': ('bitget_krw', 'bybit_krw')
+                }
+                
+                if position_pair not in pair_prices:
                     daily_capital.append({'date': current_date, 'capital': capital})
                     continue
+                
+                high_col, low_col = pair_prices[position_pair]
+                current_price_high = row[high_col] if position == 1 else row[low_col]
+                current_price_low = row[low_col] if position == 1 else row[high_col]
+                z_score = row[f'z_score_{position_pair}']
                 
                 ret_high = (entry_price_high - current_price_high) / entry_price_high if position == 1 else (current_price_high - entry_price_high) / entry_price_high
                 ret_low = (current_price_low - entry_price_low) / entry_price_low if position == 1 else (entry_price_low - current_price_low) / entry_price_low

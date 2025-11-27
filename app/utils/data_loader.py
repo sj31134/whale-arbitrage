@@ -480,10 +480,12 @@ class DataLoader:
                 u.trade_price as upbit_price,
                 b.close as binance_price,
                 bg.close as bitget_price,
+                bb.close as bybit_price,
                 e.krw_usd
             FROM upbit_daily u
             LEFT JOIN binance_spot_daily b ON u.date = b.date AND b.symbol = '{symbol}'
             LEFT JOIN bitget_spot_daily bg ON u.date = bg.date AND bg.symbol = '{symbol}'
+            LEFT JOIN bybit_spot_daily bb ON u.date = bb.date AND bb.symbol = '{symbol}'
             LEFT JOIN exchange_rate e ON u.date = e.date
             WHERE u.market = '{market}'
             AND u.date BETWEEN '{start_date}' AND '{end_date}'
@@ -535,6 +537,7 @@ class DataLoader:
         # USDT 가격을 원화로 환산
         df['binance_krw'] = df['binance_price'] * df['krw_usd']
         df['bitget_krw'] = df['bitget_price'] * df['krw_usd']
+        df['bybit_krw'] = df['bybit_price'] * df['krw_usd']
         
         return df
     
@@ -668,4 +671,91 @@ class DataLoader:
                 st.error(f"❌ 데이터 로드 오류: {str(e)}")
             except:
                 pass
+            return pd.DataFrame()
+    
+    def load_risk_data_weekly(self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
+        """Project 3 (Risk AI) 주봉 데이터 로드
+        
+        Args:
+            start_date: 시작 날짜 (YYYY-MM-DD)
+            end_date: 종료 날짜 (YYYY-MM-DD)
+            coin: 코인 심볼 ('BTC' 또는 'ETH', 기본값: 'BTC')
+        
+        Returns:
+            DataFrame with weekly aggregated data
+        """
+        if coin == 'BTC':
+            symbol = 'BTCUSDT'
+            coin_label = 'BTC'
+        elif coin == 'ETH':
+            symbol = 'ETHUSDT'
+            coin_label = 'ETH'
+        else:
+            raise ValueError(f"지원하지 않는 코인: {coin}")
+        
+        try:
+            if not hasattr(self, 'conn') or self.conn is None:
+                logging.error("데이터베이스 연결이 없습니다")
+                return pd.DataFrame()
+            
+            # 주봉 OHLCV + 주간 고래 데이터 JOIN
+            query = f"""
+            SELECT 
+                w.date,
+                w.symbol,
+                w.open,
+                w.high,
+                w.low,
+                w.close,
+                w.volume,
+                w.quote_volume,
+                w.atr,
+                w.rsi,
+                w.volatility_ratio,
+                w.weekly_range_pct,
+                wh.avg_top100_richest_pct as top100_richest_pct,
+                wh.avg_transaction_value_btc as avg_transaction_value_btc,
+                wh.whale_conc_change_7d
+            FROM binance_spot_weekly w
+            LEFT JOIN bitinfocharts_whale_weekly wh 
+                ON w.date = wh.week_end_date AND wh.coin = '{coin_label}'
+            WHERE w.symbol = '{symbol}'
+            AND w.date BETWEEN '{start_date}' AND '{end_date}'
+            ORDER BY w.date
+            """
+            
+            df = pd.read_sql(query, self.conn)
+            
+            if len(df) == 0:
+                return df
+            
+            df['date'] = pd.to_datetime(df['date'])
+            
+            # 숫자 컬럼을 명시적으로 float로 변환
+            numeric_columns = [
+                'open', 'high', 'low', 'close', 'volume', 'quote_volume',
+                'atr', 'rsi', 'volatility_ratio', 'weekly_range_pct',
+                'top100_richest_pct', 'avg_transaction_value_btc', 'whale_conc_change_7d'
+            ]
+            
+            for col in numeric_columns:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # 주봉 특성 추가 계산
+            df['weekly_return'] = df['close'].pct_change()
+            df['high_low_range'] = (df['high'] - df['low']) / df['low']
+            
+            # 결측치 처리
+            df = df.ffill().bfill()
+            
+            return df
+            
+        except sqlite3.Error as e:
+            error_msg = f"SQL 오류 (load_risk_data_weekly): {str(e)}"
+            logging.error(error_msg)
+            return pd.DataFrame()
+        except Exception as e:
+            error_msg = f"load_risk_data_weekly 오류: {str(e)}"
+            logging.error(error_msg)
             return pd.DataFrame()

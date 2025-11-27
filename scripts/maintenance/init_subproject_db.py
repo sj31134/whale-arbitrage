@@ -77,6 +77,31 @@ CREATE_TABLE_STATEMENTS = [
         krw_usd REAL
     );
     """,
+    """
+    CREATE TABLE IF NOT EXISTS binance_spot_weekly (
+        symbol TEXT NOT NULL,
+        date TEXT NOT NULL,
+        open REAL,
+        high REAL,
+        low REAL,
+        close REAL,
+        volume REAL,
+        quote_volume REAL,
+        PRIMARY KEY (symbol, date)
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS whale_weekly_stats (
+        date TEXT NOT NULL,
+        coin_symbol TEXT NOT NULL,
+        net_inflow_usd REAL,
+        exchange_inflow_usd REAL,
+        active_addresses INTEGER,
+        transaction_count INTEGER,
+        avg_buy_price REAL,
+        PRIMARY KEY (date, coin_symbol)
+    );
+    """,
 ]
 
 

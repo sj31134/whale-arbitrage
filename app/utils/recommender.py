@@ -101,54 +101,37 @@ class StrategyRecommender:
             
             row = target_df.iloc[0]
             
-            # 각 거래소 쌍별 Z-Score 및 프리미엄 계산
+            # 각 거래소 쌍별 Z-Score 및 프리미엄 계산 (6개 쌍)
             pairs_data = []
             all_pairs_data = []  # 모든 쌍 (조건 만족 여부와 관계없이)
             
-            # 1. 업비트-바이낸스
-            if pd.notna(row['z_score_upbit_binance']):
-                z_score = row['z_score_upbit_binance']
-                premium = row['premium_upbit_binance']
-                pair_info = {
-                    "pair": "업비트-바이낸스",
-                    "pair_code": "upbit_binance",
-                    "z_score": z_score,
-                    "premium": premium,
-                    "direction": "short_premium" if z_score > 0 else "long_premium"
-                }
-                all_pairs_data.append(pair_info)
-                if abs(z_score) > 2.5:
-                    pairs_data.append(pair_info)
+            # 6개 거래소 쌍 정의
+            pair_configs = [
+                ("업비트-바이낸스", "upbit_binance"),
+                ("업비트-비트겟", "upbit_bitget"),
+                ("업비트-바이비트", "upbit_bybit"),
+                ("바이낸스-비트겟", "binance_bitget"),
+                ("바이낸스-바이비트", "binance_bybit"),
+                ("비트겟-바이비트", "bitget_bybit")
+            ]
             
-            # 2. 업비트-비트겟
-            if pd.notna(row['z_score_upbit_bitget']):
-                z_score = row['z_score_upbit_bitget']
-                premium = row['premium_upbit_bitget']
-                pair_info = {
-                    "pair": "업비트-비트겟",
-                    "pair_code": "upbit_bitget",
-                    "z_score": z_score,
-                    "premium": premium,
-                    "direction": "short_premium" if z_score > 0 else "long_premium"
-                }
-                all_pairs_data.append(pair_info)
-                if abs(z_score) > 2.5:
-                    pairs_data.append(pair_info)
-            
-            # 3. 바이낸스-비트겟
-            if pd.notna(row['z_score_binance_bitget']):
-                z_score = row['z_score_binance_bitget']
-                premium = row['premium_binance_bitget']
-                pair_info = {
-                    "pair": "바이낸스-비트겟",
-                    "pair_code": "binance_bitget",
-                    "z_score": z_score,
-                    "premium": premium,
-                    "direction": "short_premium" if z_score > 0 else "long_premium"
-                }
-                all_pairs_data.append(pair_info)
-                if abs(z_score) > 2.5:
-                    pairs_data.append(pair_info)
+            for pair_name, pair_code in pair_configs:
+                z_col = f'z_score_{pair_code}'
+                prem_col = f'premium_{pair_code}'
+                
+                if z_col in row and pd.notna(row[z_col]):
+                    z_score = row[z_col]
+                    premium = row[prem_col] if prem_col in row else 0
+                    pair_info = {
+                        "pair": pair_name,
+                        "pair_code": pair_code,
+                        "z_score": z_score,
+                        "premium": premium,
+                        "direction": "short_premium" if z_score > 0 else "long_premium"
+                    }
+                    all_pairs_data.append(pair_info)
+                    if abs(z_score) > 2.5:
+                        pairs_data.append(pair_info)
             
             # 진입 조건을 만족하는 쌍이 없으면, 가장 높은 Z-Score를 가진 쌍을 제안
             if not pairs_data:
@@ -256,37 +239,31 @@ class StrategyRecommender:
         if len(entry_df) < 2:
             return {"return": 0, "holding_days": 0}
         
-        # 진입 가격
+        # 진입 가격 - 6개 쌍 지원
         entry_row = entry_df.iloc[0]
         
-        if pair_code == 'upbit_binance':
-            if direction == 'short_premium':
-                entry_price_high = entry_row['upbit_price']
-                entry_price_low = entry_row['binance_krw']
-            else:
-                entry_price_high = entry_row['binance_krw']
-                entry_price_low = entry_row['upbit_price']
-            z_score_col = 'z_score_upbit_binance'
-                
-        elif pair_code == 'upbit_bitget':
-            if direction == 'short_premium':
-                entry_price_high = entry_row['upbit_price']
-                entry_price_low = entry_row['bitget_krw']
-            else:
-                entry_price_high = entry_row['bitget_krw']
-                entry_price_low = entry_row['upbit_price']
-            z_score_col = 'z_score_upbit_bitget'
-            
-        elif pair_code == 'binance_bitget':
-            if direction == 'short_premium':
-                entry_price_high = entry_row['binance_krw']
-                entry_price_low = entry_row['bitget_krw']
-            else:
-                entry_price_high = entry_row['bitget_krw']
-                entry_price_low = entry_row['binance_krw']
-            z_score_col = 'z_score_binance_bitget'
-        else:
+        # 거래소 쌍별 가격 컬럼 매핑
+        pair_prices = {
+            'upbit_binance': ('upbit_price', 'binance_krw'),
+            'upbit_bitget': ('upbit_price', 'bitget_krw'),
+            'upbit_bybit': ('upbit_price', 'bybit_krw'),
+            'binance_bitget': ('binance_krw', 'bitget_krw'),
+            'binance_bybit': ('binance_krw', 'bybit_krw'),
+            'bitget_bybit': ('bitget_krw', 'bybit_krw')
+        }
+        
+        if pair_code not in pair_prices:
             return {"return": 0, "holding_days": 0}
+        
+        high_col, low_col = pair_prices[pair_code]
+        z_score_col = f'z_score_{pair_code}'
+        
+        if direction == 'short_premium':
+            entry_price_high = entry_row[high_col]
+            entry_price_low = entry_row[low_col]
+        else:
+            entry_price_high = entry_row[low_col]
+            entry_price_low = entry_row[high_col]
         
         # 청산 조건 확인 (Z-Score < 0.5 또는 최대 보유 기간)
         cost_rate = backtest.fee_rate + backtest.slippage
@@ -298,18 +275,17 @@ class StrategyRecommender:
             if pd.isna(z_score):
                 continue
             
-            # 현재 가격
-            if pair_code == 'upbit_binance':
-                current_price_high = row['upbit_price'] if direction == 'short_premium' else row['binance_krw']
-                current_price_low = row['binance_krw'] if direction == 'short_premium' else row['upbit_price']
-            elif pair_code == 'upbit_bitget':
-                current_price_high = row['upbit_price'] if direction == 'short_premium' else row['bitget_krw']
-                current_price_low = row['bitget_krw'] if direction == 'short_premium' else row['upbit_price']
-            elif pair_code == 'binance_bitget':
-                current_price_high = row['binance_krw'] if direction == 'short_premium' else row['bitget_krw']
-                current_price_low = row['bitget_krw'] if direction == 'short_premium' else row['binance_krw']
-            else:
+            # 현재 가격 - 6개 쌍 지원
+            if pair_code not in pair_prices:
                 continue
+            
+            high_col, low_col = pair_prices[pair_code]
+            if direction == 'short_premium':
+                current_price_high = row[high_col]
+                current_price_low = row[low_col]
+            else:
+                current_price_high = row[low_col]
+                current_price_low = row[high_col]
             
             # 수익률 계산
             ret_high = (entry_price_high - current_price_high) / entry_price_high if direction == 'short_premium' else (current_price_high - entry_price_high) / entry_price_high
@@ -333,32 +309,27 @@ class StrategyRecommender:
         }
     
     def _generate_execution_steps(self, pair: str, direction: str, coin: str) -> List[str]:
-        """실행 방법 생성"""
+        """실행 방법 생성 (6개 쌍 지원)"""
         steps = []
         
-        if pair == "업비트-바이낸스":
+        # 거래소 쌍별 실행 방법 매핑
+        pair_actions = {
+            "업비트-바이낸스": ("업비트", "바이낸스"),
+            "업비트-비트겟": ("업비트", "비트겟"),
+            "업비트-바이비트": ("업비트", "바이비트"),
+            "바이낸스-비트겟": ("바이낸스", "비트겟"),
+            "바이낸스-바이비트": ("바이낸스", "바이비트"),
+            "비트겟-바이비트": ("비트겟", "바이비트")
+        }
+        
+        if pair in pair_actions:
+            ex1, ex2 = pair_actions[pair]
             if direction == "short_premium":
-                steps.append(f"1. 업비트에서 {coin} 매도")
-                steps.append("2. 바이낸스에서 BTC 매수")
+                steps.append(f"1. {ex1}에서 {coin} 매도")
+                steps.append(f"2. {ex2}에서 {coin} 매수")
             else:
-                steps.append(f"1. 업비트에서 {coin} 매수")
-                steps.append("2. 바이낸스에서 BTC 매도")
-                
-        elif pair == "업비트-비트겟":
-            if direction == "short_premium":
-                steps.append(f"1. 업비트에서 {coin} 매도")
-                steps.append("2. 비트겟에서 BTC 매수")
-            else:
-                steps.append(f"1. 업비트에서 {coin} 매수")
-                steps.append("2. 비트겟에서 BTC 매도")
-                
-        elif pair == "바이낸스-비트겟":
-            if direction == "short_premium":
-                steps.append("1. 바이낸스에서 BTC 매도")
-                steps.append("2. 비트겟에서 BTC 매수")
-            else:
-                steps.append("1. 바이낸스에서 BTC 매수")
-                steps.append("2. 비트겟에서 BTC 매도")
+                steps.append(f"1. {ex1}에서 {coin} 매수")
+                steps.append(f"2. {ex2}에서 {coin} 매도")
         
         steps.append("3. 프리미엄 회귀 대기 (Z-Score < 0.5)")
         steps.append("4. 역거래 실행 (청산)")

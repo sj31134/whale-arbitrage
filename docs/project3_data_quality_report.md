@@ -278,3 +278,6 @@ python3 scripts/subprojects/risk_ai/verify_data_alignment.py
 **작성자**: AI Assistant  
 **마지막 업데이트**: 2025-11-23
 
+
+
+

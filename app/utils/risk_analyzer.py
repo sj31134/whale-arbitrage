@@ -236,4 +236,151 @@ class RiskAnalyzer:
             import traceback
             logging.error(f"상관관계 분석 실패: {str(e)}\n{traceback.format_exc()}")
             return pd.DataFrame()
+    
+    def analyze_historical_performance_weekly(
+        self, 
+        start_date: str, 
+        end_date: str, 
+        coin: str = 'BTC'
+    ) -> Dict:
+        """주봉 기반 역사적 성과 분석
+        
+        Args:
+            start_date: 시작 날짜 (YYYY-MM-DD)
+            end_date: 종료 날짜 (YYYY-MM-DD)
+            coin: 코인 심볼 ('BTC' 또는 'ETH')
+        
+        Returns:
+            일봉 analyze_historical_performance()와 동일한 형식
+        """
+        try:
+            # 주봉 배치 예측
+            predictions_df = self.predictor.predict_batch_weekly(start_date, end_date, coin)
+            
+            if len(predictions_df) == 0:
+                return {
+                    'success': False,
+                    'error': f"{start_date} ~ {end_date} 기간에 대한 주봉 데이터가 없습니다."
+                }
+            
+            # 주봉은 학습된 모델이 없으므로 기본 통계만 반환
+            return {
+                'success': True,
+                'data': {
+                    'auc_roc': None,
+                    'accuracy': None,
+                    'precision': None,
+                    'recall': None,
+                    'f1_score': None,
+                    'total_predictions': int(len(predictions_df)),
+                    'high_vol_count': None,
+                    'predicted_high_vol_count': int((predictions_df['high_volatility_prob'] > 0.5).sum()),
+                    'avg_risk_score': float(predictions_df['risk_score'].mean()),
+                    'max_risk_score': float(predictions_df['risk_score'].max()),
+                    'min_risk_score': float(predictions_df['risk_score'].min())
+                }
+            }
+                
+        except Exception as e:
+            import logging
+            import traceback
+            logging.error(f"주봉 성과 분석 실패: {str(e)}\n{traceback.format_exc()}")
+            return {
+                'success': False,
+                'error': f"주봉 성과 분석 중 오류 발생: {str(e)}"
+            }
+    
+    def get_high_volatility_periods_weekly(
+        self, 
+        start_date: str, 
+        end_date: str, 
+        coin: str = 'BTC',
+        threshold: float = 0.5
+    ) -> pd.DataFrame:
+        """주봉 기반 고변동성 구간 추출
+        
+        Args:
+            start_date: 시작 날짜 (YYYY-MM-DD)
+            end_date: 종료 날짜 (YYYY-MM-DD)
+            coin: 코인 심볼 ('BTC' 또는 'ETH')
+            threshold: 고변동성 판단 임계값 (기본값: 0.5)
+        
+        Returns:
+            DataFrame with weekly high volatility periods
+        """
+        try:
+            predictions_df = self.predictor.predict_batch_weekly(start_date, end_date, coin)
+            
+            if len(predictions_df) == 0:
+                return pd.DataFrame()
+            
+            # 임계값 이상인 구간만 필터링
+            high_vol_df = predictions_df[predictions_df['high_volatility_prob'] >= threshold].copy()
+            
+            return high_vol_df
+            
+        except Exception as e:
+            import logging
+            logging.error(f"주봉 고변동성 구간 추출 실패: {str(e)}")
+            return pd.DataFrame()
+    
+    def calculate_correlation_matrix_weekly(
+        self, 
+        start_date: str, 
+        end_date: str, 
+        coin: str = 'BTC'
+    ) -> pd.DataFrame:
+        """주봉 기반 지표별 상관관계 분석
+        
+        Args:
+            start_date: 시작 날짜 (YYYY-MM-DD)
+            end_date: 종료 날짜 (YYYY-MM-DD)
+            coin: 코인 심볼 ('BTC' 또는 'ETH')
+        
+        Returns:
+            상관관계 행렬 DataFrame
+        """
+        try:
+            from datetime import datetime, timedelta
+            
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            data_start_date = (start_dt - timedelta(weeks=30)).strftime("%Y-%m-%d")
+            
+            df = self.data_loader.load_risk_data_weekly(data_start_date, end_date, coin)
+            
+            if len(df) == 0:
+                return pd.DataFrame()
+            
+            # 기간 필터링
+            df = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
+            
+            if len(df) == 0:
+                return pd.DataFrame()
+            
+            # 상관관계 계산할 지표 선택 (주봉 특성)
+            correlation_cols = [
+                'whale_conc_change_7d',
+                'volatility_ratio',
+                'rsi',
+                'weekly_range_pct',
+                'weekly_return',
+                'high_low_range'
+            ]
+            
+            # 존재하는 컬럼만 사용
+            available_cols = [col for col in correlation_cols if col in df.columns]
+            
+            if len(available_cols) == 0:
+                return pd.DataFrame()
+            
+            # 상관관계 계산
+            corr_matrix = df[available_cols].corr()
+            
+            return corr_matrix
+            
+        except Exception as e:
+            import logging
+            import traceback
+            logging.error(f"주봉 상관관계 분석 실패: {str(e)}\n{traceback.format_exc()}")
+            return pd.DataFrame()
 

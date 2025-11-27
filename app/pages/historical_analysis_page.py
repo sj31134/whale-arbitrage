@@ -75,6 +75,16 @@ def render():
         index=0
     )
     
+    # 데이터 기준 선택
+    st.sidebar.subheader("📊 데이터 기준")
+    data_basis = st.sidebar.radio(
+        "분석 기준",
+        ["일봉 (Daily)", "주봉 (Weekly)"],
+        index=0,
+        help="일봉: 일별 변동성 분석, 주봉: 주간 추세 기반 분석 (노이즈 감소)"
+    )
+    is_weekly = data_basis == "주봉 (Weekly)"
+    
     # 분석 모드
     st.sidebar.subheader("🔍 분석 모드")
     analysis_mode = st.sidebar.radio(
@@ -91,11 +101,18 @@ def render():
         
         with st.spinner("분석 중..."):
             # 배치 예측
-            predictions_df = predictor.predict_batch(
-                from_date.strftime("%Y-%m-%d"),
-                to_date.strftime("%Y-%m-%d"),
-                coin
-            )
+            if is_weekly:
+                predictions_df = predictor.predict_batch_weekly(
+                    from_date.strftime("%Y-%m-%d"),
+                    to_date.strftime("%Y-%m-%d"),
+                    coin
+                )
+            else:
+                predictions_df = predictor.predict_batch(
+                    from_date.strftime("%Y-%m-%d"),
+                    to_date.strftime("%Y-%m-%d"),
+                    coin
+                )
             
             if len(predictions_df) == 0:
                 st.error("❌ 선택한 기간에 데이터가 없습니다.")
@@ -167,11 +184,18 @@ def render():
             # 성과 지표
             st.subheader("📊 성과 지표")
             
-            performance = analyzer.analyze_historical_performance(
-                from_date.strftime("%Y-%m-%d"),
-                to_date.strftime("%Y-%m-%d"),
-                coin
-            )
+            if is_weekly:
+                performance = analyzer.analyze_historical_performance_weekly(
+                    from_date.strftime("%Y-%m-%d"),
+                    to_date.strftime("%Y-%m-%d"),
+                    coin
+                )
+            else:
+                performance = analyzer.analyze_historical_performance(
+                    from_date.strftime("%Y-%m-%d"),
+                    to_date.strftime("%Y-%m-%d"),
+                    coin
+                )
             
             if performance['success']:
                 perf_data = performance['data']
@@ -184,7 +208,13 @@ def render():
                         st.metric("AUC-ROC", f"{perf_data['auc_roc']:.4f}")
                         st.metric("정확도", f"{perf_data['accuracy']:.2%}")
                     else:
-                        st.info("실제 고변동성 데이터가 없어 성능 지표를 계산할 수 없습니다.")
+                        if is_weekly:
+                            st.info("주봉 분석은 규칙 기반 점수를 사용합니다.")
+                            if 'avg_risk_score' in perf_data:
+                                st.metric("평균 리스크", f"{perf_data['avg_risk_score']:.2f}")
+                                st.metric("최대 리스크", f"{perf_data['max_risk_score']:.2f}")
+                        else:
+                            st.info("실제 고변동성 데이터가 없어 성능 지표를 계산할 수 없습니다.")
                 
                 with col2:
                     st.markdown("**예측 정확도**")
@@ -193,30 +223,42 @@ def render():
                         st.metric("Recall", f"{perf_data['recall']:.2%}")
                         st.metric("F1-Score", f"{perf_data['f1_score']:.4f}")
                     else:
-                        st.info("실제 고변동성 데이터가 없어 정확도를 계산할 수 없습니다.")
+                        if is_weekly:
+                            st.info("주봉 분석은 추세 기반 리스크 점수를 제공합니다.")
+                        else:
+                            st.info("실제 고변동성 데이터가 없어 정확도를 계산할 수 없습니다.")
                 
                 st.markdown("**통계**")
                 col3, col4, col5 = st.columns(3)
                 with col3:
-                    st.metric("총 예측 수", f"{perf_data['total_predictions']:,}건")
+                    unit = "주" if is_weekly else "건"
+                    st.metric("총 예측 수", f"{perf_data['total_predictions']:,}{unit}")
                 with col4:
                     if perf_data['high_vol_count'] is not None:
-                        st.metric("실제 고변동성", f"{perf_data['high_vol_count']:,}건")
+                        st.metric("실제 고변동성", f"{perf_data['high_vol_count']:,}{unit}")
                     else:
                         st.metric("실제 고변동성", "N/A")
                 with col5:
-                    st.metric("예측 고변동성", f"{perf_data['predicted_high_vol_count']:,}건")
+                    st.metric("예측 고변동성", f"{perf_data['predicted_high_vol_count']:,}{unit}")
             
             # 고변동성 구간 목록
             st.subheader("📋 고변동성 구간 목록")
             
             if analysis_mode == "고변동성 구간만":
-                high_vol_df = analyzer.get_high_volatility_periods(
-                    from_date.strftime("%Y-%m-%d"),
-                    to_date.strftime("%Y-%m-%d"),
-                    coin,
-                    threshold=0.5
-                )
+                if is_weekly:
+                    high_vol_df = analyzer.get_high_volatility_periods_weekly(
+                        from_date.strftime("%Y-%m-%d"),
+                        to_date.strftime("%Y-%m-%d"),
+                        coin,
+                        threshold=0.5
+                    )
+                else:
+                    high_vol_df = analyzer.get_high_volatility_periods(
+                        from_date.strftime("%Y-%m-%d"),
+                        to_date.strftime("%Y-%m-%d"),
+                        coin,
+                        threshold=0.5
+                    )
             else:
                 high_vol_df = predictions_df.copy()
             
@@ -254,11 +296,18 @@ def render():
             # 지표별 상관관계 분석
             st.subheader("🔍 지표별 상관관계 분석")
             
-            corr_matrix = analyzer.calculate_correlation_matrix(
-                from_date.strftime("%Y-%m-%d"),
-                to_date.strftime("%Y-%m-%d"),
-                coin
-            )
+            if is_weekly:
+                corr_matrix = analyzer.calculate_correlation_matrix_weekly(
+                    from_date.strftime("%Y-%m-%d"),
+                    to_date.strftime("%Y-%m-%d"),
+                    coin
+                )
+            else:
+                corr_matrix = analyzer.calculate_correlation_matrix(
+                    from_date.strftime("%Y-%m-%d"),
+                    to_date.strftime("%Y-%m-%d"),
+                    coin
+                )
             
             if len(corr_matrix) > 0:
                 fig_heatmap = px.imshow(
