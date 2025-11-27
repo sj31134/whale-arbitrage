@@ -26,6 +26,204 @@ from data_loader import DataLoader
 from risk_predictor import RiskPredictor
 
 
+def render_dynamic_indicators(indicators: dict):
+    """동적 지표 시각화 섹션"""
+    st.subheader("📈 동적 지표 분석")
+    st.markdown("시장 변화의 속도와 가속도를 분석합니다.")
+    
+    # 동적 지표 존재 여부 확인
+    dynamic_keys = ['volatility_delta', 'oi_delta', 'funding_delta', 
+                    'volatility_accel', 'oi_accel', 'volatility_slope']
+    
+    has_dynamic = any(k in indicators for k in dynamic_keys)
+    
+    if not has_dynamic:
+        st.info("💡 동적 지표가 없습니다. 하이브리드 모델을 사용하면 동적 지표를 확인할 수 있습니다.")
+        return
+    
+    # OI 데이터 수집 여부 확인
+    oi_delta = indicators.get('oi_delta', 0)
+    oi_accel = indicators.get('oi_accel', 0)
+    has_oi_data = oi_delta != 0 or oi_accel != 0
+    
+    if not has_oi_data:
+        st.warning("⚠️ OI(미결제약정) 데이터가 수집되지 않았습니다. OI 관련 지표는 0으로 표시됩니다.")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**변화율 (1차 미분)**")
+        
+        # 변동성 변화율
+        vol_delta = indicators.get('volatility_delta', 0)
+        delta_color = "🔴" if vol_delta > 0.01 else ("🟡" if vol_delta > 0 else "🟢")
+        st.metric("변동성 변화율", f"{vol_delta:.4f}", delta_color)
+        
+        # OI 변화율 (데이터 없으면 N/A 표시)
+        if has_oi_data:
+            delta_color = "🔴" if abs(oi_delta) > 0.1 else "🟢"
+            st.metric("OI 변화율", f"{oi_delta:.4f}", delta_color)
+        else:
+            st.metric("OI 변화율", "N/A", "데이터 없음")
+        
+        # 펀딩비 변화율
+        funding_delta = indicators.get('funding_delta', 0)
+        delta_color = "🔴" if abs(funding_delta) > 0.001 else "🟢"
+        st.metric("펀딩비 변화율", f"{funding_delta:.6f}", delta_color)
+    
+    with col2:
+        st.markdown("**가속도 (2차 미분)**")
+        
+        # 변동성 가속도
+        vol_accel = indicators.get('volatility_accel', 0)
+        accel_color = "🔴" if vol_accel > 0.005 else ("🟡" if vol_accel > 0 else "🟢")
+        st.metric("변동성 가속도", f"{vol_accel:.4f}", accel_color)
+        
+        # OI 가속도 (데이터 없으면 N/A 표시)
+        if has_oi_data:
+            accel_color = "🔴" if abs(oi_accel) > 0.05 else "🟢"
+            st.metric("OI 가속도", f"{oi_accel:.4f}", accel_color)
+        else:
+            st.metric("OI 가속도", "N/A", "데이터 없음")
+        
+        # 펀딩비 가속도
+        funding_accel = indicators.get('funding_accel', 0)
+        accel_color = "🔴" if abs(funding_accel) > 0.0005 else "🟢"
+        st.metric("펀딩비 가속도", f"{funding_accel:.6f}", accel_color)
+    
+    with col3:
+        st.markdown("**추세 기울기 (5일)**")
+        
+        # 변동성 기울기
+        vol_slope = indicators.get('volatility_slope', 0)
+        slope_direction = "📈 상승" if vol_slope > 0 else "📉 하락"
+        st.metric("변동성 기울기", f"{vol_slope:.4f}", slope_direction)
+        
+        # OI 기울기 (데이터 없으면 N/A 표시)
+        oi_slope = indicators.get('oi_slope', 0)
+        if has_oi_data:
+            slope_direction = "📈 상승" if oi_slope > 0 else "📉 하락"
+            st.metric("OI 기울기", f"{oi_slope:.4f}", slope_direction)
+        else:
+            st.metric("OI 기울기", "N/A", "데이터 없음")
+        
+        # 펀딩비 기울기
+        funding_slope = indicators.get('funding_slope', 0)
+        slope_direction = "📈 상승" if funding_slope > 0 else "📉 하락"
+        st.metric("펀딩비 기울기", f"{funding_slope:.6f}", slope_direction)
+    
+    # 동적 지표 해석
+    st.markdown("---")
+    st.markdown("**📊 동적 지표 해석**")
+    
+    # 변동성 가속 경고
+    vol_accel = indicators.get('volatility_accel', 0)
+    vol_delta = indicators.get('volatility_delta', 0)
+    
+    if vol_accel > 0 and vol_delta > 0:
+        st.warning("⚠️ **변동성 급증 중**: 변동성이 가속화되고 있습니다. 포지션 리스크 관리에 주의하세요.")
+    elif vol_accel < 0 and vol_delta > 0:
+        st.info("ℹ️ **변동성 증가 둔화**: 변동성이 증가하고 있지만 속도가 줄어들고 있습니다.")
+    elif vol_delta < 0:
+        st.success("✅ **변동성 감소 중**: 시장이 안정화되고 있습니다.")
+    
+    # OI 변화 경고
+    oi_delta = indicators.get('oi_delta', 0)
+    funding_delta = indicators.get('funding_delta', 0)
+    
+    if oi_delta > 0.1 and funding_delta > 0:
+        st.warning("⚠️ **롱 포지션 급증**: OI와 펀딩비가 동시에 상승 중입니다. 롱 청산 리스크에 주의하세요.")
+    elif oi_delta > 0.1 and funding_delta < 0:
+        st.info("ℹ️ **숏 포지션 증가**: OI가 증가하지만 펀딩비가 하락 중입니다. 숏 포지션이 늘어나고 있습니다.")
+
+
+def render_exchange_flow(data_loader, target_date, coin):
+    """거래소 유입/유출 시각화"""
+    st.subheader("💹 거래소 유입/유출 분석")
+    
+    start_date = (target_date - timedelta(days=30)).strftime("%Y-%m-%d")
+    end_date = target_date.strftime("%Y-%m-%d")
+    
+    try:
+        # whale_daily_stats에서 데이터 로드
+        query = f"""
+            SELECT date, exchange_inflow_usd, exchange_outflow_usd, net_flow_usd
+            FROM whale_daily_stats
+            WHERE coin_symbol = '{coin}'
+            AND date >= '{start_date}'
+            AND date <= '{end_date}'
+            ORDER BY date
+        """
+        
+        flow_df = pd.read_sql(query, data_loader.conn)
+        
+        if len(flow_df) == 0:
+            st.info("💡 거래소 유입/유출 데이터가 없습니다.")
+            return
+        
+        flow_df['date'] = pd.to_datetime(flow_df['date'])
+        
+        # 유입/유출 차트
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            x=flow_df['date'],
+            y=flow_df['exchange_inflow_usd'] / 1e6,
+            name='거래소 유입',
+            marker_color='red'
+        ))
+        
+        fig.add_trace(go.Bar(
+            x=flow_df['date'],
+            y=-flow_df['exchange_outflow_usd'] / 1e6,
+            name='거래소 유출',
+            marker_color='green'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=flow_df['date'],
+            y=flow_df['net_flow_usd'] / 1e6,
+            mode='lines',
+            name='순유입',
+            line=dict(color='blue', width=2)
+        ))
+        
+        fig.update_layout(
+            title="거래소 유입/유출 (백만 USD)",
+            xaxis_title="날짜",
+            yaxis_title="금액 (M USD)",
+            barmode='relative',
+            height=400
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # 요약 통계
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            total_inflow = flow_df['exchange_inflow_usd'].sum() / 1e6
+            st.metric("총 유입", f"${total_inflow:.1f}M")
+        
+        with col2:
+            total_outflow = flow_df['exchange_outflow_usd'].sum() / 1e6
+            st.metric("총 유출", f"${total_outflow:.1f}M")
+        
+        with col3:
+            net_flow = flow_df['net_flow_usd'].sum() / 1e6
+            flow_direction = "📈" if net_flow > 0 else "📉"
+            st.metric("순유입", f"${net_flow:.1f}M", flow_direction)
+        
+        # 해석
+        if net_flow > 0:
+            st.warning("⚠️ **순유입 상태**: 고래들이 거래소로 코인을 이동 중입니다. 매도 압력이 증가할 수 있습니다.")
+        else:
+            st.success("✅ **순유출 상태**: 고래들이 거래소에서 코인을 인출 중입니다. 장기 보유 의향이 있을 수 있습니다.")
+    
+    except Exception as e:
+        st.info(f"💡 거래소 유입/유출 데이터를 불러올 수 없습니다: {str(e)}")
+
+
 def render():
     st.header("⚠️ 리스크 예측 대시보드")
     st.markdown("현재 시장의 고변동성/청산 리스크를 한눈에 파악합니다.")
@@ -39,7 +237,24 @@ def render():
     
     # 리스크 예측기 초기화
     try:
-        predictor = RiskPredictor()
+        # 사용 가능한 모델 확인
+        available_models = []
+        model_dir = ROOT / "data" / "models"
+        
+        if (model_dir / "risk_ai_model.pkl").exists():
+            available_models.append("legacy")
+        if (model_dir / "hybrid_ensemble_dynamic_metadata.json").exists():
+            available_models.append("hybrid")
+        
+        if not available_models:
+            st.error("❌ 사용 가능한 모델이 없습니다.")
+            st.info("💡 모델을 먼저 학습시켜야 합니다: `python3 scripts/subprojects/risk_ai/train_model.py`")
+            st.stop()
+        
+        # 기본 모델 타입 선택 (hybrid 우선)
+        default_model = "hybrid" if "hybrid" in available_models else "legacy"
+        predictor = RiskPredictor(model_type=default_model)
+        
     except Exception as e:
         st.error(f"❌ 모델 로드 실패: {str(e)}")
         st.info("💡 모델을 먼저 학습시켜야 합니다: `python3 scripts/subprojects/risk_ai/train_model.py`")
@@ -47,6 +262,23 @@ def render():
     
     # 사이드바
     st.sidebar.header("📋 입력 파라미터")
+    
+    # 모델 선택 (사용 가능한 모델이 여러 개인 경우)
+    if len(available_models) > 1:
+        st.sidebar.subheader("🤖 모델 선택")
+        model_labels = {
+            "legacy": "XGBoost (기본)",
+            "hybrid": "하이브리드 앙상블 (권장)"
+        }
+        selected_model = st.sidebar.selectbox(
+            "예측 모델",
+            available_models,
+            format_func=lambda x: model_labels.get(x, x),
+            index=available_models.index(default_model) if default_model in available_models else 0
+        )
+        
+        if selected_model != predictor.model_type:
+            predictor = RiskPredictor(model_type=selected_model)
     
     # 날짜 선택
     st.sidebar.subheader("📅 날짜 설정")
@@ -327,6 +559,16 @@ def render():
                     st.success("✅ **정상 범위**")
                     st.markdown("- 리스크가 낮은 수준입니다")
                     st.markdown("- 일반적인 거래 활동 가능")
+            
+            # 동적 지표 섹션 (하이브리드 모델 사용 시)
+            if predictor.include_dynamic and not is_weekly:
+                st.markdown("---")
+                render_dynamic_indicators(indicators)
+            
+            # 거래소 유입/유출 섹션
+            if not is_weekly:
+                st.markdown("---")
+                render_exchange_flow(data_loader, target_date, coin)
             
             # 최근 리스크 이력
             if is_weekly:

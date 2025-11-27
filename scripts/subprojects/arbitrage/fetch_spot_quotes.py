@@ -23,9 +23,53 @@ BYBIT_BASE = "https://api.bybit.com/v5/market/kline"
 
 
 def ensure_db():
+    """DB 초기화 및 필요한 테이블 생성"""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL;")
+    
+    cursor = conn.cursor()
+    
+    # bybit_spot_daily 테이블 생성 (없으면)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bybit_spot_daily (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol VARCHAR(20) NOT NULL,
+            date DATE NOT NULL,
+            open DECIMAL(20, 8),
+            high DECIMAL(20, 8),
+            low DECIMAL(20, 8),
+            close DECIMAL(20, 8),
+            volume DECIMAL(30, 8),
+            quote_volume DECIMAL(30, 8),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(date, symbol)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bybit_spot_date ON bybit_spot_daily(date)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bybit_spot_symbol ON bybit_spot_daily(symbol)")
+    
+    # bitget_spot_daily 테이블 생성 (없으면)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bitget_spot_daily (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol VARCHAR(20) NOT NULL,
+            date DATE NOT NULL,
+            open DECIMAL(20, 8),
+            high DECIMAL(20, 8),
+            low DECIMAL(20, 8),
+            close DECIMAL(20, 8),
+            volume DECIMAL(30, 8),
+            quote_volume DECIMAL(30, 8),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(date, symbol)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bitget_date ON bitget_spot_daily(date)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bitget_symbol ON bitget_spot_daily(symbol)")
+    
+    conn.commit()
+    cursor.close()
     conn.close()
 
 

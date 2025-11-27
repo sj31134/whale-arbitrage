@@ -144,5 +144,63 @@ CREATE TABLE IF NOT EXISTS whale_weekly_stats (
 CREATE INDEX idx_whale_weekly_date ON whale_weekly_stats(date);
 CREATE INDEX idx_whale_weekly_coin ON whale_weekly_stats(coin_symbol);
 
+-- 9. bybit_spot_daily (신규 추가)
+CREATE TABLE IF NOT EXISTS bybit_spot_daily (
+    id SERIAL PRIMARY KEY,
+    symbol VARCHAR(20) NOT NULL,
+    date DATE NOT NULL,
+    open DECIMAL(20, 8),
+    high DECIMAL(20, 8),
+    low DECIMAL(20, 8),
+    close DECIMAL(20, 8),
+    volume DECIMAL(30, 8),
+    quote_volume DECIMAL(30, 8),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(date, symbol)
+);
+
+CREATE INDEX idx_bybit_spot_date ON bybit_spot_daily(date);
+CREATE INDEX idx_bybit_spot_symbol ON bybit_spot_daily(symbol);
+
+-- 10. futures_extended_metrics (신규 추가: 롱숏비율, Taker비율, Bybit 데이터)
+CREATE TABLE IF NOT EXISTS futures_extended_metrics (
+    id SERIAL PRIMARY KEY,
+    date DATE NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    long_short_ratio DECIMAL(10, 6),
+    long_account_pct DECIMAL(10, 6),
+    short_account_pct DECIMAL(10, 6),
+    taker_buy_sell_ratio DECIMAL(10, 6),
+    taker_buy_vol DECIMAL(30, 8),
+    taker_sell_vol DECIMAL(30, 8),
+    top_trader_long_short_ratio DECIMAL(10, 6),
+    bybit_funding_rate DECIMAL(20, 10),
+    bybit_oi DECIMAL(30, 10),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(date, symbol)
+);
+
+CREATE INDEX idx_ext_metrics_date ON futures_extended_metrics(date);
+CREATE INDEX idx_ext_metrics_symbol ON futures_extended_metrics(symbol);
+
+-- 11. whale_daily_stats (신규 추가: 일별 고래 통계)
+CREATE TABLE IF NOT EXISTS whale_daily_stats (
+    id SERIAL PRIMARY KEY,
+    date DATE NOT NULL,
+    coin_symbol VARCHAR(20) NOT NULL,
+    exchange_inflow_usd DECIMAL(30, 8),
+    exchange_outflow_usd DECIMAL(30, 8),
+    net_flow_usd DECIMAL(30, 8),
+    whale_to_whale_usd DECIMAL(30, 8),
+    active_addresses INTEGER,
+    large_tx_count INTEGER,
+    avg_tx_size_usd DECIMAL(20, 8),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(date, coin_symbol)
+);
+
+CREATE INDEX idx_whale_daily_date ON whale_daily_stats(date);
+CREATE INDEX idx_whale_daily_coin ON whale_daily_stats(coin_symbol);
+
 
 
