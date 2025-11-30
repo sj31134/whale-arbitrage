@@ -117,117 +117,124 @@ def render():
             result = predictor.predict_risk(target_date.strftime("%Y-%m-%d"), coin)
             
             if not result['success']:
-                st.error(f"❌ {result.get('error', '예측 실패')}")
-                st.stop()
+                # 데이터가 없으면 없는 것으로 표시하되, 다른 섹션은 계속 진행
+                st.warning(f"⚠️ {target_date} 데이터 없음: {result.get('error', '예측 실패')}")
+                if 'closest_date' in result:
+                    st.info(f"💡 가장 가까운 날짜: {result['closest_date']} (차이: {abs((datetime.strptime(result['closest_date'], '%Y-%m-%d').date() - target_date).days)}일)")
+                    st.info("💡 아래 섹션들은 사용 가능한 데이터로 표시됩니다.")
+                # st.stop() 제거 - 다른 섹션은 계속 진행
+                data = None
+            else:
+                data = result['data']
             
-            data = result['data']
-            
-            st.subheader("📊 현재 리스크 점수")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                high_vol_prob = data['high_volatility_prob'] * 100
-                risk_level = "낮음" if high_vol_prob < 40 else ("중간" if high_vol_prob < 70 else "높음")
-                risk_color = "🟢" if high_vol_prob < 40 else ("🟡" if high_vol_prob < 70 else "🔴")
+            # 리스크 점수 카드는 데이터가 있을 때만 표시
+            if data is not None:
+                st.subheader("📊 현재 리스크 점수")
+                col1, col2, col3 = st.columns(3)
                 
-                st.metric(
-                    "고변동성 확률",
-                    f"{high_vol_prob:.1f}%",
-                    f"{risk_level} {risk_color}"
-                )
-                
-                fig_gauge1 = go.Figure(go.Indicator(
-                    mode = "gauge+number",
-                    value = high_vol_prob,
-                    domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': "고변동성 확률"},
-                    gauge = {
-                        'axis': {'range': [None, 100]},
-                        'bar': {'color': "darkblue"},
-                        'steps': [
-                            {'range': [0, 40], 'color': "lightgreen"},
-                            {'range': [40, 70], 'color': "yellow"},
-                            {'range': [70, 100], 'color': "lightcoral"}
-                        ],
-                        'threshold': {
-                            'line': {'color': "red", 'width': 4},
-                            'thickness': 0.75,
-                            'value': 70
+                with col1:
+                    high_vol_prob = data['high_volatility_prob'] * 100
+                    risk_level = "낮음" if high_vol_prob < 40 else ("중간" if high_vol_prob < 70 else "높음")
+                    risk_color = "🟢" if high_vol_prob < 40 else ("🟡" if high_vol_prob < 70 else "🔴")
+                    
+                    st.metric(
+                        "고변동성 확률",
+                        f"{high_vol_prob:.1f}%",
+                        f"{risk_level} {risk_color}"
+                    )
+                    
+                    fig_gauge1 = go.Figure(go.Indicator(
+                        mode = "gauge+number",
+                        value = high_vol_prob,
+                        domain = {'x': [0, 1], 'y': [0, 1]},
+                        title = {'text': "고변동성 확률"},
+                        gauge = {
+                            'axis': {'range': [None, 100]},
+                            'bar': {'color': "darkblue"},
+                            'steps': [
+                                {'range': [0, 40], 'color': "lightgreen"},
+                                {'range': [40, 70], 'color': "yellow"},
+                                {'range': [70, 100], 'color': "lightcoral"}
+                            ],
+                            'threshold': {
+                                'line': {'color': "red", 'width': 4},
+                                'thickness': 0.75,
+                                'value': 70
+                            }
                         }
-                    }
-                ))
-                fig_gauge1.update_layout(height=250)
-                st.plotly_chart(fig_gauge1, use_container_width=True)
-            
-            with col2:
-                liquidation_risk = data['liquidation_risk']
-                risk_level = "낮음" if liquidation_risk < 40 else ("중간" if liquidation_risk < 70 else "높음")
-                risk_color = "🟢" if liquidation_risk < 40 else ("🟡" if liquidation_risk < 70 else "🔴")
+                    ))
+                    fig_gauge1.update_layout(height=250)
+                    st.plotly_chart(fig_gauge1, use_container_width=True)
                 
-                st.metric(
-                    "청산 리스크",
-                    f"{liquidation_risk:.1f}%",
-                    f"{risk_level} {risk_color}"
-                )
-                
-                fig_gauge2 = go.Figure(go.Indicator(
-                    mode = "gauge+number",
-                    value = liquidation_risk,
-                    domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': "청산 리스크"},
-                    gauge = {
-                        'axis': {'range': [None, 100]},
-                        'bar': {'color': "darkblue"},
-                        'steps': [
-                            {'range': [0, 40], 'color': "lightgreen"},
-                            {'range': [40, 70], 'color': "yellow"},
-                            {'range': [70, 100], 'color': "lightcoral"}
-                        ],
-                        'threshold': {
-                            'line': {'color': "red", 'width': 4},
-                            'thickness': 0.75,
-                            'value': 70
+                with col2:
+                    liquidation_risk = data['liquidation_risk']
+                    risk_level = "낮음" if liquidation_risk < 40 else ("중간" if liquidation_risk < 70 else "높음")
+                    risk_color = "🟢" if liquidation_risk < 40 else ("🟡" if liquidation_risk < 70 else "🔴")
+                    
+                    st.metric(
+                        "청산 리스크",
+                        f"{liquidation_risk:.1f}%",
+                        f"{risk_level} {risk_color}"
+                    )
+                    
+                    fig_gauge2 = go.Figure(go.Indicator(
+                        mode = "gauge+number",
+                        value = liquidation_risk,
+                        domain = {'x': [0, 1], 'y': [0, 1]},
+                        title = {'text': "청산 리스크"},
+                        gauge = {
+                            'axis': {'range': [None, 100]},
+                            'bar': {'color': "darkblue"},
+                            'steps': [
+                                {'range': [0, 40], 'color': "lightgreen"},
+                                {'range': [40, 70], 'color': "yellow"},
+                                {'range': [70, 100], 'color': "lightcoral"}
+                            ],
+                            'threshold': {
+                                'line': {'color': "red", 'width': 4},
+                                'thickness': 0.75,
+                                'value': 70
+                            }
                         }
-                    }
-                ))
-                fig_gauge2.update_layout(height=250)
-                st.plotly_chart(fig_gauge2, use_container_width=True)
-            
-            with col3:
-                risk_score = data['risk_score']
-                risk_level = "낮음" if risk_score < 40 else ("중간" if risk_score < 70 else "높음")
-                risk_color = "🟢" if risk_score < 40 else ("🟡" if risk_score < 70 else "🔴")
+                    ))
+                    fig_gauge2.update_layout(height=250)
+                    st.plotly_chart(fig_gauge2, use_container_width=True)
                 
-                st.metric(
-                    "종합 리스크",
-                    f"{risk_score:.1f}%",
-                    f"{risk_level} {risk_color}"
-                )
-                
-                fig_gauge3 = go.Figure(go.Indicator(
-                    mode = "gauge+number",
-                    value = risk_score,
-                    domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': "종합 리스크"},
-                    gauge = {
-                        'axis': {'range': [None, 100]},
-                        'bar': {'color': "darkblue"},
-                        'steps': [
-                            {'range': [0, 40], 'color': "lightgreen"},
-                            {'range': [40, 70], 'color': "yellow"},
-                            {'range': [70, 100], 'color': "lightcoral"}
-                        ],
-                        'threshold': {
-                            'line': {'color': "red", 'width': 4},
-                            'thickness': 0.75,
-                            'value': 70
+                with col3:
+                    risk_score = data['risk_score']
+                    risk_level = "낮음" if risk_score < 40 else ("중간" if risk_score < 70 else "높음")
+                    risk_color = "🟢" if risk_score < 40 else ("🟡" if risk_score < 70 else "🔴")
+                    
+                    st.metric(
+                        "종합 리스크",
+                        f"{risk_score:.1f}%",
+                        f"{risk_level} {risk_color}"
+                    )
+                    
+                    fig_gauge3 = go.Figure(go.Indicator(
+                        mode = "gauge+number",
+                        value = risk_score,
+                        domain = {'x': [0, 1], 'y': [0, 1]},
+                        title = {'text': "종합 리스크"},
+                        gauge = {
+                            'axis': {'range': [None, 100]},
+                            'bar': {'color': "darkblue"},
+                            'steps': [
+                                {'range': [0, 40], 'color': "lightgreen"},
+                                {'range': [40, 70], 'color': "yellow"},
+                                {'range': [70, 100], 'color': "lightcoral"}
+                            ],
+                            'threshold': {
+                                'line': {'color': "red", 'width': 4},
+                                'thickness': 0.75,
+                                'value': 70
+                            }
                         }
-                    }
-                ))
-                fig_gauge3.update_layout(height=250)
-                st.plotly_chart(fig_gauge3, use_container_width=True)
-            
-            st.markdown("---")
+                    ))
+                    fig_gauge3.update_layout(height=250)
+                    st.plotly_chart(fig_gauge3, use_container_width=True)
+                
+                st.markdown("---")
             
             # 2. 파생상품 지표 & 동적 변수 분석 (2열)
             col1, col2 = st.columns(2)
@@ -238,11 +245,14 @@ def render():
             
             with col2:
                 st.markdown("### 📉 동적 변수 분석")
-                if predictor.include_dynamic:
+                if data is not None and predictor.include_dynamic:
                     indicators = data['indicators']
                     render_dynamic_indicators(indicators, data_loader, target_date, coin)
                 else:
-                    st.info("💡 동적 변수 분석을 보려면 하이브리드 모델을 사용하세요.")
+                    if data is None:
+                        st.info("💡 리스크 예측 데이터가 없어 동적 변수 분석을 표시할 수 없습니다.")
+                    else:
+                        st.info("💡 동적 변수 분석을 보려면 하이브리드 모델을 사용하세요.")
             
             st.markdown("---")
             
@@ -376,7 +386,12 @@ def render():
                 
                 st.plotly_chart(fig_history, use_container_width=True)
             else:
-                st.info("최근 30일 데이터가 없습니다.")
+                st.warning(f"⚠️ {history_start} ~ {history_end} 기간에 리스크 이력 데이터가 없습니다.")
+                if coin == 'ETH':
+                    st.info("💡 ETH 데이터는 2022-01-01부터 수집되었지만, 선택한 기간에 데이터가 없을 수 있습니다.")
+                    st.info("💡 분석 기간을 조정하거나, BTC로 변경해보세요.")
+                else:
+                    st.info("💡 데이터가 없는 기간입니다. 다른 날짜를 선택해보세요.")
     
     else:
         st.info("👈 사이드바에서 날짜와 코인을 선택한 후 '종합 분석 실행' 버튼을 클릭하세요.")

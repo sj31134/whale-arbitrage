@@ -177,6 +177,9 @@ def render():
                     
                     if result['success']:
                         predictions[model_type] = result['data']
+                    else:
+                        # 데이터가 없으면 없는 것으로 표시 (가장 가까운 날짜 사용하지 않음)
+                        st.warning(f"⚠️ {model_type} 모델: {target_date} 데이터 없음 - {result.get('error', '알 수 없음')}")
                 except Exception as e:
                     st.warning(f"⚠️ {model_type} 모델 예측 실패: {str(e)}")
             

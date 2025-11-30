@@ -89,12 +89,24 @@ def render():
             
             if metrics_df.empty and oi_df.empty:
                 st.error("❌ 데이터를 불러올 수 없습니다.")
+                if coin == 'ETH':
+                    st.info("💡 ETH 데이터는 2022-01-01부터 수집되었지만, 선택한 기간에 데이터가 없을 수 있습니다.")
+                    st.info("💡 분석 기간을 조정하거나, BTC로 변경해보세요.")
                 st.stop()
             
             # 1. OI (미결제약정) 분석
             st.subheader("📈 미결제약정 (OI) 분석")
             
+            # OI 데이터 유효성 확인
             if 'sum_open_interest' in oi_df.columns and len(oi_df) > 0:
+                # 0이 아닌 OI 데이터 확인
+                oi_valid = oi_df[oi_df['sum_open_interest'].notna() & (oi_df['sum_open_interest'] != 0)]
+                if len(oi_valid) == 0:
+                    st.warning(f"⚠️ {coin} OI 데이터가 없거나 모두 0입니다.")
+                    if coin == 'ETH':
+                        st.info(f"💡 ETH OI 데이터는 2022-01-01부터 수집되었지만, 선택한 기간({start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')})에 데이터가 없습니다.")
+                        st.info("💡 분석 기간을 조정하거나, BTC로 변경해보세요.")
+                    st.stop()
                 col1, col2 = st.columns(2)
                 
                 with col1:
@@ -306,18 +318,27 @@ def render():
             with col1:
                 # Binance 펀딩비
                 if 'avg_funding_rate' in oi_df.columns and len(oi_df) > 0:
-                    fig_funding = px.line(
-                        oi_df,
-                        x='date',
-                        y=oi_df['avg_funding_rate'] * 100,
-                        title='Binance 펀딩비 (%)',
-                        labels={'avg_funding_rate': '펀딩비 (%)', 'date': '날짜'}
-                    )
-                    fig_funding.add_hline(y=0, line_dash="dash", line_color="gray")
-                    fig_funding.update_traces(line_color='#d62728', line_width=2)
-                    st.plotly_chart(fig_funding, use_container_width=True)
+                    # 유효한 펀딩비 데이터 확인
+                    funding_valid = oi_df[oi_df['avg_funding_rate'].notna()]
+                    if len(funding_valid) > 0:
+                        fig_funding = px.line(
+                            funding_valid,
+                            x='date',
+                            y=funding_valid['avg_funding_rate'] * 100,
+                            title='Binance 펀딩비 (%)',
+                            labels={'avg_funding_rate': '펀딩비 (%)', 'date': '날짜'}
+                        )
+                        fig_funding.add_hline(y=0, line_dash="dash", line_color="gray")
+                        fig_funding.update_traces(line_color='#d62728', line_width=2)
+                        st.plotly_chart(fig_funding, use_container_width=True)
+                    else:
+                        st.warning(f"⚠️ {coin} Binance 펀딩비 데이터가 없습니다.")
+                        if coin == 'ETH':
+                            st.info("💡 ETH 펀딩비 데이터는 2022-01-01부터 수집되었지만, 선택한 기간에 데이터가 없을 수 있습니다.")
                 else:
-                    st.info("Binance 펀딩비 데이터 없음")
+                    st.warning(f"⚠️ {coin} Binance 펀딩비 데이터가 없습니다.")
+                    if coin == 'ETH':
+                        st.info("💡 ETH 펀딩비 데이터는 2022-01-01부터 수집되었지만, 선택한 기간에 데이터가 없을 수 있습니다.")
             
             with col2:
                 # Bybit 펀딩비

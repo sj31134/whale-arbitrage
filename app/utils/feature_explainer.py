@@ -149,8 +149,24 @@ class FeatureExplainer:
             
             row = target_df.iloc[0]
             features = self.predictor.features
-            X = row[features].values.reshape(1, -1)
-            X_df = pd.DataFrame(X, columns=features).astype(float)
+            
+            # 특성 추출 (누락된 features는 0으로 채움)
+            X_values = []
+            for feature in features:
+                if feature in row.index:
+                    value = row[feature]
+                    if pd.isna(value):
+                        X_values.append(0.0)
+                    else:
+                        try:
+                            X_values.append(float(value))
+                        except (ValueError, TypeError):
+                            X_values.append(0.0)
+                else:
+                    X_values.append(0.0)
+            
+            X = np.array(X_values).reshape(1, -1)
+            X_df = pd.DataFrame([X_values], columns=features, dtype=float)
             
             # SHAP 값 계산
             model = self.predictor.model
@@ -248,8 +264,12 @@ class FeatureExplainer:
             predictions = []
             
             # 기준 데이터 (평균값 사용) - 숫자형으로 변환
-            df[features] = df[features].apply(pd.to_numeric, errors='coerce')
-            baseline = df[features].mean()
+            baseline = {}
+            for feat in features:
+                if feat in df.columns:
+                    baseline[feat] = pd.to_numeric(df[feat], errors='coerce').mean()
+                else:
+                    baseline[feat] = 0.0
             
             for val in sample_values:
                 # 특성 값만 변경

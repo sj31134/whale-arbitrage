@@ -16,8 +16,9 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 # 프로젝트 루트 경로 설정
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'src'))
 
 load_dotenv(PROJECT_ROOT / 'config' / '.env')
 

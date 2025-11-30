@@ -723,16 +723,22 @@ def render():
                 with col1:
                     st.markdown("**고래 집중도 변화**")
                     if 'top100_richest_pct' in risk_df.columns:
-                        fig1 = px.line(
-                            risk_df, 
-                            x='date', 
-                            y='top100_richest_pct',
-                            title="Top 100 지갑 보유 비중",
-                            labels={'top100_richest_pct': '보유 비중 (%)', 'date': '날짜'}
-                        )
-                        st.plotly_chart(fig1, use_container_width=True)
+                        # NaN 제거 및 유효 데이터 확인
+                        valid_df = risk_df[['date', 'top100_richest_pct']].dropna()
+                        if len(valid_df) > 0 and valid_df['top100_richest_pct'].notna().sum() > 0:
+                            fig1 = px.line(
+                                valid_df, 
+                                x='date', 
+                                y='top100_richest_pct',
+                                title="Top 100 지갑 보유 비중",
+                                labels={'top100_richest_pct': '보유 비중 (%)', 'date': '날짜'}
+                            )
+                            fig1.update_traces(mode='lines+markers')
+                            st.plotly_chart(fig1, use_container_width=True)
+                        else:
+                            st.info("💡 고래 집중도 데이터가 없습니다.")
                     else:
-                        st.info("데이터 없음")
+                        st.info("💡 고래 집중도 데이터 컬럼이 없습니다.")
                 
                 with col2:
                     if is_weekly:

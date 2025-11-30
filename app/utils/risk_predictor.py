@@ -413,8 +413,8 @@ class RiskPredictor:
             if len(df) == 0:
                 return pd.DataFrame()
             
-            # 특성 생성
-            df, _ = self.feature_engineer.create_features(df)
+            # 특성 생성 (동적 변수 포함 여부에 따라)
+            df, _ = self.feature_engineer.create_features(df, include_dynamic=self.include_dynamic)
             
             # 예측 기간 필터링
             df = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
@@ -423,20 +423,52 @@ class RiskPredictor:
                 return pd.DataFrame()
             
             # 예측 (dtype 변환)
-            X = df[self.features].copy()
+            # 모델 features와 실제 데이터 features 매칭
+            available_features = [f for f in self.features if f in df.columns]
+            missing_features = [f for f in self.features if f not in df.columns]
             
-            # 모든 특성을 float로 변환
+            if missing_features:
+                import logging
+                logging.warning(f"누락된 features: {missing_features}. 0으로 채웁니다.")
+            
+            X = pd.DataFrame(index=df.index)
             for feature in self.features:
-                if feature in X.columns:
-                    X[feature] = pd.to_numeric(X[feature], errors='coerce').fillna(0.0).astype(float)
+                if feature in df.columns:
+                    X[feature] = pd.to_numeric(df[feature], errors='coerce').fillna(0.0).astype(float)
+                else:
+                    X[feature] = 0.0
+            
+            # 컬럼 순서를 모델 features 순서와 일치시킴
+            X = X[self.features]
             
             probs = self.model.predict_proba(X)[:, 1]
             risk_scores = probs * 100
             
-            # 청산 리스크 계산
-            oi_growth = df['oi_growth_7d'].fillna(0)
-            funding_zscore = df['funding_rate_zscore'].fillna(0)
-            liquidation_risks = np.minimum(100, np.maximum(0, (np.abs(oi_growth) * 50 + np.abs(funding_zscore) * 20)))
+            # 청산 리스크 계산 (predict_risk와 동일한 로직 적용)
+            oi_growth = df['oi_growth_7d'].fillna(0).astype(float)
+            funding_zscore = df['funding_rate_zscore'].fillna(0).astype(float)
+            
+            # 동적 변수 포함 여부에 따라 다른 계산
+            if self.include_dynamic:
+                oi_accel = df.get('oi_accel', pd.Series(0, index=df.index)).fillna(0).astype(float)
+                vol_accel = df.get('volatility_accel', pd.Series(0, index=df.index)).fillna(0).astype(float)
+                
+                # 스케일 정규화 (이상치 클리핑) - predict_risk와 동일
+                oi_growth_norm = np.minimum(np.abs(oi_growth), 0.5)       # 최대 50% 변화
+                funding_zscore_norm = np.minimum(np.abs(funding_zscore), 3.0)  # 최대 3 시그마
+                oi_accel_norm = np.minimum(np.abs(oi_accel), 0.3)        # 최대 30% 가속
+                vol_accel_norm = np.minimum(np.abs(vol_accel), 0.02)     # 최대 2% 가속
+                
+                liquidation_risks = np.minimum(100, np.maximum(0,
+                    oi_growth_norm * 50 +         # 0~25점
+                    funding_zscore_norm * 10 +    # 0~30점
+                    oi_accel_norm * 50 +          # 0~15점
+                    vol_accel_norm * 500          # 0~10점
+                ))  # 총합 최대 80점
+            else:
+                oi_growth_norm = np.minimum(np.abs(oi_growth), 0.5)
+                funding_zscore_norm = np.minimum(np.abs(funding_zscore), 3.0)
+                liquidation_risks = np.minimum(100, np.maximum(0, oi_growth_norm * 60 + funding_zscore_norm * 12))
             
             # 결과 DataFrame 생성
             result_df = pd.DataFrame({

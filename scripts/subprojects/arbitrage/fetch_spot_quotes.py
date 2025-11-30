@@ -18,7 +18,7 @@ DB_PATH = ROOT / "data" / "project.db"
 
 UPBIT_BASE = "https://api.upbit.com/v1/candles/days"
 BINANCE_BASE = "https://api.binance.com/api/v3/klines"
-BITGET_BASE = "https://api.bitget.com/api/spot/v1/market/candles"
+BITGET_BASE = "https://api.bitget.com/api/v2/spot/market/candles"  # V2 API
 BYBIT_BASE = "https://api.bybit.com/v5/market/kline"
 
 
@@ -207,13 +207,9 @@ def fetch_binance_spot(symbol):
 
 
 def fetch_bitget_spot(symbol, start_date_str="2024-01-01"):
-    """Bitget 지정 날짜부터 현재까지 수집 (정순)"""
-    # Bitget symbol 형식: BTCUSDT_SPBL (SPBL = Spot)
-    if not symbol.endswith("_SPBL"):
-        symbol_api = f"{symbol}_SPBL"
-    else:
-        symbol_api = symbol
-        symbol = symbol.replace("_SPBL", "")
+    """Bitget V2 API로 지정 날짜부터 현재까지 수집"""
+    # Bitget V2 API는 symbol 형식: BTCUSDT (SPBL 없이)
+    symbol_api = symbol
     
     start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
     start_ts = int(start_dt.timestamp() * 1000)
@@ -223,22 +219,23 @@ def fetch_bitget_spot(symbol, start_date_str="2024-01-01"):
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
     session.mount("https://", adapter)
 
-    print(f"🔄 Bitget {symbol} 수집 시작 ({start_date_str} ~ 현재)...")
+    print(f"🔄 Bitget V2 {symbol} 수집 시작 ({start_date_str} ~ 현재)...")
     
-    # 비트겟 API는 before와 after를 모두 지정하면 최신 데이터부터 역순으로 반환
-    # 따라서 before를 점진적으로 줄여가며 과거 데이터를 수집해야 함
-    current_end_ts = end_ts  # 현재 시간부터 시작
+    current_end_ts = end_ts
     
     while current_end_ts > start_ts:
-        # Bitget API: symbol (BTCUSDT_SPBL), period (1day), after (startTime), before (endTime), limit
-        # before를 점진적으로 줄여가며 과거 데이터 수집
+        # Bitget V2 API 파라미터
+        # V2 API 문서: https://www.bitget.com/api-doc/spot/market/Get-Candle-Data
+        # granularity 허용값: 1min,3min,5min,15min,30min,1h,4h,6h,12h,1day,1week,1M,6Hutc,12Hutc,1Dutc,3Dutc,1Wutc,1Mutc
         params = {
             "symbol": symbol_api,
-            "period": "1day",  # Bitget는 "1day" 형식 사용
-            "after": str(start_ts),
-            "before": str(current_end_ts),  # 점진적으로 줄임
+            "productType": "spot",
+            "granularity": "1day",  # 1일봉 (허용값: 1day 또는 1Dutc)
+            "startTime": str(start_ts),
+            "endTime": str(current_end_ts),
             "limit": 200
         }
+        
         try:
             response = session.get(BITGET_BASE, params=params, timeout=10)
             
@@ -248,13 +245,14 @@ def fetch_bitget_spot(symbol, start_date_str="2024-01-01"):
             
             result = response.json()
             
-            # Bitget 응답 형식: {"code": "00000", "msg": "success", "data": [...]}
-            # 또는 {"code": 200, "data": [...]} 형식일 수 있음
-            if result.get("code") not in ["00000", 200, "200"] or not result.get("data"):
-                print(f"⚠️ Bitget {symbol} API 응답 오류: {result.get('msg', result.get('message', 'Unknown error'))}")
+            # V2 API 응답 형식: {"code": "00000", "msg": "success", "data": [...]}
+            if result.get("code") != "00000" or not result.get("data"):
+                error_msg = result.get('msg', result.get('message', 'Unknown error'))
+                print(f"⚠️ Bitget {symbol} API 응답 오류: {error_msg}")
+                print(f"   응답: {result}")
                 break
             
-            data = result["data"]
+            data = result.get("data", [])
             if not data:
                 break
                 
@@ -262,25 +260,41 @@ def fetch_bitget_spot(symbol, start_date_str="2024-01-01"):
             timestamps = []
             
             for candle in data:
-                # Bitget 응답: {"ts": timestamp, "open": ..., "high": ..., "close": ..., "quoteVol": ..., "baseVol": ...}
-                ts = int(candle.get("ts", 0))
+                # V2 API 응답 형식: [ts, open, high, low, close, baseVol, quoteVol] 또는 객체 형식
+                if isinstance(candle, list):
+                    # 배열 형식: [timestamp, open, high, low, close, baseVol, quoteVol]
+                    ts = int(candle[0])
+                    open_price = float(candle[1])
+                    high_price = float(candle[2])
+                    low_price = float(candle[3])
+                    close_price = float(candle[4])
+                    base_vol = float(candle[5]) if len(candle) > 5 else 0
+                    quote_vol = float(candle[6]) if len(candle) > 6 else 0
+                else:
+                    # 객체 형식: {"ts": ..., "open": ..., ...}
+                    ts = int(candle.get("ts", candle.get("timestamp", candle.get("time", 0))))
+                    open_price = float(candle.get("open", candle.get("o", 0)))
+                    high_price = float(candle.get("high", candle.get("h", 0)))
+                    low_price = float(candle.get("low", candle.get("l", 0)))
+                    close_price = float(candle.get("close", candle.get("c", 0)))
+                    base_vol = float(candle.get("baseVol", candle.get("vol", candle.get("volume", 0))))
+                    quote_vol = float(candle.get("quoteVol", candle.get("usdtVol", candle.get("quoteVolume", 0))))
+                
                 if ts == 0:
                     continue
                     
                 timestamps.append(ts)
                 dt_str = datetime.utcfromtimestamp(ts / 1000).date().isoformat()
-                # symbol에서 _SPBL 제거하여 저장 (BTCUSDT_SPBL -> BTCUSDT)
-                symbol_clean = symbol.replace("_SPBL", "")
                 
                 rows.append((
-                    symbol_clean,
+                    symbol,
                     dt_str,
-                    float(candle.get("open", 0)),
-                    float(candle.get("high", 0)),
-                    float(candle.get("low", 0)),
-                    float(candle.get("close", 0)),
-                    float(candle.get("baseVol", 0)),  # base volume
-                    float(candle.get("quoteVol", candle.get("usdtVol", 0))),  # quote volume (USDT)
+                    open_price,
+                    high_price,
+                    low_price,
+                    close_price,
+                    base_vol,
+                    quote_vol,
                 ))
             
             if rows:
@@ -290,24 +304,20 @@ def fetch_bitget_spot(symbol, start_date_str="2024-01-01"):
                     ["symbol", "date", "open", "high", "low", "close", "volume", "quote_volume"],
                 )
                 
-                # Bitget API는 최신 -> 과거 순으로 반환하므로, 가장 오래된 타임스탬프를 찾아야 함
                 oldest_ts = min(timestamps)
                 newest_ts = max(timestamps)
                 oldest_dt = datetime.utcfromtimestamp(oldest_ts / 1000).strftime('%Y-%m-%d')
                 newest_dt = datetime.utcfromtimestamp(newest_ts / 1000).strftime('%Y-%m-%d')
                 
-                print(f"✅ Bitget {symbol_clean}: {oldest_dt} ~ {newest_dt} ({len(rows)}건)")
+                print(f"✅ Bitget {symbol}: {oldest_dt} ~ {newest_dt} ({len(rows)}건)")
                 
-                # 가장 오래된 타임스탬프의 1ms 전을 다음 before로 설정 (중복 방지)
                 current_end_ts = oldest_ts - 1
                 
-                # 더 이상 진행할 수 없으면 종료 (가장 오래된 데이터가 요청 시작일보다 이전인 경우)
                 if oldest_ts <= start_ts:
-                    print(f"✅ Bitget {symbol_clean}: 수집 완료 (시작일 도달)")
+                    print(f"✅ Bitget {symbol}: 수집 완료 (시작일 도달)")
                     break
             else:
-                # 데이터가 없으면 종료
-                print(f"⚠️ Bitget {symbol_clean}: 더 이상 데이터 없음")
+                print(f"⚠️ Bitget {symbol}: 더 이상 데이터 없음")
                 break
                 
             time.sleep(0.1)

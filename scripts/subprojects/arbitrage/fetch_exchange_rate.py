@@ -7,6 +7,7 @@ import os
 import sqlite3
 import time
 import requests
+import pandas as pd
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
