@@ -18,19 +18,24 @@ if os.path.exists('/mount/src'):
     # Streamlit Cloud
     ROOT = Path('/mount/src/whale-arbitrage')
     DB_PATH = Path('/tmp') / "project.db"
+    USE_SUPABASE = True  # 클라우드에서는 Supabase 우선 사용
 elif os.path.exists('/app'):
     # Docker 컨테이너 내부
     ROOT = Path('/app')
     DB_PATH = ROOT / "data" / "project.db"
+    USE_SUPABASE = False
 else:
     # 로컬 개발 환경
     ROOT = Path(__file__).resolve().parents[2]
     DB_PATH = ROOT / "data" / "project.db"
+    USE_SUPABASE = False
 
 
 class DataLoader:
     def __init__(self):
         self.db_path = DB_PATH
+        self.use_supabase = USE_SUPABASE
+        self._supabase_client = None
         
         # Streamlit UI에 디버그 정보 표시 (Streamlit Cloud용)
         try:
@@ -40,6 +45,39 @@ class DataLoader:
         except ImportError:
             # Streamlit이 없는 환경 (테스트 등)
             self._initialize_database()
+    
+    def _get_supabase_client(self):
+        """Supabase 클라이언트 가져오기 (지연 초기화)"""
+        if self._supabase_client is None:
+            try:
+                from dotenv import load_dotenv
+                from supabase import create_client
+                
+                # 환경 변수 로드
+                env_path = ROOT / "config" / ".env"
+                if not env_path.exists():
+                    # Streamlit Cloud Secrets에서 가져오기
+                    import streamlit as st
+                    supabase_url = st.secrets.get("SUPABASE_URL", os.getenv("SUPABASE_URL"))
+                    supabase_key = st.secrets.get("SUPABASE_KEY", os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
+                else:
+                    load_dotenv(env_path, override=True)
+                    supabase_url = os.getenv("SUPABASE_URL")
+                    supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                
+                if not supabase_url or not supabase_key:
+                    raise ValueError("Supabase 환경 변수가 설정되지 않았습니다. SUPABASE_URL과 SUPABASE_KEY를 확인하세요.")
+                
+                self._supabase_client = create_client(supabase_url, supabase_key)
+                logging.info("Supabase 클라이언트 초기화 완료")
+            except ImportError:
+                logging.warning("supabase 패키지가 설치되지 않았습니다. SQLite만 사용합니다.")
+                self.use_supabase = False
+            except Exception as e:
+                logging.warning(f"Supabase 초기화 실패: {e}. SQLite로 폴백합니다.")
+                self.use_supabase = False
+        
+        return self._supabase_client
     
     def _initialize_database(self):
         """데이터베이스 초기화 로직"""
@@ -684,6 +722,39 @@ class DataLoader:
         Returns:
             DataFrame with futures extended metrics
         """
+        # Supabase 우선 사용 (클라우드 환경)
+        if self.use_supabase:
+            try:
+                supabase = self._get_supabase_client()
+                if supabase:
+                    response = supabase.table("futures_extended_metrics") \
+                        .select("*") \
+                        .eq("symbol", symbol) \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if response.data:
+                        df = pd.DataFrame(response.data)
+                        df['date'] = pd.to_datetime(df['date'])
+                        
+                        # 숫자 컬럼 변환
+                        numeric_columns = [
+                            'long_short_ratio', 'long_account_pct', 'short_account_pct',
+                            'taker_buy_sell_ratio', 'taker_buy_vol', 'taker_sell_vol',
+                            'top_trader_long_short_ratio', 'bybit_funding_rate', 'bybit_oi'
+                        ]
+                        for col in numeric_columns:
+                            if col in df.columns:
+                                df[col] = pd.to_numeric(df[col], errors='coerce')
+                        
+                        return df
+            except Exception as e:
+                logging.warning(f"Supabase에서 데이터 로드 실패, SQLite로 폴백: {e}")
+                # SQLite로 폴백
+        
+        # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
         try:
             if not hasattr(self, 'conn') or self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")
