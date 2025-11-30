@@ -709,7 +709,22 @@ class DataLoader:
                             if col in df.columns:
                                 df[col] = pd.to_numeric(df[col], errors='coerce')
                         
-                        df = df.ffill().dropna()
+                        # whale 데이터는 선택적이므로, 파생상품 데이터가 있으면 유지
+                        # whale 컬럼만 forward fill하고, 파생상품 핵심 컬럼이 있으면 행 유지
+                        whale_cols = ['top100_richest_pct', 'avg_transaction_value_btc']
+                        core_cols = ['avg_funding_rate', 'sum_open_interest', 'volatility_24h']
+                        
+                        # whale 컬럼만 forward fill
+                        for col in whale_cols:
+                            if col in df.columns:
+                                df[col] = df[col].ffill()
+                        
+                        # 핵심 파생상품 컬럼 중 하나라도 있으면 행 유지
+                        # (whale 데이터가 없어도 파생상품 데이터는 반환)
+                        if len(core_cols) > 0:
+                            has_core_data = df[core_cols].notna().any(axis=1)
+                            df = df[has_core_data]
+                        
                         return df
             except Exception as e:
                 logging.warning(f"Supabase에서 데이터 로드 실패, SQLite로 폴백: {e}")
@@ -760,7 +775,21 @@ class DataLoader:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
             
             # 결측치 처리 (Forward Fill)
-            df = df.ffill().dropna()
+            # whale 데이터는 선택적이므로, 파생상품 데이터가 있으면 유지
+            # whale 컬럼만 forward fill하고, 파생상품 핵심 컬럼이 있으면 행 유지
+            whale_cols = ['top100_richest_pct', 'avg_transaction_value_btc']
+            core_cols = ['avg_funding_rate', 'sum_open_interest', 'volatility_24h']
+            
+            # whale 컬럼만 forward fill
+            for col in whale_cols:
+                if col in df.columns:
+                    df[col] = df[col].ffill()
+            
+            # 핵심 파생상품 컬럼 중 하나라도 있으면 행 유지
+            # (whale 데이터가 없어도 파생상품 데이터는 반환)
+            if len(core_cols) > 0:
+                has_core_data = df[core_cols].notna().any(axis=1)
+                df = df[has_core_data]
             
             return df
             

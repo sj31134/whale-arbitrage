@@ -48,7 +48,8 @@ page = st.sidebar.selectbox(
         "📈 파생상품 지표 분석",
         "📉 동적 변수 분석",
         "🔬 모델 성능 비교",
-        "📊 종합 대시보드"
+        "📊 종합 대시보드",
+        "🤖 자동매매 봇"
     ]
 )
 
@@ -116,6 +117,13 @@ elif page == "📊 종합 대시보드":
     except ImportError:
         from pages import comprehensive_dashboard_page
     comprehensive_dashboard_page.render()
+elif page == "🤖 자동매매 봇":
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import trading_bot_page
+    except ImportError:
+        from pages import trading_bot_page
+    trading_bot_page.render_page()
 
 # 푸터
 st.sidebar.markdown("---")

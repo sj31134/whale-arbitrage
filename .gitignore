@@ -60,3 +60,8 @@ Thumbs.db
 *.bak
 *.tmp
 
+# Trading Bot (자동매매 봇)
+trading_bot/config/user_settings.json
+trading_bot/data/positions.json
+trading_bot/data/*.json
+
