@@ -310,23 +310,31 @@ def render():
                 )
             
             if len(corr_matrix) > 0:
-                fig_heatmap = px.imshow(
-                    corr_matrix,
-                    labels=dict(x="지표", y="지표", color="상관계수"),
-                    x=corr_matrix.columns,
-                    y=corr_matrix.columns,
-                    color_continuous_scale='RdBu',
-                    aspect="auto",
-                    title="지표별 상관관계 히트맵"
-                )
-                fig_heatmap.update_layout(height=500)
-                st.plotly_chart(fig_heatmap, use_container_width=True)
+                # NaN이나 inf 값 제거
+                corr_matrix_clean = corr_matrix.replace([np.inf, -np.inf], np.nan).dropna(how='all').dropna(axis=1, how='all')
                 
-                # 상관관계 테이블
-                st.markdown("**상관계수 테이블**")
-                st.dataframe(corr_matrix.round(3), use_container_width=True)
+                if len(corr_matrix_clean) > 0:
+                    fig_heatmap = px.imshow(
+                        corr_matrix_clean,
+                        labels=dict(x="지표", y="지표", color="상관계수"),
+                        x=corr_matrix_clean.columns,
+                        y=corr_matrix_clean.columns,
+                        color_continuous_scale='RdBu',
+                        aspect="auto",
+                        title="지표별 상관관계 히트맵"
+                    )
+                    fig_heatmap.update_layout(height=500)
+                    st.plotly_chart(fig_heatmap, use_container_width=True)
+                    
+                    # 상관관계 테이블
+                    st.markdown("**상관계수 테이블**")
+                    st.dataframe(corr_matrix_clean.round(3), use_container_width=True)
+                else:
+                    st.warning("⚠️ 변동성 데이터가 없어 상관관계 분석을 수행할 수 없습니다.")
+                    st.info("💡 변동성 데이터를 수집하려면 `scripts/subprojects/risk_ai/update_volatility_data.py`를 실행하세요.")
             else:
-                st.info("상관관계 분석을 수행할 수 없습니다.")
+                st.warning("⚠️ 상관관계 분석을 수행할 수 없습니다.")
+                st.info("💡 데이터가 충분하지 않거나 변동성 데이터가 없을 수 있습니다.")
     
     else:
         st.info("👈 사이드바에서 기간과 코인을 선택한 후 '분석 실행' 버튼을 클릭하세요.")

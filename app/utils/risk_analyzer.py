@@ -226,8 +226,19 @@ class RiskAnalyzer:
             if len(available_cols) == 0:
                 return pd.DataFrame()
             
-            # 상관관계 계산
+            # 변동성 데이터가 없거나 0인 경우 제외
+            if 'volatility_24h' in available_cols:
+                # volatility_24h가 0이거나 NaN인 행 제외
+                df = df[df['volatility_24h'].notna() & (df['volatility_24h'] > 0)]
+            
+            if len(df) == 0:
+                return pd.DataFrame()
+            
+            # 상관관계 계산 (NaN 값 제거)
             corr_matrix = df[available_cols].corr()
+            
+            # NaN이나 inf 값 제거
+            corr_matrix = corr_matrix.replace([np.inf, -np.inf], np.nan).dropna(how='all').dropna(axis=1, how='all')
             
             return corr_matrix
             
