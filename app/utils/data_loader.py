@@ -644,6 +644,55 @@ class DataLoader:
         else:
             raise ValueError(f"지원하지 않는 코인: {coin}")
         
+        # Supabase 우선 사용 (클라우드 환경)
+        if self.use_supabase:
+            try:
+                supabase = self._get_supabase_client()
+                if supabase:
+                    # binance_futures_metrics 로드
+                    futures_response = supabase.table("binance_futures_metrics") \
+                        .select("*") \
+                        .eq("symbol", symbol) \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if futures_response.data:
+                        df = pd.DataFrame(futures_response.data)
+                        df['date'] = pd.to_datetime(df['date'])
+                        
+                        # bitinfocharts_whale 데이터 병합
+                        whale_response = supabase.table("bitinfocharts_whale") \
+                            .select("*") \
+                            .eq("coin", coin_label) \
+                            .gte("date", start_date) \
+                            .lte("date", end_date) \
+                            .order("date") \
+                            .execute()
+                        
+                        if whale_response.data:
+                            whale_df = pd.DataFrame(whale_response.data)
+                            whale_df['date'] = pd.to_datetime(whale_df['date'])
+                            df = pd.merge(df, whale_df[['date', 'top100_richest_pct', 'avg_transaction_value_btc']], 
+                                        on='date', how='left')
+                        
+                        # 숫자 컬럼 변환
+                        numeric_columns = [
+                            'avg_funding_rate', 'sum_open_interest', 'long_short_ratio',
+                            'volatility_24h', 'top100_richest_pct', 'avg_transaction_value_btc'
+                        ]
+                        for col in numeric_columns:
+                            if col in df.columns:
+                                df[col] = pd.to_numeric(df[col], errors='coerce')
+                        
+                        df = df.ffill().dropna()
+                        return df
+            except Exception as e:
+                logging.warning(f"Supabase에서 데이터 로드 실패, SQLite로 폴백: {e}")
+                # SQLite로 폴백
+        
+        # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
         try:
             if not hasattr(self, 'conn') or self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")
