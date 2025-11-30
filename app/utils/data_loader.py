@@ -207,6 +207,14 @@ class DataLoader:
     @property
     def conn(self):
         """데이터베이스 연결 (필요할 때마다 새로 생성)"""
+        # Supabase 사용 시 SQLite 연결 불필요
+        if self.use_supabase:
+            return None
+        
+        # _db_path가 None이면 SQLite 사용 안 함
+        if self._db_path is None:
+            return None
+        
         if self._conn is None:
             try:
                 self._conn = sqlite3.connect(self._db_path, timeout=10.0, check_same_thread=False)
