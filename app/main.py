@@ -120,10 +120,15 @@ elif page == "📊 종합 대시보드":
 elif page == "🤖 자동매매 봇":
     # Streamlit Cloud 경로 처리
     try:
-        from app.pages import trading_bot_page
-    except ImportError:
-        from pages import trading_bot_page
-    trading_bot_page.render_page()
+        try:
+            from app.pages import trading_bot_page
+        except ImportError:
+            from pages import trading_bot_page
+        trading_bot_page.render_page()
+    except (ImportError, ModuleNotFoundError) as e:
+        st.error("❌ 자동매매 봇 모듈을 불러올 수 없습니다.")
+        st.info("💡 이 기능은 아직 개발 중입니다.")
+        st.code(f"오류: {str(e)}")
 
 # 푸터
 st.sidebar.markdown("---")

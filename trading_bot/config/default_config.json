@@ -1,0 +1,38 @@
+{
+  "api": {
+    "upbit_access_key": "",
+    "upbit_secret_key": "",
+    "binance_api_key": "",
+    "binance_secret_key": ""
+  },
+  "telegram": {
+    "bot_token": "",
+    "chat_id": ""
+  },
+  "database": {
+    "use_supabase": false,
+    "supabase_url": "",
+    "supabase_key": "",
+    "sqlite_path": "../data/project.db"
+  },
+  "trading": {
+    "target_coin": "BTC",
+    "initial_capital": 1000000,
+    "max_position_size": 0.3,
+    "stop_loss_pct": -0.05,
+    "take_profit_pct": 0.10
+  },
+  "strategy": {
+    "volatility_window": 5,
+    "negative_premium_threshold": -0.01,
+    "low_premium_threshold": 0.02,
+    "whale_lookback_hours": 1,
+    "whale_buy_threshold": 0.0
+  },
+  "risk_management": {
+    "max_retries": 3,
+    "retry_delay": 5,
+    "check_interval": 60
+  }
+}
+
