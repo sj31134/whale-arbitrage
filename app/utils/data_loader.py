@@ -89,9 +89,24 @@ class DataLoader:
             "환경": "Streamlit Cloud" if is_streamlit_cloud else "로컬/Docker",
             "DB 경로": str(self.db_path),
             "파일 존재": self.db_path.exists(),
+            "Supabase 사용": self.use_supabase,
             "/tmp 존재": os.path.exists('/tmp'),
             "/mount/src 존재": os.path.exists('/mount/src'),
         }
+        
+        # Supabase 사용 시 SQLite 파일 체크 건너뛰기
+        if self.use_supabase:
+            try:
+                supabase = self._get_supabase_client()
+                if supabase:
+                    st.success("✅ Supabase 연결 성공")
+                    # Supabase 사용 시 SQLite 파일 불필요
+                    self._conn = None
+                    self._db_path = None
+                    return
+            except Exception as e:
+                logging.warning(f"Supabase 초기화 실패, SQLite로 폴백: {e}")
+                self.use_supabase = False
         
         # 데이터베이스 파일이 없으면 다운로드 시도 (Streamlit Cloud용)
         if not self.db_path.exists():
