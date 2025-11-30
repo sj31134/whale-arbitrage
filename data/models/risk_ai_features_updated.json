@@ -1,0 +1,38 @@
+{
+  "features": [
+    "avg_funding_rate",
+    "sum_open_interest",
+    "long_position_pct",
+    "whale_conc_change_7d",
+    "funding_rate_zscore",
+    "oi_growth_7d",
+    "volatility_ratio",
+    "volatility_delta",
+    "oi_delta",
+    "funding_delta",
+    "taker_ratio_delta",
+    "net_flow_delta",
+    "volatility_accel",
+    "oi_accel",
+    "funding_accel",
+    "volatility_slope",
+    "oi_slope",
+    "funding_slope",
+    "volatility_delta_stability",
+    "oi_delta_stability",
+    "long_short_momentum",
+    "ext_ls_momentum",
+    "vol_oi_accel_product",
+    "funding_taker_momentum",
+    "taker_buy_sell_ratio",
+    "long_account_pct",
+    "short_account_pct"
+  ],
+  "feature_count": 27,
+  "data_count": 1428,
+  "date_range": {
+    "start": "2022-01-01 00:00:00",
+    "end": "2025-11-28 00:00:00"
+  },
+  "updated_at": "2025-11-30T00:43:19.843384"
+}

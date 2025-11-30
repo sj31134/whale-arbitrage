@@ -202,5 +202,30 @@ CREATE TABLE IF NOT EXISTS whale_daily_stats (
 CREATE INDEX idx_whale_daily_date ON whale_daily_stats(date);
 CREATE INDEX idx_whale_daily_coin ON whale_daily_stats(coin_symbol);
 
+-- 12. bitinfocharts_whale_weekly (신규 추가: 주별 고래 통계)
+CREATE TABLE IF NOT EXISTS bitinfocharts_whale_weekly (
+    coin VARCHAR(10) NOT NULL,
+    week_end_date DATE NOT NULL,
+    avg_top100_richest_pct DECIMAL(10, 4),
+    avg_transaction_value_btc DECIMAL(20, 8),
+    whale_conc_change_7d DECIMAL(10, 6),
+    created_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (coin, week_end_date)
+);
+
+-- 인덱스 생성 (이미 존재하면 오류 발생하므로 필요시만 실행)
+-- CREATE INDEX IF NOT EXISTS idx_whale_weekly_coin ON bitinfocharts_whale_weekly(coin);
+-- CREATE INDEX IF NOT EXISTS idx_whale_weekly_date ON bitinfocharts_whale_weekly(week_end_date);
+
+-- 인덱스가 이미 존재하는 경우, 다음 SQL로 개별 생성 가능:
+-- DO $$ BEGIN
+--     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_whale_weekly_coin') THEN
+--         CREATE INDEX idx_whale_weekly_coin ON bitinfocharts_whale_weekly(coin);
+--     END IF;
+--     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_whale_weekly_date') THEN
+--         CREATE INDEX idx_whale_weekly_date ON bitinfocharts_whale_weekly(week_end_date);
+--     END IF;
+-- END $$;
+
 
 

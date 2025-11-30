@@ -205,7 +205,7 @@ def main():
     conn = sqlite3.connect(DB_PATH)
     
     # 1. 테이블 현황 확인
-    print("\n[1/3] 테이블 현황 확인")
+    print("\n[1/4] 테이블 현황 확인")
     print("-" * 80)
     
     tables = [
@@ -225,13 +225,50 @@ def main():
         else:
             print(f"✅ {table}: {stats['count']}건 ({stats['min_date']} ~ {stats['max_date']})")
     
-    # 2. 동적 변수 분석
-    print("\n[2/3] 동적 변수 분석")
+    # 2. 핵심 컬럼 누락 현황 확인
+    print("\n[2/4] 핵심 컬럼 누락 현황 확인")
+    print("-" * 80)
+    # binance_futures_metrics의 sum_open_interest, avg_funding_rate 채워진 비율
+    if check_table_exists(conn, "binance_futures_metrics"):
+        df_core = pd.read_sql(
+            """
+            SELECT date, symbol, avg_funding_rate, sum_open_interest
+            FROM binance_futures_metrics
+            WHERE symbol = 'BTCUSDT'
+            """,
+            conn,
+        )
+        total = len(df_core)
+        if total > 0:
+            oi_nonzero = (df_core["sum_open_interest"] != 0).sum()
+            funding_nonnull = df_core["avg_funding_rate"].notna().sum()
+            print(
+                f"binance_futures_metrics (BTCUSDT): "
+                f"행수={total}, "
+                f"sum_open_interest≠0 비율={oi_nonzero/total*100:.1f}%, "
+                f"avg_funding_rate 유효 비율={funding_nonnull/total*100:.1f}%"
+            )
+        else:
+            print("binance_futures_metrics (BTCUSDT): 데이터 없음")
+    else:
+        print("binance_futures_metrics: 테이블 없음")
+
+    # futures_extended_metrics, whale_daily_stats 행 수 확인 (비어 있으면 백필 대상)
+    for table in ["futures_extended_metrics", "whale_daily_stats"]:
+        if check_table_exists(conn, table):
+            cnt = pd.read_sql(f"SELECT COUNT(*) AS c FROM {table}", conn)["c"].iloc[0]
+            status = "⚠️ 비어 있음 (백필 필요)" if cnt == 0 else "✅ 데이터 존재"
+            print(f"{table}: {cnt}행, {status}")
+        else:
+            print(f"{table}: ❌ 테이블 없음 (생성 및 백필 필요)")
+
+    # 3. 동적 변수 분석
+    print("\n[3/4] 동적 변수 분석")
     df = analyze_dynamic_variables(conn)
     
-    # 3. 청산 리스크 시뮬레이션
+    # 4. 청산 리스크 시뮬레이션
     if df is not None and len(df) > 0:
-        print("\n[3/3] 청산 리스크 시뮬레이션")
+        print("\n[4/4] 청산 리스크 시뮬레이션")
         simulate_liquidation_risk(df)
     
     conn.close()

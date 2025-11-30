@@ -24,8 +24,11 @@ class FeatureEngineer:
     def __init__(self):
         self.conn = sqlite3.connect(DB_PATH)
 
-    def load_raw_data(self, start_date="2023-01-01"):
+    def load_raw_data(self, start_date="2023-01-01", coin="BTC"):
         """데이터 로드 및 병합 (Daily) - 확장 지표 포함"""
+        symbol = f"{coin}USDT"
+        coin_symbol = coin
+        
         # 기본 지표 + 확장 지표 조인
         query = f"""
         SELECT 
@@ -52,10 +55,10 @@ class FeatureEngineer:
             w.active_addresses,
             w.large_tx_count
         FROM binance_futures_metrics f
-        LEFT JOIN bitinfocharts_whale b ON f.date = b.date AND b.coin = 'BTC'
+        LEFT JOIN bitinfocharts_whale b ON f.date = b.date AND b.coin = '{coin_symbol}'
         LEFT JOIN futures_extended_metrics e ON f.date = e.date AND f.symbol = e.symbol
-        LEFT JOIN whale_daily_stats w ON f.date = w.date AND w.coin_symbol = 'BTC'
-        WHERE f.symbol = 'BTCUSDT'
+        LEFT JOIN whale_daily_stats w ON f.date = w.date AND w.coin_symbol = '{coin_symbol}'
+        WHERE f.symbol = '{symbol}'
         AND f.date >= '{start_date}'
         ORDER BY f.date
         """
@@ -100,8 +103,11 @@ class FeatureEngineer:
         # 정적 변수 (기존)
         # ============================================
         
-        # 1. 고래 집중도 변화율 (7일)
-        df['whale_conc_change_7d'] = df['top100_richest_pct'].pct_change(7).fillna(0)
+        # 1. 고래 집중도 변화율 (7일) - 무한대 값 처리
+        whale_pct_change = df['top100_richest_pct'].pct_change(7)
+        df['whale_conc_change_7d'] = whale_pct_change.replace([np.inf, -np.inf], 0).fillna(0)
+        # 무한대 값을 클리핑 (-1 ~ 1)
+        df['whale_conc_change_7d'] = df['whale_conc_change_7d'].clip(-1, 1)
         
         # 2. 펀딩비 Z-Score (30일)
         df['funding_mean'] = df['avg_funding_rate'].rolling(30).mean()
@@ -113,8 +119,11 @@ class FeatureEngineer:
         )
         df['funding_rate_zscore'] = df['funding_rate_zscore'].fillna(0)
         
-        # 3. OI 변화율 (7일)
-        df['oi_growth_7d'] = df['sum_open_interest'].pct_change(7).fillna(0)
+        # 3. OI 변화율 (7일) - 무한대 값 처리
+        oi_pct_change = df['sum_open_interest'].pct_change(7)
+        df['oi_growth_7d'] = oi_pct_change.replace([np.inf, -np.inf], 0).fillna(0)
+        # 무한대 값을 클리핑 (-1 ~ 1)
+        df['oi_growth_7d'] = df['oi_growth_7d'].clip(-1, 1)
         
         # 4. Long/Short Ratio Normalization
         df['long_short_ratio'] = df['long_short_ratio'].replace(0, 1.0)
@@ -136,7 +145,9 @@ class FeatureEngineer:
         if include_dynamic:
             # --- 1차 미분 (변화율) ---
             df['volatility_delta'] = df['volatility_24h'].diff().fillna(0)
-            df['oi_delta'] = df['sum_open_interest'].pct_change().fillna(0)
+            # OI 변화율 - 무한대 값 처리
+            oi_pct = df['sum_open_interest'].pct_change()
+            df['oi_delta'] = oi_pct.replace([np.inf, -np.inf], 0).fillna(0).clip(-1, 1)
             df['funding_delta'] = df['avg_funding_rate'].diff().fillna(0)
             
             # Taker 비율 변화율
@@ -153,7 +164,7 @@ class FeatureEngineer:
             
             # --- 2차 미분 (가속도) ---
             df['volatility_accel'] = df['volatility_delta'].diff().fillna(0)
-            df['oi_accel'] = df['oi_delta'].diff().fillna(0)
+            df['oi_accel'] = df['oi_delta'].diff().fillna(0).replace([np.inf, -np.inf], 0).clip(-1, 1)
             df['funding_accel'] = df['funding_delta'].diff().fillna(0)
             
             # --- 이동평균 기울기 (5일) ---
@@ -187,7 +198,7 @@ class FeatureEngineer:
             
             # --- 복합 동적 지표 ---
             # 변동성 가속도 * OI 가속도 (동시 급변 감지)
-            df['vol_oi_accel_product'] = df['volatility_accel'] * df['oi_accel']
+            df['vol_oi_accel_product'] = (df['volatility_accel'] * df['oi_accel']).replace([np.inf, -np.inf], 0).fillna(0).clip(-1, 1)
             
             # 펀딩비 기울기 * Taker 비율 변화 (시장 편향 가속)
             df['funding_taker_momentum'] = df['funding_slope'] * df['taker_ratio_delta']

@@ -44,7 +44,11 @@ page = st.sidebar.selectbox(
         "🎯 최적 전략 추천",
         "⚠️ 리스크 예측 대시보드",
         "📊 역사적 리스크 분석",
-        "🔍 특성 중요도 분석"
+        "🔍 특성 중요도 분석",
+        "📈 파생상품 지표 분석",
+        "📉 동적 변수 분석",
+        "🔬 모델 성능 비교",
+        "📊 종합 대시보드"
     ]
 )
 
@@ -84,6 +88,34 @@ elif page == "🔍 특성 중요도 분석":
     except ImportError:
         from pages import feature_analysis_page
     feature_analysis_page.render()
+elif page == "📈 파생상품 지표 분석":
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import derivatives_analysis_page
+    except ImportError:
+        from pages import derivatives_analysis_page
+    derivatives_analysis_page.render()
+elif page == "📉 동적 변수 분석":
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import dynamic_variables_page
+    except ImportError:
+        from pages import dynamic_variables_page
+    dynamic_variables_page.render()
+elif page == "🔬 모델 성능 비교":
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import model_comparison_page
+    except ImportError:
+        from pages import model_comparison_page
+    model_comparison_page.render()
+elif page == "📊 종합 대시보드":
+    # Streamlit Cloud 경로 처리
+    try:
+        from app.pages import comprehensive_dashboard_page
+    except ImportError:
+        from pages import comprehensive_dashboard_page
+    comprehensive_dashboard_page.render()
 
 # 푸터
 st.sidebar.markdown("---")

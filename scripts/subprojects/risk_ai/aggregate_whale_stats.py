@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 import time
 import sqlite3
-from sqlalchemy import create_engine, text
+from datetime import timezone
 from dotenv import load_dotenv
 from pathlib import Path
 from supabase import create_client, Client
@@ -37,8 +37,8 @@ DB_PATH = ROOT / "data" / "project.db"
 # 대형 거래 기준 (USD)
 LARGE_TX_THRESHOLD_USD = 100000  # $100,000 이상
 
-def get_sqlite_engine():
-    return create_engine(f"sqlite:///{DB_PATH}")
+def get_sqlite_conn():
+    return sqlite3.connect(DB_PATH)
 
 
 def ensure_tables():
@@ -99,8 +99,11 @@ def fetch_whale_transactions_with_direction(supabase, start_date, end_date, coin
     
     while current_start < end_date:
         current_end = current_start + pd.DateOffset(months=1)
-        start_str = current_start.strftime("%Y-%m-%dT%H:%M:%S")
-        end_str = current_end.strftime("%Y-%m-%dT%H:%M:%S")
+        # UTC 기준으로 변환
+        start_utc = current_start.tz_localize('UTC') if current_start.tz is None else current_start.astimezone(timezone.utc)
+        end_utc = current_end.tz_localize('UTC') if current_end.tz is None else current_end.astimezone(timezone.utc)
+        start_str = start_utc.strftime("%Y-%m-%dT%H:%M:%S")
+        end_str = end_utc.strftime("%Y-%m-%dT%H:%M:%S")
         
         print(f"  📅 {start_str[:10]} ~ {end_str[:10]} 조회 중...")
         
@@ -156,8 +159,12 @@ def aggregate_daily_whale_stats(supabase, start_date, end_date):
         return
     
     df = pd.DataFrame(all_txs)
-    df['block_timestamp'] = pd.to_datetime(df['block_timestamp'])
-    df['date'] = df['block_timestamp'].dt.date
+    # UTC 기준으로 날짜 변환 (다양한 형식 지원)
+    df['block_timestamp'] = pd.to_datetime(df['block_timestamp'], format='mixed', errors='coerce', utc=True)
+    df = df.dropna(subset=['block_timestamp'])  # 날짜 변환 실패한 행 제거
+    
+    # UTC 기준으로 date 추출 (UTC 날짜 기준)
+    df['date'] = df['block_timestamp'].dt.tz_convert('UTC').dt.date
     df['amount_usd'] = pd.to_numeric(df['amount_usd'], errors='coerce').fillna(0)
     
     # 거래 방향별 집계
@@ -170,18 +177,33 @@ def aggregate_daily_whale_stats(supabase, start_date, end_date):
             day_df = coin_df[coin_df['date'] == date]
             
             # 거래소 유입 (exchange_inflow)
-            inflow_df = day_df[day_df['transaction_direction'] == 'exchange_inflow']
+            # SELL = 개인 → 거래소 (입금) = exchange_inflow
+            # exchange_inflow 값도 확인 (기존 호환성)
+            inflow_df = day_df[
+                (day_df['transaction_direction'] == 'exchange_inflow') | 
+                (day_df['transaction_direction'] == 'SELL')
+            ]
             exchange_inflow = inflow_df['amount_usd'].sum()
             
             # 거래소 유출 (exchange_outflow)
-            outflow_df = day_df[day_df['transaction_direction'] == 'exchange_outflow']
+            # BUY = 거래소 → 개인 (출금) = exchange_outflow
+            # exchange_outflow 값도 확인 (기존 호환성)
+            outflow_df = day_df[
+                (day_df['transaction_direction'] == 'exchange_outflow') | 
+                (day_df['transaction_direction'] == 'BUY')
+            ]
             exchange_outflow = outflow_df['amount_usd'].sum()
             
             # 순유입
             net_flow = exchange_inflow - exchange_outflow
             
             # 고래간 거래 (whale_to_whale)
-            w2w_df = day_df[day_df['transaction_direction'] == 'whale_to_whale']
+            # MOVE 중에서 거래소가 아닌 경우 = whale_to_whale
+            # whale_to_whale 값도 확인 (기존 호환성)
+            w2w_df = day_df[
+                (day_df['transaction_direction'] == 'whale_to_whale') |
+                (day_df['transaction_direction'] == 'MOVE')
+            ]
             whale_to_whale = w2w_df['amount_usd'].sum()
             
             # 활성 주소 수 (from + to 유니크)
@@ -209,31 +231,31 @@ def aggregate_daily_whale_stats(supabase, start_date, end_date):
     
     # SQLite에 저장
     if results:
-        sqlite_engine = get_sqlite_engine()
+        conn = get_sqlite_conn()
+        cur = conn.cursor()
         
-        with sqlite_engine.connect() as conn:
-            for row in results:
-                sql = text("""
-                    INSERT OR REPLACE INTO whale_daily_stats 
-                    (date, coin_symbol, exchange_inflow_usd, exchange_outflow_usd, 
-                     net_flow_usd, whale_to_whale_usd, active_addresses, 
-                     large_tx_count, avg_tx_size_usd)
-                    VALUES (:date, :coin_symbol, :exchange_inflow_usd, :exchange_outflow_usd,
-                            :net_flow_usd, :whale_to_whale_usd, :active_addresses,
-                            :large_tx_count, :avg_tx_size_usd)
-                """)
-                conn.execute(sql, {
-                    "date": row['date'].strftime('%Y-%m-%d') if hasattr(row['date'], 'strftime') else str(row['date']),
-                    "coin_symbol": row['coin_symbol'],
-                    "exchange_inflow_usd": row['exchange_inflow_usd'],
-                    "exchange_outflow_usd": row['exchange_outflow_usd'],
-                    "net_flow_usd": row['net_flow_usd'],
-                    "whale_to_whale_usd": row['whale_to_whale_usd'],
-                    "active_addresses": row['active_addresses'],
-                    "large_tx_count": row['large_tx_count'],
-                    "avg_tx_size_usd": row['avg_tx_size_usd']
-                })
-            conn.commit()
+        for row in results:
+            date_str = row['date'].strftime('%Y-%m-%d') if hasattr(row['date'], 'strftime') else str(row['date'])
+            cur.execute("""
+                INSERT OR REPLACE INTO whale_daily_stats 
+                (date, coin_symbol, exchange_inflow_usd, exchange_outflow_usd, 
+                 net_flow_usd, whale_to_whale_usd, active_addresses, 
+                 large_tx_count, avg_tx_size_usd)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                date_str,
+                row['coin_symbol'],
+                row['exchange_inflow_usd'],
+                row['exchange_outflow_usd'],
+                row['net_flow_usd'],
+                row['whale_to_whale_usd'],
+                row['active_addresses'],
+                row['large_tx_count'],
+                row['avg_tx_size_usd']
+            ))
+        conn.commit()
+        cur.close()
+        conn.close()
         
         print(f"✅ {len(results)}건의 일별 통계 저장 완료")
     
@@ -246,7 +268,7 @@ def aggregate_weekly_whale_stats():
     """
     print("\n📊 주별 고래 통계 집계 중...")
     
-    sqlite_engine = get_sqlite_engine()
+    conn = get_sqlite_conn()
     
     # 일별 데이터 로드
     query = """
@@ -256,7 +278,8 @@ def aggregate_weekly_whale_stats():
         ORDER BY date
     """
     
-    df = pd.read_sql(query, sqlite_engine)
+    df = pd.read_sql(query, conn)
+    conn.close()
     
     if df.empty:
         print("⚠️ 일별 데이터 없음")
@@ -277,24 +300,26 @@ def aggregate_weekly_whale_stats():
                          'active_addresses', 'transaction_count']
     
     # SQLite에 저장
-    with sqlite_engine.connect() as conn:
-        for _, row in weekly_df.iterrows():
-            sql = text("""
-                INSERT OR REPLACE INTO whale_weekly_stats 
-                (date, coin_symbol, net_inflow_usd, exchange_inflow_usd, 
-                 active_addresses, transaction_count)
-                VALUES (:date, :coin_symbol, :net_inflow_usd, :exchange_inflow_usd,
-                        :active_addresses, :transaction_count)
-            """)
-            conn.execute(sql, {
-                "date": row['date'].strftime('%Y-%m-%d'),
-                "coin_symbol": row['coin_symbol'],
-                "net_inflow_usd": row['net_inflow_usd'],
-                "exchange_inflow_usd": row['exchange_inflow_usd'],
-                "active_addresses": int(row['active_addresses']),
-                "transaction_count": int(row['transaction_count'])
-            })
-        conn.commit()
+    conn = get_sqlite_conn()
+    cur = conn.cursor()
+    
+    for _, row in weekly_df.iterrows():
+        cur.execute("""
+            INSERT OR REPLACE INTO whale_weekly_stats 
+            (date, coin_symbol, net_inflow_usd, exchange_inflow_usd, 
+             active_addresses, transaction_count)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            row['date'].strftime('%Y-%m-%d'),
+            row['coin_symbol'],
+            row['net_inflow_usd'],
+            row['exchange_inflow_usd'],
+            int(row['active_addresses']),
+            int(row['transaction_count'])
+        ))
+    conn.commit()
+    cur.close()
+    conn.close()
     
     print(f"✅ {len(weekly_df)}건의 주별 통계 저장 완료")
 
@@ -328,9 +353,9 @@ def aggregate_whale_stats():
     # 1. 데이터 가져오기 (월별 분할 수집)
     all_txs = []
     
-    # 수집 기간 설정 (2023-01 ~ 현재)
-    start_date = pd.Timestamp("2023-01-01")
-    end_date = pd.Timestamp.now()
+    # 수집 기간 설정 (2023-01 ~ 현재) - UTC 기준
+    start_date = pd.Timestamp("2023-01-01", tz='UTC')
+    end_date = pd.Timestamp.now(tz='UTC')
     
     current_start = start_date
     
@@ -338,6 +363,7 @@ def aggregate_whale_stats():
     
     while current_start < end_date:
         current_end = current_start + pd.DateOffset(months=1)
+        # UTC 기준으로 변환
         start_str = current_start.strftime("%Y-%m-%dT%H:%M:%S")
         end_str = current_end.strftime("%Y-%m-%dT%H:%M:%S")
         
@@ -382,8 +408,11 @@ def aggregate_whale_stats():
         return
 
     df = pd.DataFrame(all_txs)
-    df['block_timestamp'] = pd.to_datetime(df['block_timestamp'])
-    df['date'] = df['block_timestamp'].dt.date
+    # UTC 기준으로 날짜 변환
+    df['block_timestamp'] = pd.to_datetime(df['block_timestamp'], format='mixed', errors='coerce', utc=True)
+    df = df.dropna(subset=['block_timestamp'])  # 날짜 변환 실패한 행 제거
+    # UTC 기준으로 date 추출
+    df['date'] = df['block_timestamp'].dt.tz_convert('UTC').dt.date
     df['amount'] = pd.to_numeric(df['amount'])
     
     # 2. 집계
@@ -404,22 +433,23 @@ def aggregate_whale_stats():
     agg_df['top100_richest_pct'] = (agg_df['total_volume'] / max_vol) * 100
     agg_df['avg_transaction_value_btc'] = agg_df['avg_tx_value']
     
-    sqlite_engine = get_sqlite_engine()
+    conn = get_sqlite_conn()
+    cur = conn.cursor()
     
-    with sqlite_engine.connect() as conn:
-        for _, row in agg_df.iterrows():
-            sql = text("""
-                INSERT OR REPLACE INTO bitinfocharts_whale 
-                (date, coin, top100_richest_pct, avg_transaction_value_btc)
-                VALUES (:date, :coin, :pct, :avg_val)
-            """)
-            conn.execute(sql, {
-                "date": row['date'].strftime('%Y-%m-%d'),
-                "coin": row['coin'],
-                "pct": row['top100_richest_pct'],
-                "avg_val": row['avg_transaction_value_btc']
-            })
-        conn.commit()
+    for _, row in agg_df.iterrows():
+        cur.execute("""
+            INSERT OR REPLACE INTO bitinfocharts_whale 
+            (date, coin, top100_richest_pct, avg_transaction_value_btc)
+            VALUES (?, ?, ?, ?)
+        """, (
+            row['date'].strftime('%Y-%m-%d'),
+            row['coin'],
+            row['top100_richest_pct'],
+            row['avg_transaction_value_btc']
+        ))
+    conn.commit()
+    cur.close()
+    conn.close()
         
     print("✅ SQLite 저장 완료")
 
@@ -440,9 +470,9 @@ def run_full_aggregation():
     
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     
-    # 수집 기간 설정
-    start_date = pd.Timestamp("2023-01-01")
-    end_date = pd.Timestamp.now()
+    # 수집 기간 설정 (UTC 기준)
+    start_date = pd.Timestamp("2023-01-01", tz='UTC')
+    end_date = pd.Timestamp.now(tz='UTC')
     
     # 1. 기존 bitinfocharts_whale 집계
     print("\n[1/3] bitinfocharts_whale 집계...")
@@ -462,8 +492,42 @@ def run_full_aggregation():
 
 
 if __name__ == "__main__":
+    """
+    CLI 모드:
+    - 기본: aggregate_whale_stats()만 실행 (기존 동작 유지)
+    - --full: run_full_aggregation() 실행
+    - --rebuild-all: 2022-01-01 ~ 현재 기간에 대해 whale_daily_stats/whale_weekly_stats 풀 리빌드
+      (이미 있는 데이터는 INSERT OR REPLACE로 덮어쓰기)
+    """
     import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "--full":
+    import pandas as pd
+
+    args = sys.argv[1:]
+    if "--rebuild-all" in args:
+        print("=" * 80)
+        print("♻️ whale_daily_stats / whale_weekly_stats 풀 리빌드")
+        print("=" * 80)
+
+        ensure_tables()
+
+        SUPABASE_URL = os.getenv("SUPABASE_URL")
+        SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            print("❌ Supabase 설정 오류: .env 파일 확인 필요")
+            sys.exit(1)
+
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+        # UTC 기준으로 날짜 설정
+        start_date = pd.Timestamp("2022-01-01", tz='UTC')
+        end_date = pd.Timestamp.now(tz='UTC')
+
+        aggregate_daily_whale_stats(supabase, start_date, end_date)
+        aggregate_weekly_whale_stats()
+
+        print("\n✅ whale_daily_stats / whale_weekly_stats 풀 리빌드 완료")
+    elif len(args) > 0 and args[0] == "--full":
         run_full_aggregation()
     else:
         aggregate_whale_stats()

@@ -26,8 +26,8 @@ from data_loader import DataLoader
 from risk_predictor import RiskPredictor
 
 
-def render_dynamic_indicators(indicators: dict):
-    """동적 지표 시각화 섹션"""
+def render_dynamic_indicators(indicators: dict, data_loader=None, target_date=None, coin='BTC'):
+    """동적 지표 시각화 섹션 (확장 버전)"""
     st.subheader("📈 동적 지표 분석")
     st.markdown("시장 변화의 속도와 가속도를 분석합니다.")
     
@@ -135,6 +135,276 @@ def render_dynamic_indicators(indicators: dict):
         st.warning("⚠️ **롱 포지션 급증**: OI와 펀딩비가 동시에 상승 중입니다. 롱 청산 리스크에 주의하세요.")
     elif oi_delta > 0.1 and funding_delta < 0:
         st.info("ℹ️ **숏 포지션 증가**: OI가 증가하지만 펀딩비가 하락 중입니다. 숏 포지션이 늘어나고 있습니다.")
+    
+    # 시계열 차트 추가 (데이터가 있는 경우)
+    if data_loader and target_date:
+        try:
+            st.markdown("---")
+            st.markdown("**📊 동적 지표 시계열 추이 (최근 30일)**")
+            
+            start_date = (target_date - timedelta(days=30)).strftime("%Y-%m-%d")
+            end_date = target_date.strftime("%Y-%m-%d")
+            
+            # 리스크 데이터 로드 (동적 변수 포함)
+            risk_df = data_loader.load_risk_data(start_date, end_date, coin)
+            
+            if len(risk_df) > 0 and 'volatility_delta' in risk_df.columns:
+                # 동적 변수 시계열 차트
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**변화율 추이**")
+                    fig_delta = go.Figure()
+                    if 'volatility_delta' in risk_df.columns:
+                        fig_delta.add_trace(go.Scatter(
+                            x=risk_df['date'],
+                            y=risk_df['volatility_delta'],
+                            mode='lines+markers',
+                            name='변동성 변화율',
+                            line=dict(color='#1f77b4')
+                        ))
+                    if 'oi_delta' in risk_df.columns and has_oi_data:
+                        fig_delta.add_trace(go.Scatter(
+                            x=risk_df['date'],
+                            y=risk_df['oi_delta'],
+                            mode='lines+markers',
+                            name='OI 변화율',
+                            line=dict(color='#ff7f0e')
+                        ))
+                    fig_delta.update_layout(
+                        title='변화율 추이',
+                        xaxis_title='날짜',
+                        yaxis_title='변화율',
+                        height=300
+                    )
+                    st.plotly_chart(fig_delta, use_container_width=True)
+                
+                with col2:
+                    st.markdown("**가속도 추이**")
+                    fig_accel = go.Figure()
+                    if 'volatility_accel' in risk_df.columns:
+                        fig_accel.add_trace(go.Scatter(
+                            x=risk_df['date'],
+                            y=risk_df['volatility_accel'],
+                            mode='lines+markers',
+                            name='변동성 가속도',
+                            line=dict(color='#d62728')
+                        ))
+                    if 'oi_accel' in risk_df.columns and has_oi_data:
+                        fig_accel.add_trace(go.Scatter(
+                            x=risk_df['date'],
+                            y=risk_df['oi_accel'],
+                            mode='lines+markers',
+                            name='OI 가속도',
+                            line=dict(color='#2ca02c')
+                        ))
+                    fig_accel.add_hline(y=0, line_dash="dash", line_color="gray")
+                    fig_accel.update_layout(
+                        title='가속도 추이',
+                        xaxis_title='날짜',
+                        yaxis_title='가속도',
+                        height=300
+                    )
+                    st.plotly_chart(fig_accel, use_container_width=True)
+                
+                # 기울기 추이
+                if 'volatility_slope' in risk_df.columns:
+                    st.markdown("**추세 기울기 추이**")
+                    fig_slope = go.Figure()
+                    fig_slope.add_trace(go.Scatter(
+                        x=risk_df['date'],
+                        y=risk_df['volatility_slope'],
+                        mode='lines+markers',
+                        name='변동성 기울기',
+                        line=dict(color='#9467bd')
+                    ))
+                    if 'oi_slope' in risk_df.columns and has_oi_data:
+                        fig_slope.add_trace(go.Scatter(
+                            x=risk_df['date'],
+                            y=risk_df['oi_slope'],
+                            mode='lines+markers',
+                            name='OI 기울기',
+                            line=dict(color='#8c564b')
+                        ))
+                    fig_slope.add_hline(y=0, line_dash="dash", line_color="gray")
+                    fig_slope.update_layout(
+                        title='추세 기울기 추이 (5일 이동평균)',
+                        xaxis_title='날짜',
+                        yaxis_title='기울기',
+                        height=300
+                    )
+                    st.plotly_chart(fig_slope, use_container_width=True)
+        except Exception as e:
+            st.info(f"💡 동적 지표 시계열 데이터를 불러올 수 없습니다: {str(e)}")
+
+
+def render_derivatives_metrics(data_loader, target_date, coin):
+    """파생상품 지표 시각화 섹션"""
+    st.subheader("📈 파생상품 지표 분석")
+    st.markdown("미결제약정(OI), 롱/숏 비율, Taker 압력 등 파생상품 시장 지표를 분석합니다.")
+    
+    try:
+        # 심볼 변환
+        symbol = f"{coin}USDT"
+        
+        # 최근 30일 데이터 로드
+        start_date = (target_date - timedelta(days=30)).strftime("%Y-%m-%d")
+        end_date = target_date.strftime("%Y-%m-%d")
+        
+        metrics_df = data_loader.load_futures_extended_metrics(start_date, end_date, symbol)
+        
+        if metrics_df.empty:
+            st.info("💡 파생상품 지표 데이터가 없습니다. Binance Vision 아카이브 데이터 수집이 필요합니다.")
+            return
+        
+        # OI 데이터도 함께 로드 (binance_futures_metrics)
+        oi_df = data_loader.load_risk_data(start_date, end_date, coin)
+        
+        # 1. OI (미결제약정) 추이
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**미결제약정 (OI) 추이**")
+            if 'sum_open_interest' in oi_df.columns and len(oi_df) > 0:
+                fig_oi = px.line(
+                    oi_df, 
+                    x='date', 
+                    y='sum_open_interest',
+                    title='OI 추이 (30일)',
+                    labels={'sum_open_interest': 'OI', 'date': '날짜'}
+                )
+                fig_oi.update_traces(line_color='#1f77b4')
+                st.plotly_chart(fig_oi, use_container_width=True)
+            else:
+                st.info("OI 데이터 없음")
+        
+        with col2:
+            st.markdown("**Top Trader 롱/숏 비율**")
+            if 'top_trader_long_short_ratio' in metrics_df.columns and len(metrics_df) > 0:
+                fig_ls = px.line(
+                    metrics_df, 
+                    x='date', 
+                    y='top_trader_long_short_ratio',
+                    title='Top Trader 롱/숏 비율',
+                    labels={'top_trader_long_short_ratio': '비율', 'date': '날짜'}
+                )
+                fig_ls.add_hline(y=1.0, line_dash="dash", line_color="gray", 
+                                annotation_text="1.0 (균형)")
+                fig_ls.update_traces(line_color='#ff7f0e')
+                st.plotly_chart(fig_ls, use_container_width=True)
+            else:
+                st.info("롱/숏 비율 데이터 없음")
+        
+        # 2. Taker 매수/매도 비율
+        st.markdown("**Taker 매수/매도 비율**")
+        if 'taker_buy_sell_ratio' in metrics_df.columns and len(metrics_df) > 0:
+            # nan 값 제거
+            taker_clean_df = metrics_df[['date', 'taker_buy_sell_ratio']].dropna()
+            if len(taker_clean_df) > 0:
+                fig_taker = px.line(
+                    taker_clean_df, 
+                    x='date', 
+                    y='taker_buy_sell_ratio',
+                    title='Taker 매수/매도 비율 (1.0 이상 = 매수 압력)',
+                    labels={'taker_buy_sell_ratio': '비율', 'date': '날짜'}
+                )
+                fig_taker.add_hline(y=1.0, line_dash="dash", line_color="gray", 
+                                   annotation_text="1.0 (균형)")
+                fig_taker.update_traces(line_color='#2ca02c')
+                st.plotly_chart(fig_taker, use_container_width=True)
+            else:
+                st.info("Taker 비율 데이터 없음")
+            
+            # 현재 값 해석 (nan 처리)
+            if len(metrics_df) > 0:
+                taker_clean = metrics_df['taker_buy_sell_ratio'].dropna()
+                if len(taker_clean) > 0:
+                    latest_taker = taker_clean.iloc[-1]
+                    if pd.notna(latest_taker):
+                        if latest_taker > 1.1:
+                            st.success(f"✅ **강한 매수 압력** (비율: {latest_taker:.3f})")
+                        elif latest_taker > 1.0:
+                            st.info(f"ℹ️ **약한 매수 압력** (비율: {latest_taker:.3f})")
+                        elif latest_taker > 0.9:
+                            st.warning(f"⚠️ **약한 매도 압력** (비율: {latest_taker:.3f})")
+                        else:
+                            st.error(f"🔴 **강한 매도 압력** (비율: {latest_taker:.3f})")
+                    else:
+                        st.info("💡 Taker 비율 데이터가 없습니다.")
+                else:
+                    st.info("💡 Taker 비율 데이터가 없습니다.")
+        else:
+            st.info("Taker 비율 데이터 없음")
+        
+        # 3. 펀딩비 추이
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            st.markdown("**펀딩비 추이 (Binance)**")
+            if 'avg_funding_rate' in oi_df.columns and len(oi_df) > 0:
+                fig_funding = px.line(
+                    oi_df, 
+                    x='date', 
+                    y='avg_funding_rate',
+                    title='펀딩비 추이',
+                    labels={'avg_funding_rate': '펀딩비', 'date': '날짜'}
+                )
+                fig_funding.add_hline(y=0, line_dash="dash", line_color="gray")
+                fig_funding.update_traces(line_color='#d62728')
+                st.plotly_chart(fig_funding, use_container_width=True)
+            else:
+                st.info("펀딩비 데이터 없음")
+        
+        with col4:
+            st.markdown("**펀딩비 추이 (Bybit)**")
+            if 'bybit_funding_rate' in metrics_df.columns and len(metrics_df) > 0:
+                fig_bybit_funding = px.line(
+                    metrics_df, 
+                    x='date', 
+                    y='bybit_funding_rate',
+                    title='Bybit 펀딩비 추이',
+                    labels={'bybit_funding_rate': '펀딩비', 'date': '날짜'}
+                )
+                fig_bybit_funding.add_hline(y=0, line_dash="dash", line_color="gray")
+                fig_bybit_funding.update_traces(line_color='#9467bd')
+                st.plotly_chart(fig_bybit_funding, use_container_width=True)
+            else:
+                st.info("Bybit 펀딩비 데이터 없음")
+        
+        # 4. 요약 통계
+        st.markdown("**📊 파생상품 지표 요약**")
+        summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+        
+        with summary_col1:
+            if 'sum_open_interest' in oi_df.columns and len(oi_df) > 0:
+                latest_oi = oi_df['sum_open_interest'].iloc[-1]
+                oi_change = ((oi_df['sum_open_interest'].iloc[-1] - oi_df['sum_open_interest'].iloc[0]) / oi_df['sum_open_interest'].iloc[0] * 100) if len(oi_df) > 1 else 0
+                st.metric("현재 OI", f"{latest_oi:,.0f}", f"{oi_change:+.1f}%")
+        
+        with summary_col2:
+            if 'top_trader_long_short_ratio' in metrics_df.columns and len(metrics_df) > 0:
+                latest_ls = metrics_df['top_trader_long_short_ratio'].iloc[-1]
+                st.metric("Top Trader 롱/숏", f"{latest_ls:.3f}", 
+                         "롱 우세" if latest_ls > 1.0 else "숏 우세")
+        
+        with summary_col3:
+            if 'taker_buy_sell_ratio' in metrics_df.columns and len(metrics_df) > 0:
+                taker_clean = metrics_df['taker_buy_sell_ratio'].dropna()
+                if len(taker_clean) > 0:
+                    latest_taker = taker_clean.iloc[-1]
+                    st.metric("Taker 비율", f"{latest_taker:.3f}", 
+                             "매수 압력" if latest_taker > 1.0 else "매도 압력")
+                else:
+                    st.metric("Taker 비율", "N/A", "데이터 없음")
+        
+        with summary_col4:
+            if 'avg_funding_rate' in oi_df.columns and len(oi_df) > 0:
+                latest_funding = oi_df['avg_funding_rate'].iloc[-1] * 100
+                st.metric("펀딩비", f"{latest_funding:.4f}%", 
+                         "롱 지불" if latest_funding > 0 else "숏 지불")
+    
+    except Exception as e:
+        st.info(f"💡 파생상품 지표를 불러올 수 없습니다: {str(e)}")
 
 
 def render_exchange_flow(data_loader, target_date, coin):
@@ -563,7 +833,12 @@ def render():
             # 동적 지표 섹션 (하이브리드 모델 사용 시)
             if predictor.include_dynamic and not is_weekly:
                 st.markdown("---")
-                render_dynamic_indicators(indicators)
+                render_dynamic_indicators(indicators, data_loader, target_date, coin)
+            
+            # 파생상품 지표 섹션
+            if not is_weekly:
+                st.markdown("---")
+                render_derivatives_metrics(data_loader, target_date, coin)
             
             # 거래소 유입/유출 섹션
             if not is_weekly:
