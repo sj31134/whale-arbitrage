@@ -1,0 +1,12 @@
+# 자동매매 봇 전용 의존성
+# 기존 requirements.txt의 패키지도 필요하지만, 여기서는 봇 전용 패키지만 명시
+
+# 업비트 API
+pyupbit>=0.2.30
+
+# HTTP 요청 (텔레그램 알림용)
+requests>=2.28.0
+
+# 기존 프로젝트 의존성 (읽기용)
+# streamlit, pandas, numpy 등은 기존 requirements.txt에서 설치됨
+

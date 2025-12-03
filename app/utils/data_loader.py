@@ -940,7 +940,7 @@ class DataLoader:
                 logging.error("데이터베이스 연결이 없습니다")
                 return pd.DataFrame()
             
-            # 주봉 OHLCV + 주간 고래 데이터 JOIN
+            # 주봉 OHLCV + 주간 고래 데이터 + 주간 선물 데이터 JOIN
             query = f"""
             SELECT 
                 w.date,
@@ -957,10 +957,16 @@ class DataLoader:
                 w.weekly_range_pct,
                 wh.avg_top100_richest_pct as top100_richest_pct,
                 wh.avg_transaction_value_btc as avg_transaction_value_btc,
-                wh.whale_conc_change_7d
+                wh.whale_conc_change_7d,
+                fw.avg_funding_rate,
+                fw.sum_open_interest,
+                fw.oi_growth_7d,
+                fw.funding_rate_zscore
             FROM binance_spot_weekly w
             LEFT JOIN bitinfocharts_whale_weekly wh 
                 ON w.date = wh.week_end_date AND wh.coin = '{coin_label}'
+            LEFT JOIN binance_futures_weekly fw
+                ON w.date = fw.week_end_date AND fw.symbol = '{symbol}'
             WHERE w.symbol = '{symbol}'
             AND w.date BETWEEN '{start_date}' AND '{end_date}'
             ORDER BY w.date
@@ -977,7 +983,8 @@ class DataLoader:
             numeric_columns = [
                 'open', 'high', 'low', 'close', 'volume', 'quote_volume',
                 'atr', 'rsi', 'volatility_ratio', 'weekly_range_pct',
-                'top100_richest_pct', 'avg_transaction_value_btc', 'whale_conc_change_7d'
+                'top100_richest_pct', 'avg_transaction_value_btc', 'whale_conc_change_7d',
+                'avg_funding_rate', 'sum_open_interest', 'oi_growth_7d', 'funding_rate_zscore'
             ]
             
             for col in numeric_columns:
@@ -987,6 +994,27 @@ class DataLoader:
             # 주봉 특성 추가 계산
             df['weekly_return'] = df['close'].pct_change()
             df['high_low_range'] = (df['high'] - df['low']) / df['low']
+            
+            # 실제 고변동성 타겟 변수 계산 (주봉에 맞게 개선)
+            # 다음 주의 변동성을 기준으로 고변동성 여부 판단
+            df['next_week_volatility'] = df['volatility_ratio'].shift(-1)
+            
+            # 주봉은 일봉보다 변동성이 평활화되므로 임계값을 낮춤
+            if df['volatility_ratio'].max() > 0:
+                # 상위 30%로 조정 (일봉은 20%, 주봉은 더 넓게)
+                quantile_threshold = df['volatility_ratio'].quantile(0.7)
+                # 절대 임계값: 중앙값의 1.5배 (주봉 특성 반영)
+                absolute_threshold = df['volatility_ratio'].median() * 1.5
+                
+                # 두 조건 중 하나라도 만족하면 고변동성
+                df['target_high_vol'] = (
+                    (df['next_week_volatility'] > quantile_threshold) | 
+                    (df['next_week_volatility'] > absolute_threshold)
+                ).astype(int)
+            else:
+                df['target_high_vol'] = 0
+            
+            df['target_high_vol'] = df['target_high_vol'].fillna(0).astype(int)
             
             # 결측치 처리
             df = df.ffill().bfill()

@@ -531,18 +531,40 @@ class RiskPredictor:
                     'closest_date': actual_date.strftime("%Y-%m-%d")
                 }
             
-            # 주봉 기반 리스크 점수 계산 (단순 규칙 기반)
+            # 주봉 기반 리스크 점수 계산 (개선된 규칙 기반)
             volatility_score = min(100, max(0, float(row.get('volatility_ratio', 0) or 0) * 100))
             whale_score = min(100, max(0, abs(float(row.get('whale_conc_change_7d', 0) or 0)) * 200))
             rsi_score = abs(float(row.get('rsi', 50) or 50) - 50) * 2  # RSI 극단값일수록 높은 점수
             
-            # 종합 리스크 점수
-            risk_score = (volatility_score * 0.4 + whale_score * 0.3 + rsi_score * 0.3)
-            high_vol_prob = min(1.0, risk_score / 100)
+            # 주봉 특성 반영: 변동성 가중치 증가, RSI 가중치 감소
+            risk_score = (volatility_score * 0.5 + whale_score * 0.3 + rsi_score * 0.2)
             
-            # 청산 리스크 (주봉에서는 변동성 기반으로 계산)
-            weekly_range = float(row.get('weekly_range_pct', 0) or 0)
-            liquidation_risk = min(100, max(0, weekly_range * 10))
+            # 주봉 예측 확률 계산 개선: 더 민감하게 조정
+            # 10점 이하는 0, 50점 이상은 1.0으로 매핑
+            high_vol_prob = min(1.0, max(0, (risk_score - 10) / 40))
+            
+            # 청산 리스크 계산
+            # 주봉 데이터에 OI와 펀딩비가 있으면 일봉과 동일한 방식으로 계산
+            oi_growth_raw = row.get('oi_growth_7d')
+            funding_zscore_raw = row.get('funding_rate_zscore')
+            
+            oi_growth = float(oi_growth_raw) if pd.notna(oi_growth_raw) else 0.0
+            funding_zscore = float(funding_zscore_raw) if pd.notna(funding_zscore_raw) else 0.0
+            
+            has_oi = pd.notna(oi_growth_raw)
+            has_funding = pd.notna(funding_zscore_raw)
+            
+            # OI와 펀딩비 데이터가 모두 있으면 일봉과 동일한 계산 방식 사용
+            if has_oi and has_funding:
+                # 일봉과 동일한 계산 방식
+                oi_growth_norm = min(abs(oi_growth), 0.5)       # 최대 50% 변화
+                funding_zscore_norm = min(abs(funding_zscore), 3.0)  # 최대 3 시그마
+                liquidation_risk = min(100, max(0, oi_growth_norm * 60 + funding_zscore_norm * 12))
+            else:
+                # 기존 방식 (변동폭만 사용, 스케일 조정)
+                weekly_range = float(row.get('weekly_range_pct', 0) or 0)
+                # 주간 변동폭이 20%일 때 100%가 되도록 조정 (기존 10% → 20%로 변경)
+                liquidation_risk = min(100, max(0, weekly_range * 5))
             
             return {
                 'success': True,
@@ -556,7 +578,11 @@ class RiskPredictor:
                         'volatility_ratio': float(row.get('volatility_ratio', 0) or 0),
                         'rsi': float(row.get('rsi', 0) or 0),
                         'weekly_range_pct': float(row.get('weekly_range_pct', 0) or 0),
-                        'weekly_return': float(row.get('weekly_return', 0) or 0)
+                        'weekly_return': float(row.get('weekly_return', 0) or 0),
+                        'avg_funding_rate': float(row.get('avg_funding_rate', 0) or 0) if pd.notna(row.get('avg_funding_rate')) else None,
+                        'sum_open_interest': float(row.get('sum_open_interest', 0) or 0) if pd.notna(row.get('sum_open_interest')) else None,
+                        'oi_growth_7d': float(row.get('oi_growth_7d', 0) or 0) if pd.notna(row.get('oi_growth_7d')) else None,
+                        'funding_rate_zscore': float(row.get('funding_rate_zscore', 0) or 0) if pd.notna(row.get('funding_rate_zscore')) else None
                     }
                 }
             }
@@ -601,22 +627,52 @@ class RiskPredictor:
             if len(df) == 0:
                 return pd.DataFrame()
             
-            # 리스크 점수 계산
+            # 리스크 점수 계산 (주봉에 맞게 개선)
             volatility_scores = np.minimum(100, np.maximum(0, df['volatility_ratio'].fillna(0) * 100))
             whale_scores = np.minimum(100, np.maximum(0, np.abs(df['whale_conc_change_7d'].fillna(0)) * 200))
             rsi_scores = np.abs(df['rsi'].fillna(50) - 50) * 2
             
-            risk_scores = (volatility_scores * 0.4 + whale_scores * 0.3 + rsi_scores * 0.3)
-            high_vol_probs = np.minimum(1.0, risk_scores / 100)
+            # 주봉 특성 반영: 변동성 가중치 증가, RSI 가중치 감소
+            risk_scores = (volatility_scores * 0.5 + whale_scores * 0.3 + rsi_scores * 0.2)
             
-            weekly_range = df['weekly_range_pct'].fillna(0)
-            liquidation_risks = np.minimum(100, np.maximum(0, weekly_range * 10))
+            # 주봉 예측 확률 계산 개선: 더 민감하게 조정
+            # 주봉은 일봉보다 변동성이 평활화되므로 더 민감하게 반응하도록
+            # risk_scores를 0~100 범위에서 0~1 범위로 변환하되, 스케일 조정
+            # 20점 이하는 0, 80점 이상은 1.0으로 매핑 (더 넓은 범위 활용)
+            high_vol_probs = np.minimum(1.0, np.maximum(0, (risk_scores - 20) / 60))
+            
+            # 청산 리스크 계산
+            # OI와 펀딩비 데이터가 있으면 일봉과 동일한 방식으로 계산
+            oi_growth = df['oi_growth_7d'].fillna(0)
+            funding_zscore = df['funding_rate_zscore'].fillna(0)
+            
+            # OI와 펀딩비 데이터가 모두 있는 경우
+            has_oi_funding = df['oi_growth_7d'].notna() & df['funding_rate_zscore'].notna()
+            
+            liquidation_risks = np.zeros(len(df))
+            
+            # OI/펀딩비 데이터가 있는 경우: 일봉과 동일한 계산
+            if has_oi_funding.any():
+                oi_growth_norm = np.minimum(np.abs(oi_growth), 0.5)
+                funding_zscore_norm = np.minimum(np.abs(funding_zscore), 3.0)
+                liquidation_risks[has_oi_funding] = np.minimum(100, np.maximum(0, 
+                    oi_growth_norm[has_oi_funding] * 60 + 
+                    funding_zscore_norm[has_oi_funding] * 12
+                ))
+            
+            # OI/펀딩비 데이터가 없는 경우: 변동폭 기반 계산 (스케일 조정)
+            if (~has_oi_funding).any():
+                weekly_range = df['weekly_range_pct'].fillna(0)
+                liquidation_risks[~has_oi_funding] = np.minimum(100, np.maximum(0, 
+                    weekly_range[~has_oi_funding] * 5
+                ))
             
             result_df = pd.DataFrame({
                 'date': df['date'].dt.date,
                 'high_volatility_prob': high_vol_probs,
                 'risk_score': risk_scores,
-                'liquidation_risk': liquidation_risks
+                'liquidation_risk': liquidation_risks,
+                'actual_high_vol': df.get('target_high_vol', None)  # 일봉과 동일하게 추가
             })
             
             return result_df

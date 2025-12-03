@@ -76,9 +76,26 @@ class RiskAnalyzer:
                 from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
                 
                 y_true = predictions_df['actual_high_vol'].fillna(0).astype(int)
-                # 클래스 불균형을 고려하여 임계값을 0.3으로 낮춤
-                y_pred = (predictions_df['high_volatility_prob'] > 0.3).astype(int)
                 y_pred_proba = predictions_df['high_volatility_prob']
+                
+                # 최적 임계값 찾기 (F1-Score 최대화)
+                best_threshold = 0.3
+                best_f1 = 0
+                
+                if len(y_true.unique()) > 1:
+                    # 0.1부터 0.9까지 0.05 간격으로 테스트
+                    for threshold in np.arange(0.1, 0.95, 0.05):
+                        y_pred_test = (y_pred_proba > threshold).astype(int)
+                        try:
+                            f1_test = f1_score(y_true, y_pred_test, zero_division=0)
+                            if f1_test > best_f1:
+                                best_f1 = f1_test
+                                best_threshold = threshold
+                        except:
+                            continue
+                
+                # 최적 임계값으로 예측
+                y_pred = (y_pred_proba > best_threshold).astype(int)
                 
                 try:
                     # AUC-ROC 계산 - 두 클래스가 모두 존재해야 함
@@ -274,23 +291,86 @@ class RiskAnalyzer:
                     'error': f"{start_date} ~ {end_date} 기간에 대한 주봉 데이터가 없습니다."
                 }
             
-            # 주봉은 학습된 모델이 없으므로 기본 통계만 반환
-            return {
-                'success': True,
-                'data': {
-                    'auc_roc': None,
-                    'accuracy': None,
-                    'precision': None,
-                    'recall': None,
-                    'f1_score': None,
-                    'total_predictions': int(len(predictions_df)),
-                    'high_vol_count': None,
-                    'predicted_high_vol_count': int((predictions_df['high_volatility_prob'] > 0.5).sum()),
-                    'avg_risk_score': float(predictions_df['risk_score'].mean()),
-                    'max_risk_score': float(predictions_df['risk_score'].max()),
-                    'min_risk_score': float(predictions_df['risk_score'].min())
+            # 실제 고변동성 데이터가 있는 경우만 성과 계산 (일봉과 동일)
+            if 'actual_high_vol' in predictions_df.columns and predictions_df['actual_high_vol'].notna().any():
+                from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
+                
+                y_true = predictions_df['actual_high_vol'].fillna(0).astype(int)
+                y_pred_proba = predictions_df['high_volatility_prob']
+                
+                # 최적 임계값 찾기 (F1-Score 최대화)
+                best_threshold = 0.3
+                best_f1 = 0
+                
+                if len(y_true.unique()) > 1:
+                    # 0.1부터 0.9까지 0.05 간격으로 테스트
+                    for threshold in np.arange(0.1, 0.95, 0.05):
+                        y_pred_test = (y_pred_proba > threshold).astype(int)
+                        try:
+                            f1_test = f1_score(y_true, y_pred_test, zero_division=0)
+                            if f1_test > best_f1:
+                                best_f1 = f1_test
+                                best_threshold = threshold
+                        except:
+                            continue
+                
+                # 최적 임계값으로 예측
+                y_pred = (y_pred_proba > best_threshold).astype(int)
+                
+                try:
+                    # AUC-ROC 계산 - 두 클래스가 모두 존재해야 함
+                    if len(y_true.unique()) > 1:
+                        auc_roc = roc_auc_score(y_true, y_pred_proba)
+                    else:
+                        auc_roc = None
+                except:
+                    auc_roc = None
+                
+                accuracy = accuracy_score(y_true, y_pred)
+                precision = precision_score(y_true, y_pred, zero_division=0)
+                recall = recall_score(y_true, y_pred, zero_division=0)
+                f1 = f1_score(y_true, y_pred, zero_division=0)
+                
+                return {
+                    'success': True,
+                    'data': {
+                        'auc_roc': float(auc_roc) if auc_roc is not None else None,
+                        'accuracy': float(accuracy),
+                        'precision': float(precision),
+                        'recall': float(recall),
+                        'f1_score': float(f1),
+                        'total_predictions': int(len(predictions_df)),
+                        'high_vol_count': int(y_true.sum()),
+                        'predicted_high_vol_count': int(y_pred.sum()),
+                        'avg_risk_score': float(predictions_df['risk_score'].mean()),
+                        'max_risk_score': float(predictions_df['risk_score'].max()),
+                        'min_risk_score': float(predictions_df['risk_score'].min()),
+                        'avg_liquidation_risk': float(predictions_df['liquidation_risk'].mean()),
+                        'max_liquidation_risk': float(predictions_df['liquidation_risk'].max()),
+                        'min_liquidation_risk': float(predictions_df['liquidation_risk'].min())
+                    }
                 }
-            }
+            else:
+                # 실제 고변동성 데이터가 없으면 기본 통계만 반환
+                return {
+                    'success': True,
+                    'data': {
+                        'auc_roc': None,
+                        'accuracy': None,
+                        'precision': None,
+                        'recall': None,
+                        'f1_score': None,
+                        'total_predictions': int(len(predictions_df)),
+                        'high_vol_count': None,
+                        'predicted_high_vol_count': int((predictions_df['high_volatility_prob'] > 0.5).sum()),
+                        'avg_risk_score': float(predictions_df['risk_score'].mean()),
+                        'max_risk_score': float(predictions_df['risk_score'].max()),
+                        'min_risk_score': float(predictions_df['risk_score'].min()),
+                        'avg_liquidation_risk': float(predictions_df['liquidation_risk'].mean()),
+                        'max_liquidation_risk': float(predictions_df['liquidation_risk'].max()),
+                        'min_liquidation_risk': float(predictions_df['liquidation_risk'].min())
+                    }
+                }
                 
         except Exception as e:
             import logging

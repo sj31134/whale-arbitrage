@@ -213,6 +213,21 @@ CREATE TABLE IF NOT EXISTS bitinfocharts_whale_weekly (
     PRIMARY KEY (coin, week_end_date)
 );
 
+-- 13. binance_futures_weekly (신규 추가: 주별 선물 지표)
+CREATE TABLE IF NOT EXISTS binance_futures_weekly (
+    symbol VARCHAR(20) NOT NULL,
+    week_end_date DATE NOT NULL,
+    avg_funding_rate DECIMAL(20, 10),
+    sum_open_interest DECIMAL(30, 10),
+    oi_growth_7d DECIMAL(10, 6),
+    funding_rate_zscore DECIMAL(10, 6),
+    created_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (symbol, week_end_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_futures_weekly_symbol ON binance_futures_weekly(symbol);
+CREATE INDEX IF NOT EXISTS idx_futures_weekly_date ON binance_futures_weekly(week_end_date);
+
 -- 인덱스 생성 (이미 존재하면 오류 발생하므로 필요시만 실행)
 -- CREATE INDEX IF NOT EXISTS idx_whale_weekly_coin ON bitinfocharts_whale_weekly(coin);
 -- CREATE INDEX IF NOT EXISTS idx_whale_weekly_date ON bitinfocharts_whale_weekly(week_end_date);

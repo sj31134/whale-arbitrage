@@ -76,13 +76,23 @@ class FeatureExplainer:
             # 메타데이터가 없으면 모델에서 직접 추출
             model = self.predictor.model
             features = self.predictor.features
+            model_type = self.predictor.model_type
             
             if model is None or features is None:
                 return pd.DataFrame()
             
+            # HybridEnsembleModel의 경우 XGBoost 컴포넌트의 feature_importances_ 사용
+            if model_type == "hybrid" and hasattr(model, 'xgb_model'):
+                feature_importances = model.xgb_model.feature_importances_
+            elif hasattr(model, 'feature_importances_'):
+                feature_importances = model.feature_importances_
+            else:
+                # feature_importances_가 없는 경우 동일한 중요도로 설정
+                feature_importances = np.ones(len(features)) / len(features)
+            
             importance_df = pd.DataFrame({
                 'feature': features,
-                'importance': model.feature_importances_
+                'importance': feature_importances
             }).sort_values('importance', ascending=False)
             
             return importance_df.head(top_n)
@@ -170,8 +180,27 @@ class FeatureExplainer:
             
             # SHAP 값 계산
             model = self.predictor.model
-            explainer = shap.TreeExplainer(model)
-            shap_values = explainer.shap_values(X_df)
+            model_type = self.predictor.model_type
+            
+            # HybridEnsembleModel의 경우 XGBoost 컴포넌트 사용
+            if model_type == "hybrid" and hasattr(model, 'xgb_model'):
+                # XGBoost 컴포넌트를 사용하여 SHAP 계산
+                xgb_model = model.xgb_model
+                xgb_scaler = model.xgb_scaler
+                X_xgb = xgb_scaler.transform(X_df)
+                explainer = shap.TreeExplainer(xgb_model)
+                shap_values = explainer.shap_values(X_xgb)
+            else:
+                # 일반 Tree 모델 (XGBoost, LightGBM 등)
+                try:
+                    explainer = shap.TreeExplainer(model)
+                    shap_values = explainer.shap_values(X_df)
+                except Exception as e:
+                    # TreeExplainer가 지원하지 않는 모델의 경우 KernelExplainer 사용
+                    import logging
+                    logging.warning(f"TreeExplainer 실패, KernelExplainer 사용: {str(e)}")
+                    explainer = shap.KernelExplainer(model.predict_proba, X_df.sample(min(100, len(X_df))))
+                    shap_values = explainer.shap_values(X_df)
             
             # 이진 분류의 경우 shap_values는 리스트 [class_0, class_1]
             if isinstance(shap_values, list):
@@ -184,9 +213,18 @@ class FeatureExplainer:
             }
             
             # 기준값 및 예측 확률
-            base_value = float(explainer.expected_value)
-            if isinstance(base_value, np.ndarray):
-                base_value = float(base_value[1])  # class_1 기준값
+            if hasattr(explainer, 'expected_value'):
+                base_value = explainer.expected_value
+                if isinstance(base_value, np.ndarray):
+                    if len(base_value) > 1:
+                        base_value = float(base_value[1])  # class_1 기준값
+                    else:
+                        base_value = float(base_value[0])
+                else:
+                    base_value = float(base_value)
+            else:
+                # KernelExplainer의 경우 기준값 계산
+                base_value = float(model.predict_proba(X_df).mean(axis=0)[1])
             
             prediction = float(model.predict_proba(X_df)[0, 1])
             

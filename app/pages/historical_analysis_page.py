@@ -146,14 +146,19 @@ def render():
                     marker=dict(color='red', size=10, symbol='x')
                 ))
             
-            # 예측 고변동성 구간 표시 (임계값 0.5)
-            predicted_high_vol = predictions_df[predictions_df['high_volatility_prob'] >= 0.5]
+            # 예측 고변동성 구간 표시 (주봉/일봉에 따라 임계값 다르게)
+            if is_weekly:
+                threshold = 0.3  # 주봉은 0.3 (더 민감하게)
+            else:
+                threshold = 0.5  # 일봉은 0.5
+            
+            predicted_high_vol = predictions_df[predictions_df['high_volatility_prob'] >= threshold]
             if len(predicted_high_vol) > 0:
                 fig_timeline.add_trace(go.Scatter(
                     x=pd.to_datetime(predicted_high_vol['date']),
                     y=predicted_high_vol['risk_score'],
                     mode='markers',
-                    name='예측 고변동성 구간',
+                    name=f'예측 고변동성 구간 (임계값 {threshold})',
                     marker=dict(color='orange', size=8, symbol='circle')
                 ))
             
@@ -205,28 +210,40 @@ def render():
                 with col1:
                     st.markdown("**모델 성능**")
                     if perf_data['auc_roc'] is not None:
+                        # 실제 고변동성 데이터가 있어서 성과 지표 계산 가능 (일봉/주봉 공통)
                         st.metric("AUC-ROC", f"{perf_data['auc_roc']:.4f}")
                         st.metric("정확도", f"{perf_data['accuracy']:.2%}")
                     else:
+                        # 실제 고변동성 데이터가 없어서 기본 통계만 표시
                         if is_weekly:
                             st.info("주봉 분석은 규칙 기반 점수를 사용합니다.")
-                            if 'avg_risk_score' in perf_data:
-                                st.metric("평균 리스크", f"{perf_data['avg_risk_score']:.2f}")
-                                st.metric("최대 리스크", f"{perf_data['max_risk_score']:.2f}")
                         else:
                             st.info("실제 고변동성 데이터가 없어 성능 지표를 계산할 수 없습니다.")
+                        
+                        if 'avg_risk_score' in perf_data:
+                            st.metric("평균 리스크 점수", f"{perf_data['avg_risk_score']:.2f}%")
+                            st.metric("최대 리스크 점수", f"{perf_data['max_risk_score']:.2f}%")
+                            st.metric("최소 리스크 점수", f"{perf_data['min_risk_score']:.2f}%")
                 
                 with col2:
                     st.markdown("**예측 정확도**")
                     if perf_data['precision'] is not None:
+                        # 실제 고변동성 데이터가 있어서 정확도 계산 가능 (일봉/주봉 공통)
                         st.metric("Precision", f"{perf_data['precision']:.2%}")
                         st.metric("Recall", f"{perf_data['recall']:.2%}")
                         st.metric("F1-Score", f"{perf_data['f1_score']:.4f}")
                     else:
+                        # 실제 고변동성 데이터가 없어서 정확도 계산 불가
                         if is_weekly:
                             st.info("주봉 분석은 추세 기반 리스크 점수를 제공합니다.")
                         else:
                             st.info("실제 고변동성 데이터가 없어 정확도를 계산할 수 없습니다.")
+                        
+                        # 청산 리스크 통계 추가 표시
+                        if 'avg_liquidation_risk' in perf_data:
+                            st.metric("평균 청산 리스크", f"{perf_data['avg_liquidation_risk']:.2f}%")
+                            st.metric("최대 청산 리스크", f"{perf_data['max_liquidation_risk']:.2f}%")
+                            st.metric("최소 청산 리스크", f"{perf_data['min_liquidation_risk']:.2f}%")
                 
                 st.markdown("**통계**")
                 col3, col4, col5 = st.columns(3)
@@ -269,6 +286,10 @@ def render():
                 display_df['high_volatility_prob'] = (display_df['high_volatility_prob'] * 100).round(2)
                 display_df['risk_score'] = display_df['risk_score'].round(2)
                 display_df['liquidation_risk'] = display_df['liquidation_risk'].round(2)
+                
+                # 고변동성 확률과 청산 리스크가 동일한지 확인 (주봉에서 발생할 수 있는 문제)
+                if (display_df['high_volatility_prob'] == display_df['liquidation_risk']).all():
+                    st.warning("⚠️ 고변동성 확률과 청산 리스크가 동일합니다. 데이터를 확인해주세요.")
                 
                 if 'actual_high_vol' in display_df.columns:
                     display_df['actual_high_vol'] = display_df['actual_high_vol'].apply(
