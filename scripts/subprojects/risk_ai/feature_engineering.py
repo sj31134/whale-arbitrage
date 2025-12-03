@@ -11,6 +11,8 @@ import sqlite3
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import os
+import logging
 
 ROOT = Path(__file__).resolve().parents[3]
 DB_PATH = ROOT / "data" / "project.db"
@@ -22,12 +24,90 @@ MOMENTUM_WINDOW = 3  # 모멘텀 계산용 윈도우
 
 class FeatureEngineer:
     def __init__(self):
-        self.conn = sqlite3.connect(DB_PATH)
+        # DataLoader를 사용하여 Supabase 지원
+        try:
+            import sys
+            sys.path.insert(0, str(ROOT / "app" / "utils"))
+            from data_loader import DataLoader
+            self.data_loader = DataLoader()
+            self.use_data_loader = True
+        except Exception as e:
+            logging.warning(f"DataLoader 초기화 실패, SQLite 직접 사용: {e}")
+            self.data_loader = None
+            self.use_data_loader = False
+            self.conn = sqlite3.connect(DB_PATH)
 
     def load_raw_data(self, start_date="2023-01-01", coin="BTC"):
         """데이터 로드 및 병합 (Daily) - 확장 지표 포함"""
         symbol = f"{coin}USDT"
         coin_symbol = coin
+        
+        # DataLoader를 사용하는 경우 (Supabase 지원)
+        if self.use_data_loader and self.data_loader:
+            try:
+                # load_risk_data로 기본 데이터 로드
+                end_date = pd.Timestamp.now().strftime("%Y-%m-%d")
+                df = self.data_loader.load_risk_data(start_date, end_date, coin)
+                
+                if df.empty:
+                    return df
+                
+                # futures_extended_metrics 데이터 병합
+                metrics_df = self.data_loader.load_futures_extended_metrics(start_date, end_date, symbol)
+                if not metrics_df.empty:
+                    df = pd.merge(df, metrics_df, on=['date', 'symbol'], how='left', suffixes=('', '_ext'))
+                    # 중복 컬럼 처리
+                    if 'long_short_ratio_ext' in df.columns:
+                        df['ext_long_short_ratio'] = df['long_short_ratio_ext']
+                        df = df.drop(columns=['long_short_ratio_ext'])
+                
+                # whale_daily_stats 데이터 병합 (Supabase 지원)
+                if self.data_loader.use_supabase:
+                    try:
+                        supabase = self.data_loader._get_supabase_client()
+                        if supabase:
+                            whale_response = supabase.table("whale_daily_stats") \
+                                .select("*") \
+                                .eq("coin_symbol", coin_symbol) \
+                                .gte("date", start_date) \
+                                .order("date") \
+                                .execute()
+                            
+                            if whale_response.data and len(whale_response.data) > 0:
+                                whale_df = pd.DataFrame(whale_response.data)
+                                whale_df['date'] = pd.to_datetime(whale_df['date'])
+                                df = pd.merge(df, whale_df[['date', 'exchange_inflow_usd', 'exchange_outflow_usd', 
+                                                           'net_flow_usd', 'active_addresses', 'large_tx_count']], 
+                                            on='date', how='left')
+                    except Exception as e:
+                        logging.warning(f"Supabase에서 whale_daily_stats 로드 실패: {e}")
+                else:
+                    # SQLite에서 whale_daily_stats 로드
+                    if self.data_loader.conn:
+                        whale_query = f"""
+                            SELECT date, exchange_inflow_usd, exchange_outflow_usd, 
+                                   net_flow_usd, active_addresses, large_tx_count
+                            FROM whale_daily_stats
+                            WHERE coin_symbol = '{coin_symbol}'
+                            AND date >= '{start_date}'
+                            ORDER BY date
+                        """
+                        whale_df = pd.read_sql(whale_query, self.data_loader.conn)
+                        if not whale_df.empty:
+                            whale_df['date'] = pd.to_datetime(whale_df['date'])
+                            df = pd.merge(df, whale_df, on='date', how='left')
+                
+                # 결측치 처리 (Forward Fill)
+                df = df.ffill().fillna(0)
+                
+                return df
+            except Exception as e:
+                logging.warning(f"DataLoader를 통한 데이터 로드 실패, SQLite 직접 사용: {e}")
+                # SQLite로 폴백
+        
+        # SQLite 직접 사용 (로컬 환경 또는 DataLoader 실패 시)
+        if not hasattr(self, 'conn') or self.conn is None:
+            self.conn = sqlite3.connect(DB_PATH)
         
         # 기본 지표 + 확장 지표 조인
         query = f"""
