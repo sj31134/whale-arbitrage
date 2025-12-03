@@ -391,13 +391,40 @@ class DataLoader:
         if coin == 'BTC':
             market = 'KRW-BTC'
             symbol = 'BTCUSDT'
+            coin_label = 'BTC'
         elif coin == 'ETH':
             market = 'KRW-ETH'
             symbol = 'ETHUSDT'
+            coin_label = 'ETH'
         else:
             return None, None
         
         try:
+            # Supabase 우선 사용 (클라우드 환경)
+            if self.use_supabase:
+                try:
+                    supabase = self._get_supabase_client()
+                    if supabase:
+                        # binance_futures_metrics에서 날짜 범위 조회
+                        response = supabase.table("binance_futures_metrics") \
+                            .select("date") \
+                            .eq("symbol", symbol) \
+                            .order("date") \
+                            .execute()
+                        
+                        if response.data and len(response.data) > 0:
+                            dates = [row['date'] for row in response.data]
+                            min_date = min(dates)
+                            max_date = max(dates)
+                            return min_date, max_date
+                        
+                        # 데이터가 없으면 None 반환
+                        return None, None
+                except Exception as e:
+                    logging.warning(f"Supabase에서 날짜 조회 실패, SQLite로 폴백: {e}")
+                    # SQLite로 폴백
+            
+            # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
             # 데이터베이스 연결 확인
             if not hasattr(self, 'conn') or self.conn is None:
                 import logging
@@ -473,13 +500,43 @@ class DataLoader:
         if coin == 'BTC':
             market = 'KRW-BTC'
             symbol = 'BTCUSDT'
+            coin_label = 'BTC'
         elif coin == 'ETH':
             market = 'KRW-ETH'
             symbol = 'ETHUSDT'
+            coin_label = 'ETH'
         else:
             return []
         
         try:
+            # Supabase 우선 사용 (클라우드 환경)
+            if self.use_supabase:
+                try:
+                    supabase = self._get_supabase_client()
+                    if supabase:
+                        # binance_futures_metrics에서 날짜 목록 조회
+                        query = supabase.table("binance_futures_metrics") \
+                            .select("date") \
+                            .eq("symbol", symbol)
+                        
+                        if start_date:
+                            query = query.gte("date", start_date)
+                        if end_date:
+                            query = query.lte("date", end_date)
+                        
+                        response = query.order("date").execute()
+                        
+                        if response.data and len(response.data) > 0:
+                            dates = sorted(list(set([row['date'] for row in response.data])))
+                            return dates
+                        
+                        # 데이터가 없으면 빈 리스트 반환
+                        return []
+                except Exception as e:
+                    logging.warning(f"Supabase에서 날짜 목록 조회 실패, SQLite로 폴백: {e}")
+                    # SQLite로 폴백
+            
+            # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
             if not hasattr(self, 'conn') or self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")
                 return []
@@ -711,7 +768,7 @@ class DataLoader:
                         .order("date") \
                         .execute()
                     
-                    if futures_response.data:
+                    if futures_response.data and len(futures_response.data) > 0:
                         df = pd.DataFrame(futures_response.data)
                         df['date'] = pd.to_datetime(df['date'])
                         
@@ -724,7 +781,7 @@ class DataLoader:
                             .order("date") \
                             .execute()
                         
-                        if whale_response.data:
+                        if whale_response.data and len(whale_response.data) > 0:
                             whale_df = pd.DataFrame(whale_response.data)
                             whale_df['date'] = pd.to_datetime(whale_df['date'])
                             df = pd.merge(df, whale_df[['date', 'top100_richest_pct', 'avg_transaction_value_btc']], 
@@ -756,6 +813,10 @@ class DataLoader:
                             df = df[has_core_data]
                         
                         return df
+                    else:
+                        # Supabase에서 데이터가 없으면 빈 DataFrame 반환
+                        logging.warning(f"Supabase에서 {symbol} 데이터가 없습니다 (기간: {start_date} ~ {end_date})")
+                        return pd.DataFrame()
             except Exception as e:
                 logging.warning(f"Supabase에서 데이터 로드 실패, SQLite로 폴백: {e}")
                 # SQLite로 폴백
@@ -866,7 +927,7 @@ class DataLoader:
                         .order("date") \
                         .execute()
                     
-                    if response.data:
+                    if response.data and len(response.data) > 0:
                         df = pd.DataFrame(response.data)
                         df['date'] = pd.to_datetime(df['date'])
                         
@@ -881,6 +942,10 @@ class DataLoader:
                                 df[col] = pd.to_numeric(df[col], errors='coerce')
                         
                         return df
+                    else:
+                        # Supabase에서 데이터가 없으면 빈 DataFrame 반환
+                        logging.warning(f"Supabase에서 {symbol} futures_extended_metrics 데이터가 없습니다 (기간: {start_date} ~ {end_date})")
+                        return pd.DataFrame()
             except Exception as e:
                 logging.warning(f"Supabase에서 데이터 로드 실패, SQLite로 폴백: {e}")
                 # SQLite로 폴백

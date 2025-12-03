@@ -10,6 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import os
+import logging
 
 # Streamlit Cloud 또는 로컬 환경 감지
 if os.path.exists('/mount/src'):
@@ -415,17 +416,37 @@ def render_exchange_flow(data_loader, target_date, coin):
     end_date = target_date.strftime("%Y-%m-%d")
     
     try:
-        # whale_daily_stats에서 데이터 로드
-        query = f"""
-            SELECT date, exchange_inflow_usd, exchange_outflow_usd, net_flow_usd
-            FROM whale_daily_stats
-            WHERE coin_symbol = '{coin}'
-            AND date >= '{start_date}'
-            AND date <= '{end_date}'
-            ORDER BY date
-        """
+        flow_df = pd.DataFrame()
         
-        flow_df = pd.read_sql(query, data_loader.conn)
+        # Supabase 우선 사용 (클라우드 환경)
+        if data_loader.use_supabase:
+            try:
+                supabase = data_loader._get_supabase_client()
+                if supabase:
+                    response = supabase.table("whale_daily_stats") \
+                        .select("date, exchange_inflow_usd, exchange_outflow_usd, net_flow_usd") \
+                        .eq("coin_symbol", coin) \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if response.data and len(response.data) > 0:
+                        flow_df = pd.DataFrame(response.data)
+            except Exception as e:
+                logging.warning(f"Supabase에서 거래소 유입/유출 데이터 로드 실패: {e}")
+        
+        # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
+        if flow_df.empty and data_loader.conn is not None:
+            query = f"""
+                SELECT date, exchange_inflow_usd, exchange_outflow_usd, net_flow_usd
+                FROM whale_daily_stats
+                WHERE coin_symbol = '{coin}'
+                AND date >= '{start_date}'
+                AND date <= '{end_date}'
+                ORDER BY date
+            """
+            flow_df = pd.read_sql(query, data_loader.conn)
         
         if len(flow_df) == 0:
             st.info("💡 거래소 유입/유출 데이터가 없습니다.")
