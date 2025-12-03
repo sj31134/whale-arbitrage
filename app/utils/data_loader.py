@@ -55,15 +55,38 @@ class DataLoader:
                 
                 # 환경 변수 로드
                 env_path = ROOT / "config" / ".env"
+                supabase_url = None
+                supabase_key = None
+                
                 if not env_path.exists():
                     # Streamlit Cloud Secrets에서 가져오기
-                    import streamlit as st
-                    supabase_url = st.secrets.get("SUPABASE_URL", os.getenv("SUPABASE_URL"))
-                    supabase_key = st.secrets.get("SUPABASE_KEY", os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
-                else:
-                    load_dotenv(env_path, override=True)
+                    try:
+                        import streamlit as st
+                        if hasattr(st, 'secrets'):
+                            try:
+                                # st.secrets는 딕셔너리처럼 접근 가능
+                                supabase_url = st.secrets.get("SUPABASE_URL", None) if hasattr(st.secrets, 'get') else (st.secrets["SUPABASE_URL"] if "SUPABASE_URL" in st.secrets else None)
+                                supabase_key = st.secrets.get("SUPABASE_KEY", None) if hasattr(st.secrets, 'get') else (st.secrets["SUPABASE_KEY"] if "SUPABASE_KEY" in st.secrets else None)
+                            except (KeyError, AttributeError, TypeError):
+                                # st.secrets 접근 실패 시 환경 변수로 폴백
+                                pass
+                    except ImportError:
+                        # streamlit이 없는 환경
+                        pass
+                
+                # Secrets에서 가져오지 못한 경우 환경 변수에서 가져오기
+                if not supabase_url:
                     supabase_url = os.getenv("SUPABASE_URL")
+                if not supabase_key:
                     supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                
+                # .env 파일이 있으면 로드 (로컬 개발 환경)
+                if env_path.exists():
+                    load_dotenv(env_path, override=True)
+                    if not supabase_url:
+                        supabase_url = os.getenv("SUPABASE_URL")
+                    if not supabase_key:
+                        supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
                 
                 if not supabase_url or not supabase_key:
                     raise ValueError("Supabase 환경 변수가 설정되지 않았습니다. SUPABASE_URL과 SUPABASE_KEY를 확인하세요.")
@@ -229,14 +252,21 @@ class DataLoader:
         
         try:
             # Secrets에서 DATABASE_URL 가져오기
+            db_url = None
             try:
-                db_url = st.secrets.get("DATABASE_URL", None)
-            except (FileNotFoundError, AttributeError, KeyError):
+                if hasattr(st, 'secrets'):
+                    if hasattr(st.secrets, 'get'):
+                        db_url = st.secrets.get("DATABASE_URL", None)
+                    elif "DATABASE_URL" in st.secrets:
+                        db_url = st.secrets["DATABASE_URL"]
+            except (FileNotFoundError, AttributeError, KeyError, TypeError):
                 # Streamlit secrets 파일이 없거나 키가 없는 경우
-                st.warning("⚠️ DATABASE_URL이 Secrets에 설정되어 있지 않습니다.")
-                return
+                pass
             except Exception as e:
-                st.error(f"❌ Secrets 읽기 오류: {str(e)}")
+                logging.warning(f"Secrets 읽기 오류: {str(e)}")
+            
+            if not db_url:
+                st.warning("⚠️ DATABASE_URL이 Secrets에 설정되어 있지 않습니다.")
                 return
             
             if not db_url:
