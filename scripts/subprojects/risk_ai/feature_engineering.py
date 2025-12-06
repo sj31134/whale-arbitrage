@@ -200,12 +200,27 @@ class FeatureEngineer:
         df['funding_rate_zscore'] = df['funding_rate_zscore'].fillna(0)
         
         # 3. OI 변화율 (7일) - 무한대 값 처리
-        oi_pct_change = df['sum_open_interest'].pct_change(7)
-        df['oi_growth_7d'] = oi_pct_change.replace([np.inf, -np.inf], 0).fillna(0)
-        # 무한대 값을 클리핑 (-1 ~ 1)
-        df['oi_growth_7d'] = df['oi_growth_7d'].clip(-1, 1)
+        # sum_open_interest가 0인지 확인
+        if (df['sum_open_interest'] == 0).all():
+            logging.warning("sum_open_interest가 모두 0입니다. oi_growth_7d를 계산할 수 없습니다.")
+            df['oi_growth_7d'] = 0.0
+        else:
+            oi_pct_change = df['sum_open_interest'].pct_change(7)
+            df['oi_growth_7d'] = oi_pct_change.replace([np.inf, -np.inf], 0).fillna(0)
+            # 무한대 값을 클리핑 (-1 ~ 1)
+            df['oi_growth_7d'] = df['oi_growth_7d'].clip(-1, 1)
         
         # 4. Long/Short Ratio Normalization
+        # long_short_ratio가 0인지 확인
+        if (df['long_short_ratio'] == 0).all():
+            # ext_long_short_ratio가 있는지 확인 (확장 데이터에서 가져온 값)
+            if 'ext_long_short_ratio' in df.columns and not (df['ext_long_short_ratio'] == 0).all():
+                logging.info("long_short_ratio가 0이어서 ext_long_short_ratio를 사용합니다.")
+                df['long_short_ratio'] = df['ext_long_short_ratio']
+            else:
+                logging.warning("long_short_ratio가 모두 0입니다. long_position_pct를 0.5로 설정합니다.")
+                df['long_short_ratio'] = 1.0 # 1.0이면 long_position_pct는 0.5
+        
         df['long_short_ratio'] = df['long_short_ratio'].replace(0, 1.0)
         df['long_position_pct'] = df['long_short_ratio'] / (1 + df['long_short_ratio'])
         

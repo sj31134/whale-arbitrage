@@ -92,18 +92,45 @@ def upsert_extended_metrics(rows):
 
 
 def upsert_metrics(rows):
+    """
+    metrics 데이터를 DB에 저장
+    주의: sum_open_interest가 0인 경우 기존 데이터를 유지하여 데이터 손실 방지
+    """
     if not rows:
         return
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.executemany(
-        """
-        INSERT OR REPLACE INTO binance_futures_metrics
-        (date, symbol, avg_funding_rate, sum_open_interest, long_short_ratio, volatility_24h, target_volatility_24h)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        rows,
-    )
+    
+    for row in rows:
+        date_str, symbol, avg_funding, oi_value, ls_ratio, volatility, target_vol = row
+        
+        # 기존 데이터 확인
+        cur.execute("""
+            SELECT avg_funding_rate, sum_open_interest, volatility_24h 
+            FROM binance_futures_metrics 
+            WHERE date = ? AND symbol = ?
+        """, (date_str, symbol))
+        existing = cur.fetchone()
+        
+        # 기존 데이터가 있고, 새 값이 0인 경우 기존 값 유지
+        if existing:
+            old_funding, old_oi, old_vol = existing
+            if oi_value == 0 and old_oi and old_oi > 0:
+                oi_value = old_oi
+            if avg_funding == 0 and old_funding and old_funding != 0:
+                avg_funding = old_funding
+            if volatility == 0 and old_vol and old_vol > 0:
+                volatility = old_vol
+        
+        cur.execute(
+            """
+            INSERT OR REPLACE INTO binance_futures_metrics
+            (date, symbol, avg_funding_rate, sum_open_interest, long_short_ratio, volatility_24h, target_volatility_24h)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (date_str, symbol, avg_funding, oi_value, ls_ratio, volatility, target_vol),
+        )
+    
     conn.commit()
     cur.close()
     conn.close()

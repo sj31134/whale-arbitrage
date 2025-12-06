@@ -566,6 +566,19 @@ class RiskPredictor:
                 # 주간 변동폭이 20%일 때 100%가 되도록 조정 (기존 10% → 20%로 변경)
                 liquidation_risk = min(100, max(0, weekly_range * 5))
             
+            # 지표 추출 (기본값 0 처리)
+            indicators = {
+                'whale_conc_change_7d': float(row.get('whale_conc_change_7d', 0) or 0),
+                'volatility_ratio': float(row.get('volatility_ratio', 0) or 0),
+                'rsi': float(row.get('rsi', 0) or 0),
+                'weekly_range_pct': float(row.get('weekly_range_pct', 0) or 0),
+                'weekly_return': float(row.get('weekly_return', 0) or 0),
+                'avg_funding_rate': float(row.get('avg_funding_rate', 0) or 0),
+                'sum_open_interest': float(row.get('sum_open_interest', 0) or 0),
+                'oi_growth_7d': float(row.get('oi_growth_7d', 0) or 0),
+                'funding_rate_zscore': float(row.get('funding_rate_zscore', 0) or 0)
+            }
+            
             return {
                 'success': True,
                 'data': {
@@ -573,17 +586,7 @@ class RiskPredictor:
                     'high_volatility_prob': float(high_vol_prob),
                     'risk_score': float(risk_score),
                     'liquidation_risk': float(liquidation_risk),
-                    'indicators': {
-                        'whale_conc_change_7d': float(row.get('whale_conc_change_7d', 0) or 0),
-                        'volatility_ratio': float(row.get('volatility_ratio', 0) or 0),
-                        'rsi': float(row.get('rsi', 0) or 0),
-                        'weekly_range_pct': float(row.get('weekly_range_pct', 0) or 0),
-                        'weekly_return': float(row.get('weekly_return', 0) or 0),
-                        'avg_funding_rate': float(row.get('avg_funding_rate', 0) or 0) if pd.notna(row.get('avg_funding_rate')) else None,
-                        'sum_open_interest': float(row.get('sum_open_interest', 0) or 0) if pd.notna(row.get('sum_open_interest')) else None,
-                        'oi_growth_7d': float(row.get('oi_growth_7d', 0) or 0) if pd.notna(row.get('oi_growth_7d')) else None,
-                        'funding_rate_zscore': float(row.get('funding_rate_zscore', 0) or 0) if pd.notna(row.get('funding_rate_zscore')) else None
-                    }
+                    'indicators': indicators
                 }
             }
             

@@ -405,17 +405,32 @@ class DataLoader:
                 try:
                     supabase = self._get_supabase_client()
                     if supabase:
-                        # binance_futures_metrics에서 날짜 범위 조회
-                        response = supabase.table("binance_futures_metrics") \
-                            .select("date") \
-                            .eq("symbol", symbol) \
-                            .order("date") \
-                            .execute()
+                        # load_exchange_data가 사용하는 주요 테이블들의 교집합 날짜 조회
+                        # 1. upbit_daily
+                        upbit_dates = set()
+                        upbit_resp = supabase.table("upbit_daily").select("date").eq("market", market).execute()
+                        if upbit_resp.data:
+                            upbit_dates = {row['date'] for row in upbit_resp.data}
                         
-                        if response.data and len(response.data) > 0:
-                            dates = [row['date'] for row in response.data]
-                            min_date = min(dates)
-                            max_date = max(dates)
+                        # 2. binance_spot_daily
+                        binance_dates = set()
+                        binance_resp = supabase.table("binance_spot_daily").select("date").eq("symbol", symbol).execute()
+                        if binance_resp.data:
+                            binance_dates = {row['date'] for row in binance_resp.data}
+                            
+                        # 3. exchange_rate (환율)
+                        exchange_dates = set()
+                        exchange_resp = supabase.table("exchange_rate").select("date").execute()
+                        if exchange_resp.data:
+                            exchange_dates = {row['date'] for row in exchange_resp.data}
+                        
+                        # 교집합 계산 (최소한 이 3개는 있어야 함)
+                        common_dates = upbit_dates & binance_dates & exchange_dates
+                        
+                        if common_dates:
+                            dates = sorted(list(common_dates))
+                            min_date = dates[0]
+                            max_date = dates[-1]
                             return min_date, max_date
                         
                         # 데이터가 없으면 None 반환
@@ -451,6 +466,7 @@ class DataLoader:
                 return None, None
             
             # SQL 쿼리 실행 (pandas 대신 직접 cursor 사용)
+            # load_exchange_data와 동일한 로직으로 교집합 조회
             query = f"""
             SELECT 
                 MIN(date) as min_date,
@@ -459,8 +475,6 @@ class DataLoader:
                 SELECT date FROM upbit_daily WHERE market = '{market}'
                 INTERSECT
                 SELECT date FROM binance_spot_daily WHERE symbol = '{symbol}'
-                INTERSECT
-                SELECT date FROM bitget_spot_daily WHERE symbol = '{symbol}'
                 INTERSECT
                 SELECT date FROM exchange_rate
             )
@@ -911,16 +925,19 @@ class DataLoader:
                         whale_cols = ['top100_richest_pct', 'avg_transaction_value_btc']
                         core_cols = ['avg_funding_rate', 'sum_open_interest', 'volatility_24h']
                         
-                        # whale 컬럼만 forward fill
+                        # whale 컬럼만 forward fill 후 0으로 채우기 (NaN 방지)
                         for col in whale_cols:
                             if col in df.columns:
-                                df[col] = df[col].ffill()
+                                df[col] = df[col].ffill().fillna(0.0)
                         
                         # 핵심 파생상품 컬럼 중 하나라도 있으면 행 유지
                         # (whale 데이터가 없어도 파생상품 데이터는 반환)
                         if len(core_cols) > 0:
                             has_core_data = df[core_cols].notna().any(axis=1)
                             df = df[has_core_data]
+                        
+                        # 전체 데이터프레임에 대해 최종적으로 NaN을 0으로 채우기 (안전장치)
+                        df = df.fillna(0.0)
                         
                         return df
                     else:
