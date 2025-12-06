@@ -617,6 +617,116 @@ class DataLoader:
         else:
             raise ValueError(f"지원하지 않는 코인: {coin}")
         
+        # Supabase 우선 사용 (클라우드 환경)
+        if self.use_supabase:
+            try:
+                supabase = self._get_supabase_client()
+                if supabase:
+                    # 각 테이블에서 데이터 로드
+                    # 1. upbit_daily
+                    upbit_response = supabase.table("upbit_daily") \
+                        .select("date, trade_price") \
+                        .eq("market", market) \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if not upbit_response.data or len(upbit_response.data) == 0:
+                        return pd.DataFrame()
+                    
+                    df = pd.DataFrame(upbit_response.data)
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.rename(columns={'trade_price': 'upbit_price'})
+                    
+                    # 2. binance_spot_daily
+                    binance_response = supabase.table("binance_spot_daily") \
+                        .select("date, close") \
+                        .eq("symbol", symbol) \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if binance_response.data and len(binance_response.data) > 0:
+                        binance_df = pd.DataFrame(binance_response.data)
+                        binance_df['date'] = pd.to_datetime(binance_df['date'])
+                        df = pd.merge(df, binance_df[['date', 'close']], on='date', how='left')
+                        df = df.rename(columns={'close': 'binance_price'})
+                    else:
+                        df['binance_price'] = None
+                    
+                    # 3. bitget_spot_daily
+                    bitget_response = supabase.table("bitget_spot_daily") \
+                        .select("date, close") \
+                        .eq("symbol", symbol) \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if bitget_response.data and len(bitget_response.data) > 0:
+                        bitget_df = pd.DataFrame(bitget_response.data)
+                        bitget_df['date'] = pd.to_datetime(bitget_df['date'])
+                        df = pd.merge(df, bitget_df[['date', 'close']], on='date', how='left')
+                        df = df.rename(columns={'close': 'bitget_price'})
+                    else:
+                        df['bitget_price'] = None
+                    
+                    # 4. bybit_spot_daily
+                    bybit_response = supabase.table("bybit_spot_daily") \
+                        .select("date, close") \
+                        .eq("symbol", symbol) \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if bybit_response.data and len(bybit_response.data) > 0:
+                        bybit_df = pd.DataFrame(bybit_response.data)
+                        bybit_df['date'] = pd.to_datetime(bybit_df['date'])
+                        df = pd.merge(df, bybit_df[['date', 'close']], on='date', how='left')
+                        df = df.rename(columns={'close': 'bybit_price'})
+                    else:
+                        df['bybit_price'] = None
+                    
+                    # 5. exchange_rate
+                    exchange_response = supabase.table("exchange_rate") \
+                        .select("date, krw_usd") \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if exchange_response.data and len(exchange_response.data) > 0:
+                        exchange_df = pd.DataFrame(exchange_response.data)
+                        exchange_df['date'] = pd.to_datetime(exchange_df['date'])
+                        df = pd.merge(df, exchange_df[['date', 'krw_usd']], on='date', how='left')
+                    else:
+                        df['krw_usd'] = None
+                    
+                    # 환율 결측치 처리
+                    df['krw_usd'] = df['krw_usd'].ffill().bfill()
+                    if df['krw_usd'].isna().any():
+                        df['krw_usd'] = df['krw_usd'].interpolate(method='linear', limit_direction='both')
+                    if df['krw_usd'].isna().any():
+                        mean_rate = df['krw_usd'].mean()
+                        if pd.notna(mean_rate):
+                            df['krw_usd'] = df['krw_usd'].fillna(mean_rate)
+                        else:
+                            df['krw_usd'] = 0.0
+                    
+                    # USDT 가격을 원화로 환산
+                    df['binance_krw'] = df['binance_price'] * df['krw_usd']
+                    df['bitget_krw'] = df['bitget_price'] * df['krw_usd']
+                    df['bybit_krw'] = df['bybit_price'] * df['krw_usd']
+                    
+                    return df
+            except Exception as e:
+                logging.warning(f"Supabase에서 거래소 데이터 로드 실패, SQLite로 폴백: {e}")
+                # SQLite로 폴백
+        
+        # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
         try:
             if not hasattr(self, 'conn') or self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")
@@ -1030,6 +1140,104 @@ class DataLoader:
         else:
             raise ValueError(f"지원하지 않는 코인: {coin}")
         
+        # Supabase 우선 사용 (클라우드 환경)
+        if self.use_supabase:
+            try:
+                supabase = self._get_supabase_client()
+                if supabase:
+                    # 1. binance_spot_weekly 로드
+                    weekly_response = supabase.table("binance_spot_weekly") \
+                        .select("*") \
+                        .eq("symbol", symbol) \
+                        .gte("date", start_date) \
+                        .lte("date", end_date) \
+                        .order("date") \
+                        .execute()
+                    
+                    if not weekly_response.data or len(weekly_response.data) == 0:
+                        return pd.DataFrame()
+                    
+                    df = pd.DataFrame(weekly_response.data)
+                    df['date'] = pd.to_datetime(df['date'])
+                    
+                    # 2. bitinfocharts_whale_weekly 병합
+                    whale_weekly_response = supabase.table("bitinfocharts_whale_weekly") \
+                        .select("*") \
+                        .eq("coin", coin_label) \
+                        .gte("week_end_date", start_date) \
+                        .lte("week_end_date", end_date) \
+                        .order("week_end_date") \
+                        .execute()
+                    
+                    if whale_weekly_response.data and len(whale_weekly_response.data) > 0:
+                        whale_df = pd.DataFrame(whale_weekly_response.data)
+                        whale_df['date'] = pd.to_datetime(whale_df['week_end_date'])
+                        df = pd.merge(df, whale_df[['date', 'avg_top100_richest_pct', 'avg_transaction_value_btc', 'whale_conc_change_7d']], 
+                                    on='date', how='left')
+                        df = df.rename(columns={
+                            'avg_top100_richest_pct': 'top100_richest_pct',
+                            'avg_transaction_value_btc': 'avg_transaction_value_btc'
+                        })
+                    
+                    # 3. binance_futures_weekly 병합 (있는 경우)
+                    # 주의: 이 테이블이 Supabase에 없을 수 있음
+                    try:
+                        futures_weekly_response = supabase.table("binance_futures_weekly") \
+                            .select("*") \
+                            .eq("symbol", symbol) \
+                            .gte("week_end_date", start_date) \
+                            .lte("week_end_date", end_date) \
+                            .order("week_end_date") \
+                            .execute()
+                        
+                        if futures_weekly_response.data and len(futures_weekly_response.data) > 0:
+                            futures_df = pd.DataFrame(futures_weekly_response.data)
+                            futures_df['date'] = pd.to_datetime(futures_df['week_end_date'])
+                            df = pd.merge(df, futures_df[['date', 'avg_funding_rate', 'sum_open_interest', 'oi_growth_7d', 'funding_rate_zscore']], 
+                                        on='date', how='left')
+                    except Exception as e:
+                        logging.warning(f"binance_futures_weekly 테이블이 없거나 접근 불가: {e}")
+                    
+                    # 숫자 컬럼 변환
+                    numeric_columns = [
+                        'open', 'high', 'low', 'close', 'volume', 'quote_volume',
+                        'atr', 'rsi', 'volatility_ratio', 'weekly_range_pct',
+                        'top100_richest_pct', 'avg_transaction_value_btc', 'whale_conc_change_7d',
+                        'avg_funding_rate', 'sum_open_interest', 'oi_growth_7d', 'funding_rate_zscore'
+                    ]
+                    for col in numeric_columns:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors='coerce')
+                    
+                    # 주봉 특성 추가 계산
+                    if 'close' in df.columns:
+                        df['weekly_return'] = df['close'].pct_change()
+                    if 'high' in df.columns and 'low' in df.columns:
+                        df['high_low_range'] = (df['high'] - df['low']) / df['low']
+                    
+                    # 실제 고변동성 타겟 변수 계산
+                    if 'volatility_ratio' in df.columns:
+                        df['next_week_volatility'] = df['volatility_ratio'].shift(-1)
+                        if df['volatility_ratio'].max() > 0:
+                            quantile_threshold = df['volatility_ratio'].quantile(0.7)
+                            absolute_threshold = df['volatility_ratio'].median() * 1.5
+                            df['target_high_vol'] = (
+                                (df['next_week_volatility'] > quantile_threshold) | 
+                                (df['next_week_volatility'] > absolute_threshold)
+                            ).astype(int)
+                        else:
+                            df['target_high_vol'] = 0
+                        df['target_high_vol'] = df['target_high_vol'].fillna(0).astype(int)
+                    
+                    # 결측치 처리
+                    df = df.ffill().bfill()
+                    
+                    return df
+            except Exception as e:
+                logging.warning(f"Supabase에서 주봉 데이터 로드 실패, SQLite로 폴백: {e}")
+                # SQLite로 폴백
+        
+        # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
         try:
             if not hasattr(self, 'conn') or self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")

@@ -50,10 +50,38 @@ class OptimizedArbitrageBacktest:
         self.entry_z = entry_z
         self.exit_z = exit_z
         self.exclude_upbit_binance = exclude_upbit_binance
-        self.conn = sqlite3.connect(DB_PATH)
+        
+        # DataLoader를 사용하여 Supabase 지원
+        try:
+            import sys
+            sys.path.insert(0, str(ROOT / "app" / "utils"))
+            from data_loader import DataLoader
+            self.data_loader = DataLoader()
+            self.use_data_loader = True
+        except Exception as e:
+            import logging
+            logging.warning(f"DataLoader 초기화 실패, SQLite 직접 사용: {e}")
+            self.data_loader = None
+            self.use_data_loader = False
+            self.conn = sqlite3.connect(DB_PATH)
 
     def load_data(self, start_date, end_date):
         """4개 거래소 데이터 로드 및 병합"""
+        # DataLoader를 사용하는 경우 (Supabase 지원)
+        if self.use_data_loader and self.data_loader:
+            try:
+                df = self.data_loader.load_exchange_data(start_date, end_date, 'BTC')
+                if not df.empty:
+                    return df
+            except Exception as e:
+                import logging
+                logging.warning(f"DataLoader를 통한 데이터 로드 실패, SQLite 직접 사용: {e}")
+                # SQLite로 폴백
+        
+        # SQLite 직접 사용 (로컬 환경 또는 DataLoader 실패 시)
+        if not hasattr(self, 'conn') or self.conn is None:
+            self.conn = sqlite3.connect(DB_PATH)
+        
         query = f"""
         SELECT 
             u.date,
