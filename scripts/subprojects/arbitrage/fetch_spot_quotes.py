@@ -6,6 +6,7 @@
 import os
 import sqlite3
 import time
+import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -20,6 +21,18 @@ UPBIT_BASE = "https://api.upbit.com/v1/candles/days"
 BINANCE_BASE = "https://api.binance.com/api/v3/klines"
 BITGET_BASE = "https://api.bitget.com/api/v2/spot/market/candles"  # V2 API
 BYBIT_BASE = "https://api.bybit.com/v5/market/kline"
+
+
+def _parse_ymd(s: str) -> datetime:
+    return datetime.strptime(s, "%Y-%m-%d")
+
+
+def _get_max_date(conn: sqlite3.Connection, table: str, where_sql: str, params: tuple) -> str:
+    cur = conn.cursor()
+    cur.execute(f"SELECT MAX(date) FROM {table} WHERE {where_sql}", params)
+    row = cur.fetchone()
+    cur.close()
+    return row[0] if row and row[0] else None
 
 
 def ensure_db():
@@ -87,10 +100,10 @@ def upsert_rows(table, rows, columns):
     conn.close()
 
 
-def fetch_upbit_daily(market):
-    """Upbit 2023-01-01부터 현재까지 수집 (역순)"""
-    target_date = datetime.now()
-    stop_date = datetime(2023, 1, 1)
+def fetch_upbit_daily(market, end_date: datetime, stop_date: datetime):
+    """Upbit 지정 기간 수집 (역순, end_date ~ stop_date)"""
+    target_date = end_date
+    stop_date = stop_date
     
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
@@ -138,6 +151,8 @@ def fetch_upbit_daily(market):
             
             if min_date:
                 target_date = min_date - timedelta(days=1)
+                if min_date.date() <= stop_date.date():
+                    break
             else:
                 break
                 
@@ -149,18 +164,18 @@ def fetch_upbit_daily(market):
             break
 
 
-def fetch_binance_spot(symbol):
-    """Binance 2023-01-01부터 현재까지 수집 (정순)"""
-    start_dt = datetime(2023, 1, 1)
+def fetch_binance_spot(symbol, start_dt: datetime, end_dt_exclusive: datetime):
+    """Binance 지정 기간 수집 (정순, start_dt ~ end_dt_exclusive)"""
     start_ts = int(start_dt.timestamp() * 1000)
-    end_ts = int(datetime.now().timestamp() * 1000)
+    end_ts = int(end_dt_exclusive.timestamp() * 1000)
     
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
     session.mount("https://", adapter)
 
     while start_ts < end_ts:
-        params = {"symbol": symbol, "interval": "1d", "startTime": start_ts, "limit": 1000}
+        # endTime을 반드시 지정해야 end_dt_exclusive 이후 데이터가 섞이지 않음
+        params = {"symbol": symbol, "interval": "1d", "startTime": start_ts, "endTime": end_ts - 1, "limit": 1000}
         try:
             response = session.get(BINANCE_BASE, params=params, timeout=10)
             response.raise_for_status()
@@ -206,14 +221,17 @@ def fetch_binance_spot(symbol):
             break
 
 
-def fetch_bitget_spot(symbol, start_date_str="2024-01-01"):
-    """Bitget V2 API로 지정 날짜부터 현재까지 수집"""
+def fetch_bitget_spot(symbol, start_date_str="2024-01-01", end_dt_exclusive: datetime = None):
+    """Bitget V2 API로 지정 날짜부터 end_dt_exclusive까지 수집 (역순)"""
     # Bitget V2 API는 symbol 형식: BTCUSDT (SPBL 없이)
     symbol_api = symbol
     
     start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
     start_ts = int(start_dt.timestamp() * 1000)
-    end_ts = int(datetime.now().timestamp() * 1000)
+    if end_dt_exclusive is None:
+        end_ts = int(datetime.now().timestamp() * 1000)
+    else:
+        end_ts = int(end_dt_exclusive.timestamp() * 1000)
     
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
@@ -331,7 +349,7 @@ def fetch_bitget_spot(symbol, start_date_str="2024-01-01"):
 
 
 def fetch_bybit_spot(symbol, start_date_str="2024-01-01"):
-    """Bybit 지정 날짜부터 현재까지 수집"""
+    """Bybit 지정 날짜부터 현재까지 수집 (레거시)"""
     start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
     end_ts = int(datetime.now().timestamp() * 1000)
     
@@ -428,28 +446,191 @@ def fetch_bybit_spot(symbol, start_date_str="2024-01-01"):
     print(f"✅ Bybit {symbol}: 총 {len(all_rows)}건 수집 완료")
 
 
+def fetch_bybit_spot_range(symbol, start_date_str="2024-01-01", end_dt_exclusive: datetime = None):
+    """Bybit 지정 날짜부터 end_dt_exclusive까지 수집 (역순 페이지네이션, 필터링)"""
+    start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
+    if end_dt_exclusive is None:
+        end_dt_exclusive = datetime.now()
+
+    # end_dt_exclusive 이전(포함)의 데이터만 저장하기 위해 마지막 포함일을 계산
+    end_inclusive = (end_dt_exclusive - timedelta(days=1)).date()
+
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(max_retries=3)
+    session.mount("https://", adapter)
+
+    print(f"🔄 Bybit {symbol} 수집 시작 ({start_date_str} ~ {end_inclusive.isoformat()})...")
+
+    cursor = None
+    total_saved = 0
+
+    while True:
+        params = {"category": "spot", "symbol": symbol, "interval": "D", "limit": 200}
+        if cursor:
+            params["cursor"] = cursor
+
+        try:
+            response = session.get(BYBIT_BASE, params=params, timeout=10)
+            if response.status_code != 200:
+                print(f"⚠️ Bybit {symbol} HTTP {response.status_code}: {response.text[:200]}")
+                break
+
+            result = response.json()
+            if result.get("retCode") != 0:
+                print(f"⚠️ Bybit {symbol} API 오류: {result.get('retMsg')}")
+                break
+
+            data = result.get("result", {}).get("list", [])
+            if not data:
+                break
+
+            rows = []
+            oldest_ts = None
+
+            for candle in data:
+                ts = int(candle[0])
+                dt = datetime.utcfromtimestamp(ts / 1000)
+
+                # end 범위 초과(미래) 데이터는 스킵
+                if dt.date() > end_inclusive:
+                    continue
+
+                # start 범위 이전이면 종료 조건으로 사용
+                if dt < start_dt:
+                    continue
+
+                if oldest_ts is None or ts < oldest_ts:
+                    oldest_ts = ts
+
+                dt_str = dt.date().isoformat()
+                rows.append(
+                    (
+                        symbol,
+                        dt_str,
+                        float(candle[1]),
+                        float(candle[2]),
+                        float(candle[3]),
+                        float(candle[4]),
+                        float(candle[5]),
+                        float(candle[6]),
+                    )
+                )
+
+            if rows:
+                upsert_rows(
+                    "bybit_spot_daily",
+                    rows,
+                    ["symbol", "date", "open", "high", "low", "close", "volume", "quote_volume"],
+                )
+                total_saved += len(rows)
+                oldest_dt = datetime.utcfromtimestamp(oldest_ts / 1000).strftime("%Y-%m-%d") if oldest_ts else "N/A"
+                print(f"✅ Bybit {symbol}: ~{oldest_dt} ({len(rows)}건)")
+
+            next_cursor = result.get("result", {}).get("nextPageCursor")
+            if not next_cursor:
+                break
+
+            # start_date 이전까지 도달했는지 체크
+            if oldest_ts and datetime.utcfromtimestamp(oldest_ts / 1000) <= start_dt:
+                break
+
+            cursor = next_cursor
+            time.sleep(0.1)
+
+        except Exception as e:
+            print(f"⚠️ Bybit {symbol} fetch error: {e}")
+            import traceback
+            traceback.print_exc()
+            time.sleep(1)
+            break
+
+    print(f"✅ Bybit {symbol}: 총 {total_saved}건 수집 완료")
+
+
 def main():
     ensure_db()
+    parser = argparse.ArgumentParser(description="Spot daily data collection for Upbit/Binance/Bitget/Bybit into SQLite")
+    parser.add_argument("--end-date", type=str, default=None, help="포함되는 종료일 (YYYY-MM-DD). 미지정 시 오늘(로컬) 기준")
+    args = parser.parse_args()
+
+    if args.end_date:
+        end_date = _parse_ymd(args.end_date)
+        end_dt_exclusive = end_date + timedelta(days=1)
+        # Bitget은 일봉 경계가 UTC+8(=UTC 16:00)로 잡히는 경우가 있어,
+        # end-date(포함) 일봉이 누락되지 않도록 1일 버퍼를 둔 뒤 저장 후 클램프합니다.
+        bitget_end_dt_exclusive = end_dt_exclusive + timedelta(days=1)
+        # Upbit은 'to'로 inclusive 성격이므로 23:59:59로 맞춤
+        upbit_end_dt = end_date.replace(hour=23, minute=59, second=59)
+    else:
+        # 기본: 오늘까지(실행 시점)
+        today = datetime.now().date()
+        upbit_end_dt = datetime.now()
+        end_dt_exclusive = datetime.now()
+        bitget_end_dt_exclusive = datetime.now()
+
     upbit_markets = os.getenv("UPBIT_MARKETS", "KRW-BTC,KRW-ETH").split(",")
     binance_symbols = os.getenv("BINANCE_SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
     bitget_symbols = os.getenv("BITGET_SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
     bybit_symbols = os.getenv("BYBIT_SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
 
+    # DB에서 각 심볼별 max(date) 기반으로 증분 수집
+    conn = sqlite3.connect(DB_PATH)
+
     print("📊 업비트 데이터 수집 시작...")
     for market in upbit_markets:
-        fetch_upbit_daily(market.strip())
+        m = market.strip()
+        max_date = _get_max_date(conn, "upbit_daily", "market = ?", (m,))
+        stop_dt = datetime(2023, 1, 1)
+        if max_date:
+            stop_dt = _parse_ymd(max_date)
+            if args.end_date and max_date >= args.end_date:
+                print(f"⏭️ Upbit {m}: 이미 최신 ({max_date})")
+                continue
+        fetch_upbit_daily(m, upbit_end_dt, stop_dt)
     
     print("\n📊 바이낸스 데이터 수집 시작...")
     for symbol in binance_symbols:
-        fetch_binance_spot(symbol.strip())
+        s = symbol.strip()
+        max_date = _get_max_date(conn, "binance_spot_daily", "symbol = ?", (s,))
+        if max_date and args.end_date and max_date >= args.end_date:
+            print(f"⏭️ Binance {s}: 이미 최신 ({max_date})")
+            continue
+        start_dt = _parse_ymd(max_date) + timedelta(days=1) if max_date else datetime(2023, 1, 1)
+        fetch_binance_spot(s, start_dt, end_dt_exclusive)
     
     print("\n📊 비트겟 데이터 수집 시작...")
     for symbol in bitget_symbols:
-        fetch_bitget_spot(symbol.strip(), start_date_str="2024-01-01")
+        s = symbol.strip()
+        max_date = _get_max_date(conn, "bitget_spot_daily", "symbol = ?", (s,))
+        if max_date and args.end_date and max_date >= args.end_date:
+            print(f"⏭️ Bitget {s}: 이미 최신 ({max_date})")
+            continue
+        start_date_str = (datetime.strptime(max_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d") if max_date else "2024-01-01"
+        fetch_bitget_spot(s, start_date_str=start_date_str, end_dt_exclusive=bitget_end_dt_exclusive)
     
     print("\n📊 바이비트 데이터 수집 시작...")
     for symbol in bybit_symbols:
-        fetch_bybit_spot(symbol.strip(), start_date_str="2024-01-01")
+        s = symbol.strip()
+        max_date = _get_max_date(conn, "bybit_spot_daily", "symbol = ?", (s,))
+        if max_date and args.end_date and max_date >= args.end_date:
+            print(f"⏭️ Bybit {s}: 이미 최신 ({max_date})")
+            continue
+        start_date_str = (datetime.strptime(max_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d") if max_date else "2024-01-01"
+        fetch_bybit_spot_range(s, start_date_str=start_date_str, end_dt_exclusive=end_dt_exclusive)
+
+    conn.close()
+
+    # end-date가 지정된 경우, 방어적으로 초과 데이터 제거 (특히 Binance/Bitget)
+    if args.end_date:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM binance_spot_daily WHERE date > ?", (args.end_date,))
+        cur.execute("DELETE FROM bitget_spot_daily WHERE date > ?", (args.end_date,))
+        cur.execute("DELETE FROM bybit_spot_daily WHERE date > ?", (args.end_date,))
+        cur.execute("DELETE FROM upbit_daily WHERE date > ?", (args.end_date,))
+        conn.commit()
+        cur.close()
+        conn.close()
 
 
 if __name__ == "__main__":

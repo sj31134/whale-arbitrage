@@ -18,8 +18,6 @@ def get_week_end_date(date_obj):
     """주봉 종료일 계산 (일요일)"""
     # 월요일 = 0, 일요일 = 6
     days_until_sunday = (6 - date_obj.weekday()) % 7
-    if days_until_sunday == 0:
-        days_until_sunday = 7  # 일요일이면 다음 주 일요일
     week_end = date_obj + timedelta(days=days_until_sunday)
     return week_end
 
@@ -183,5 +181,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 

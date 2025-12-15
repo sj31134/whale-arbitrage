@@ -2,6 +2,15 @@
 -- Supabase SQL Editor에서 실행하세요
 
 ALTER TABLE public.whale_transactions 
+ADD COLUMN IF NOT EXISTS value NUMERIC(30, 18);
+
+ALTER TABLE public.whale_transactions 
+ADD COLUMN IF NOT EXISTS gas_used BIGINT;
+
+ALTER TABLE public.whale_transactions 
+ADD COLUMN IF NOT EXISTS gas_price BIGINT;
+
+ALTER TABLE public.whale_transactions 
 ADD COLUMN IF NOT EXISTS is_error BOOLEAN;
 
 ALTER TABLE public.whale_transactions 

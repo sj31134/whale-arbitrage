@@ -11,6 +11,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
+import argparse
 
 ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(ROOT / "config" / ".env")
@@ -122,10 +123,33 @@ def main():
     if not ECOS_API_KEY:
         print("❌ ECOS_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.")
         return
-    
-    # 2023-01-01부터 현재까지 수집
-    start_date = datetime(2023, 1, 1)
-    end_date = datetime.now()
+
+    parser = argparse.ArgumentParser(description="ECOS 원/달러 환율 수집 (exchange_rate)")
+    parser.add_argument("--start-date", type=str, default=None, help="시작일 (YYYY-MM-DD). 미지정 시 DB의 다음날부터")
+    parser.add_argument("--end-date", type=str, default=None, help="종료일(포함) (YYYY-MM-DD). 미지정 시 오늘")
+    args = parser.parse_args()
+
+    # end_date (inclusive)
+    if args.end_date:
+        end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
+    else:
+        end_date = datetime.now()
+
+    # start_date
+    if args.start_date:
+        start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
+    else:
+        # DB에 있는 최대 날짜 다음날부터
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("SELECT MAX(date) FROM exchange_rate")
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if row and row[0]:
+            start_date = datetime.strptime(row[0], "%Y-%m-%d") + timedelta(days=1)
+        else:
+            start_date = datetime(2023, 1, 1)
     
     print(f"🔄 환율 데이터 수집 시작: {start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}")
     

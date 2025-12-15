@@ -6,11 +6,12 @@ Binance 주봉(Weekly) OHLCV 데이터를 수집하여 SQLite에 저장하는 �
 
 import sqlite3
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+import argparse
 
 ROOT = Path(__file__).resolve().parents[3]
 DB_PATH = ROOT / "data" / "project.db"
@@ -122,6 +123,9 @@ def fetch_binance_weekly(symbol, start_date_str="2023-01-01"):
 
 def main():
     ensure_db()
+    parser = argparse.ArgumentParser(description="Binance spot weekly OHLCV collection")
+    parser.add_argument("--end-date", type=str, default=None, help="종료일(포함) (YYYY-MM-DD). 미지정 시 오늘")
+    args = parser.parse_args()
     
     print("=" * 80)
     print("📊 Binance 주봉 OHLCV 데이터 수집")
@@ -130,10 +134,33 @@ def main():
     symbols = ["BTCUSDT"]  # BTC만 수집 (필요시 확장 가능)
     
     total_weeks = 0
+    # end-date 클램프를 위해 start_date를 DB max 기준으로 증분 수집하고,
+    # end-date가 지정된 경우 end-date 이후 주봉은 저장하지 않도록 post-filter링(단순 구현)합니다.
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
     for symbol in symbols:
-        weeks = fetch_binance_weekly(symbol, start_date_str="2023-01-01")
+        cur.execute("SELECT MAX(date) FROM binance_spot_weekly WHERE symbol = ?", (symbol,))
+        row = cur.fetchone()
+        max_date = row[0] if row and row[0] else None
+        start_date_str = "2023-01-01"
+        if max_date:
+            # 다음 주부터 수집 (max_date는 주봉 종료일)
+            start_date_str = (datetime.strptime(max_date, "%Y-%m-%d") + timedelta(days=7)).strftime("%Y-%m-%d")
+        weeks = fetch_binance_weekly(symbol, start_date_str=start_date_str)
         total_weeks += weeks
         time.sleep(0.5)
+    cur.close()
+    conn.close()
+
+    # end-date가 지정된 경우, end-date 이후 데이터는 삭제(검증 목적)
+    if args.end_date:
+        end_inclusive = datetime.strptime(args.end_date, "%Y-%m-%d").date()
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM binance_spot_weekly WHERE date > ?", (end_inclusive.isoformat(),))
+        conn.commit()
+        cur.close()
+        conn.close()
     
     print("\n" + "=" * 80)
     print(f"✅ 총 {total_weeks}주 데이터 수집 완료")

@@ -7,8 +7,9 @@ Binance/Bybit Futures 지표(펀딩비/OI/롱숏/변동성/Taker비율)를 수�
 import os
 import sqlite3
 import time
+import argparse
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -180,50 +181,26 @@ def fetch_long_short_ratio(symbol, start_ts, end_ts):
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
     session.mount("https://", adapter)
     
-    current_start = start_ts
-    
-    while current_start < end_ts:
-        try:
-            params = {
-                "symbol": symbol,
-                "period": "1d",  # 일별
-                "startTime": int(current_start),
-                "endTime": int(end_ts),
-                "limit": 500
-            }
-            response = session.get(LONG_SHORT_RATIO_ENDPOINT, params=params, timeout=30)
-            
-            if response.status_code == 400:
-                print(f"  ⚠️ Long/Short Ratio API 제한: {response.text[:100]}")
-                break
-            
-            response.raise_for_status()
-            data = response.json()
-            
-            if not data:
-                break
-            
-            last_ts = 0
-            for entry in data:
-                ts = int(entry["timestamp"])
-                last_ts = ts
-                dt = datetime.utcfromtimestamp(ts / 1000).date()
-                ratio_by_date[dt].append({
-                    'long_short_ratio': float(entry.get("longShortRatio", 0)),
-                    'long_account': float(entry.get("longAccount", 0)),
-                    'short_account': float(entry.get("shortAccount", 0))
-                })
-            
-            if last_ts > 0:
-                current_start = last_ts + 1
-            else:
-                break
-            
-            time.sleep(0.1)
-            
-        except Exception as e:
-            print(f"  ⚠️ Long/Short Ratio fetch error: {e}")
-            break
+    # 최근 데이터만 limit으로 가져오고, start_ts~end_ts 범위만 필터링 (Binance가 startTime을 거부하는 경우 대응)
+    try:
+        params = {"symbol": symbol, "period": "1d", "limit": 500}
+        response = session.get(LONG_SHORT_RATIO_ENDPOINT, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        for entry in data or []:
+            ts = int(entry.get("timestamp", 0))
+            if ts <= 0:
+                continue
+            if ts < start_ts or ts >= end_ts:
+                continue
+            dt = datetime.utcfromtimestamp(ts / 1000).date()
+            ratio_by_date[dt].append({
+                "long_short_ratio": float(entry.get("longShortRatio", 0) or 0),
+                "long_account": float(entry.get("longAccount", 0) or 0),
+                "short_account": float(entry.get("shortAccount", 0) or 0),
+            })
+    except Exception as e:
+        print(f"  ⚠️ Long/Short Ratio fetch error: {e}")
     
     return ratio_by_date
 
@@ -235,50 +212,25 @@ def fetch_taker_ratio(symbol, start_ts, end_ts):
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
     session.mount("https://", adapter)
     
-    current_start = start_ts
-    
-    while current_start < end_ts:
-        try:
-            params = {
-                "symbol": symbol,
-                "period": "1d",
-                "startTime": int(current_start),
-                "endTime": int(end_ts),
-                "limit": 500
-            }
-            response = session.get(TAKER_RATIO_ENDPOINT, params=params, timeout=30)
-            
-            if response.status_code == 400:
-                print(f"  ⚠️ Taker Ratio API 제한: {response.text[:100]}")
-                break
-            
-            response.raise_for_status()
-            data = response.json()
-            
-            if not data:
-                break
-            
-            last_ts = 0
-            for entry in data:
-                ts = int(entry["timestamp"])
-                last_ts = ts
-                dt = datetime.utcfromtimestamp(ts / 1000).date()
-                taker_by_date[dt].append({
-                    'buy_sell_ratio': float(entry.get("buySellRatio", 0)),
-                    'buy_vol': float(entry.get("buyVol", 0)),
-                    'sell_vol': float(entry.get("sellVol", 0))
-                })
-            
-            if last_ts > 0:
-                current_start = last_ts + 1
-            else:
-                break
-            
-            time.sleep(0.1)
-            
-        except Exception as e:
-            print(f"  ⚠️ Taker Ratio fetch error: {e}")
-            break
+    try:
+        params = {"symbol": symbol, "period": "1d", "limit": 500}
+        response = session.get(TAKER_RATIO_ENDPOINT, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        for entry in data or []:
+            ts = int(entry.get("timestamp", 0))
+            if ts <= 0:
+                continue
+            if ts < start_ts or ts >= end_ts:
+                continue
+            dt = datetime.utcfromtimestamp(ts / 1000).date()
+            taker_by_date[dt].append({
+                "buy_sell_ratio": float(entry.get("buySellRatio", 0) or 0),
+                "buy_vol": float(entry.get("buyVol", 0) or 0),
+                "sell_vol": float(entry.get("sellVol", 0) or 0),
+            })
+    except Exception as e:
+        print(f"  ⚠️ Taker Ratio fetch error: {e}")
     
     return taker_by_date
 
@@ -290,46 +242,21 @@ def fetch_top_trader_position(symbol, start_ts, end_ts):
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
     session.mount("https://", adapter)
     
-    current_start = start_ts
-    
-    while current_start < end_ts:
-        try:
-            params = {
-                "symbol": symbol,
-                "period": "1d",
-                "startTime": int(current_start),
-                "endTime": int(end_ts),
-                "limit": 500
-            }
-            response = session.get(TOP_TRADER_POSITION_ENDPOINT, params=params, timeout=30)
-            
-            if response.status_code == 400:
-                print(f"  ⚠️ Top Trader Position API 제한: {response.text[:100]}")
-                break
-            
-            response.raise_for_status()
-            data = response.json()
-            
-            if not data:
-                break
-            
-            last_ts = 0
-            for entry in data:
-                ts = int(entry["timestamp"])
-                last_ts = ts
-                dt = datetime.utcfromtimestamp(ts / 1000).date()
-                position_by_date[dt].append(float(entry.get("longShortRatio", 0)))
-            
-            if last_ts > 0:
-                current_start = last_ts + 1
-            else:
-                break
-            
-            time.sleep(0.1)
-            
-        except Exception as e:
-            print(f"  ⚠️ Top Trader Position fetch error: {e}")
-            break
+    try:
+        params = {"symbol": symbol, "period": "1d", "limit": 500}
+        response = session.get(TOP_TRADER_POSITION_ENDPOINT, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        for entry in data or []:
+            ts = int(entry.get("timestamp", 0))
+            if ts <= 0:
+                continue
+            if ts < start_ts or ts >= end_ts:
+                continue
+            dt = datetime.utcfromtimestamp(ts / 1000).date()
+            position_by_date[dt].append(float(entry.get("longShortRatio", 0) or 0))
+    except Exception as e:
+        print(f"  ⚠️ Top Trader Position fetch error: {e}")
     
     return position_by_date
 
@@ -459,11 +386,24 @@ def fetch_bybit_oi(symbol, start_ts, end_ts):
     return oi_by_date
 
 
-def build_extended_metrics(symbol):
+def build_extended_metrics(symbol, start_dt: datetime = None, end_dt_exclusive: datetime = None):
     """확장 지표 수집 및 저장 (롱숏비율, Taker비율, Bybit 데이터)"""
     # 수집 기간 설정 (최근 30일 - API 제한)
-    end_ts = int(time.time() * 1000)
+    now_ts = int(time.time() * 1000)
+    if end_dt_exclusive is None:
+        end_ts = now_ts
+    else:
+        # 반드시 UTC 기준 epoch(ms)로 변환 (로컬 타임존 혼입 방지)
+        if end_dt_exclusive.tzinfo is None:
+            end_dt_exclusive = end_dt_exclusive.replace(tzinfo=timezone.utc)
+        end_ts = int(end_dt_exclusive.timestamp() * 1000)
+        # Binance/Bybit API는 미래 endTime을 싫어하므로 현재 시각으로 클램프
+        end_ts = min(end_ts, now_ts)
     start_ts = end_ts - (30 * 24 * 60 * 60 * 1000)
+    if start_dt is not None:
+        if start_dt.tzinfo is None:
+            start_dt = start_dt.replace(tzinfo=timezone.utc)
+        start_ts = max(start_ts, int(start_dt.timestamp() * 1000))
     
     print(f"\n📊 Fetching Extended Metrics for {symbol}...")
     print(f"   기간: {datetime.utcfromtimestamp(start_ts/1000).date()} ~ {datetime.utcfromtimestamp(end_ts/1000).date()}")
@@ -504,6 +444,10 @@ def build_extended_metrics(symbol):
     
     rows = []
     for date_ in all_dates:
+        # end-date 클램프: end_dt_exclusive가 있으면 그 이전 날짜만 저장
+        if end_dt_exclusive is not None and date_ >= end_dt_exclusive.date():
+            continue
+
         # 롱숏 비율 평균
         ls_list = long_short_data.get(date_, [])
         if ls_list:
@@ -611,16 +555,35 @@ def fetch_daily_klines(symbol, start_ts, end_ts):
     return klines_by_date
 
 
-def build_daily_metrics(symbol):
+def build_daily_metrics(symbol, start_dt: datetime = None, end_dt_exclusive: datetime = None):
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
     session.mount("https://", adapter)
     
-    start_dt = datetime(2023, 1, 1)
-    start_ts = int(start_dt.timestamp() * 1000)
-    end_ts = int(time.time() * 1000)
+    if start_dt is None:
+        start_dt = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    elif start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
 
-    print(f"🔄 Fetching Futures Metrics for {symbol} (2023-01-01 ~ Now)...")
+    # 일자 기반 API 파라미터의 안정성을 위해 UTC 00:00 기준으로 정규화
+    start_dt = datetime(start_dt.year, start_dt.month, start_dt.day, tzinfo=timezone.utc)
+    start_ts = int(start_dt.timestamp() * 1000)
+
+    now_ts = int(time.time() * 1000)
+    if end_dt_exclusive is None:
+        end_ts = now_ts
+    else:
+        if end_dt_exclusive.tzinfo is None:
+            end_dt_exclusive = end_dt_exclusive.replace(tzinfo=timezone.utc)
+        end_dt_exclusive = datetime(end_dt_exclusive.year, end_dt_exclusive.month, end_dt_exclusive.day, tzinfo=timezone.utc)
+        end_ts = int(end_dt_exclusive.timestamp() * 1000)
+        end_ts = min(end_ts, now_ts)
+
+    end_exclusive_date = None
+    if end_dt_exclusive is not None:
+        end_exclusive_date = end_dt_exclusive.date()
+
+    print(f"🔄 Fetching Futures Metrics for {symbol} ({start_dt.strftime('%Y-%m-%d')} ~ {datetime.utcfromtimestamp(end_ts/1000).date()})...")
 
     # 1. Funding Rate (Limit 1000 per call)
     funding_by_date = defaultdict(list)
@@ -658,9 +621,11 @@ def build_daily_metrics(symbol):
     # 2. Open Interest (Limit 500 per call, "1h" period approx 20 days per call)
     oi_by_date = defaultdict(list)
     
-    # Binance OI History API is limited to last 30 days
+    # Binance OI History API is limited to "최근 약 30일" 이지만,
+    # end-start가 정확히 30일이면 400(startTime invalid)이 발생하는 케이스가 있음.
+    # 안전하게 29일 윈도우로 제한.
     # 최근 30일 데이터라도 수집하여 활용
-    oi_limit_ts = end_ts - (30 * 24 * 60 * 60 * 1000)
+    oi_limit_ts = end_ts - (29 * 24 * 60 * 60 * 1000)
     if start_ts < oi_limit_ts:
         curr_start = oi_limit_ts
         print(f"ℹ️ Open Interest history is limited to last 30 days. Collecting from {datetime.utcfromtimestamp(curr_start/1000).date()}.")
@@ -670,8 +635,8 @@ def build_daily_metrics(symbol):
     
     while curr_start < end_ts:
         try:
-            # Max window 30 days for safety
-            req_end = min(curr_start + 30 * 24 * 60 * 60 * 1000, end_ts)
+            # Max window 7 days for safety (29일 범위를 7일 단위로 잘라 수집)
+            req_end = min(curr_start + 7 * 24 * 60 * 60 * 1000, end_ts)
             
             params = {
                 "symbol": symbol,
@@ -726,6 +691,9 @@ def build_daily_metrics(symbol):
     all_dates = sorted(list(set(funding_by_date.keys()) | set(oi_by_date.keys()) | set(klines_by_date.keys())))
     
     for date_ in all_dates:
+        # end-date(포함) 기준 클램프: end_dt_exclusive가 있으면 그 이전 날짜만 저장
+        if end_exclusive_date is not None and date_ >= end_exclusive_date:
+            continue
         fr_list = funding_by_date.get(date_, [])
         avg_rate = sum(fr_list) / len(fr_list) if fr_list else 0.0
         
@@ -757,6 +725,18 @@ def build_daily_metrics(symbol):
 
 def main():
     ensure_db()
+    parser = argparse.ArgumentParser(description="Binance/Bybit Futures metrics collection into SQLite")
+    parser.add_argument("--start-date", type=str, default=None, help="시작일 (YYYY-MM-DD). 미지정 시 2023-01-01")
+    parser.add_argument("--end-date", type=str, default=None, help="종료일(포함) (YYYY-MM-DD). 미지정 시 오늘")
+    args = parser.parse_args()
+
+    start_dt = datetime(2023, 1, 1, tzinfo=timezone.utc) if not args.start_date else datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    if args.end_date:
+        end_inclusive = datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        end_dt_exclusive = end_inclusive + timedelta(days=1)
+    else:
+        end_dt_exclusive = None
+
     symbols = os.getenv("BINANCE_FUTURES_SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
     
     print("=" * 80)
@@ -770,13 +750,13 @@ def main():
         print(f"\n{'='*40}")
         print(f"[{symbol}] 기본 지표 수집")
         print(f"{'='*40}")
-        build_daily_metrics(symbol)
+        build_daily_metrics(symbol, start_dt=start_dt, end_dt_exclusive=end_dt_exclusive)
         
         # 2. 확장 지표 수집 (롱숏비율, Taker비율, Bybit)
         print(f"\n{'='*40}")
         print(f"[{symbol}] 확장 지표 수집")
         print(f"{'='*40}")
-        build_extended_metrics(symbol)
+        build_extended_metrics(symbol, start_dt=start_dt, end_dt_exclusive=end_dt_exclusive)
     
     print("\n" + "=" * 80)
     print("✅ 모든 Futures Metrics 수집 완료!")

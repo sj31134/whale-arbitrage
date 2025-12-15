@@ -12,6 +12,7 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 import cloudscraper
+import argparse
 
 ROOT = Path(__file__).resolve().parents[3]
 DB_PATH = ROOT / "data" / "project.db"
@@ -131,9 +132,16 @@ def collect_historical_data(coin, url):
     """과거 데이터 수집"""
     print(f"\n📊 {coin} 과거 데이터 수집 시작...")
     
-    # 2023-01-01부터 현재까지
-    start_date = datetime(2023, 1, 1)
-    end_date = datetime.now()
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--start-date", type=str, default="2023-01-01")
+    parser.add_argument("--end-date", type=str, default=None, help="종료일(포함) (YYYY-MM-DD). 미지정 시 오늘")
+    args, _ = parser.parse_known_args()
+
+    start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
+    if args.end_date:
+        end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
+    else:
+        end_date = datetime.now()
     
     # Wayback Machine에서 스냅샷 목록 가져오기
     print(f"  🔍 Wayback Machine 스냅샷 검색 중...")
@@ -145,16 +153,16 @@ def collect_historical_data(coin, url):
     
     print(f"  ✅ {len(snapshots)}개 스냅샷 발견")
     
-    # 각 스냅샷 처리
+    # 각 스냅샷 처리 (지정 기간 전체)
     success_count = 0
-    for i, snapshot in enumerate(snapshots[:100]):  # 최대 100개만 (너무 많으면 시간 오래 걸림)
+    for i, snapshot in enumerate(snapshots):
         date_str = snapshot["date"]
         wayback_url = snapshot["url"]
         
         # YYYYMMDD -> YYYY-MM-DD
         formatted_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
         
-        print(f"  [{i+1}/{min(len(snapshots), 100)}] {formatted_date} 처리 중...", end=" ")
+        print(f"  [{i+1}/{len(snapshots)}] {formatted_date} 처리 중...", end=" ")
         
         html = fetch_snapshot(wayback_url)
         if html:
@@ -181,12 +189,21 @@ def collect_historical_data(coin, url):
 
 def main():
     ensure_db()
+
+    parser = argparse.ArgumentParser(description="BitInfoCharts 과거 데이터 수집 (Wayback)")
+    parser.add_argument("--coin", type=str, default=None, choices=["BTC", "ETH"], help="특정 코인만 수집")
+    parser.add_argument("--start-date", type=str, default="2023-01-01")
+    parser.add_argument("--end-date", type=str, default=None, help="종료일(포함) (YYYY-MM-DD)")
+    args = parser.parse_args()
     
-    # BTC 수집
-    collect_historical_data("BTC", BITINFO_URLS["BTC"])
-    
-    # ETH 수집 (500 에러가 나더라도 Wayback Machine은 시도)
-    collect_historical_data("ETH", BITINFO_URLS["ETH"])
+    # argparse를 collect_historical_data에서도 사용하므로 sys.argv 그대로 전달
+    if args.coin == "BTC":
+        collect_historical_data("BTC", BITINFO_URLS["BTC"])
+    elif args.coin == "ETH":
+        collect_historical_data("ETH", BITINFO_URLS["ETH"])
+    else:
+        collect_historical_data("BTC", BITINFO_URLS["BTC"])
+        collect_historical_data("ETH", BITINFO_URLS["ETH"])
 
 
 if __name__ == "__main__":

@@ -141,7 +141,7 @@ def fetch_whale_transactions_with_direction(supabase, start_date, end_date, coin
     return all_txs
 
 
-def aggregate_daily_whale_stats(supabase, start_date, end_date):
+def aggregate_daily_whale_stats(supabase, start_date, end_date, coin_symbols=None):
     """
     일별 고래 통계 집계:
     - 거래소 유입/유출량
@@ -152,7 +152,7 @@ def aggregate_daily_whale_stats(supabase, start_date, end_date):
     """
     print("\n📊 일별 고래 통계 집계 중...")
     
-    all_txs = fetch_whale_transactions_with_direction(supabase, start_date, end_date)
+    all_txs = fetch_whale_transactions_with_direction(supabase, start_date, end_date, coin_symbols=coin_symbols)
     
     if not all_txs:
         print("⚠️ 데이터 없음")
