@@ -29,6 +29,8 @@ class Diagnostics:
     sqlite_max_dates: dict[str, Optional[str]]
     supabase_max_dates: dict[str, Optional[str]]
     supabase_rpc_common_range: dict[str, Optional[str]]
+    model_files: dict[str, bool]
+    model_load: dict[str, str]
     errors: list[str]
 
 
@@ -90,12 +92,29 @@ def collect_diagnostics(data_loader, coin: str = "BTC") -> Diagnostics:
     sqlite_max_dates: dict[str, Optional[str]] = {}
     supabase_max_dates: dict[str, Optional[str]] = {}
     supabase_rpc_common_range: dict[str, Optional[str]] = {"min_date": None, "max_date": None}
+    model_files: dict[str, bool] = {}
+    model_load: dict[str, str] = {}
 
     market = "KRW-BTC" if coin == "BTC" else "KRW-ETH"
     symbol = "BTCUSDT" if coin == "BTC" else "ETHUSDT"
 
     db_path = getattr(data_loader, "_db_path", None) or str(getattr(data_loader, "db_path", ""))
     db_exists = bool(db_path) and Path(db_path).exists()
+
+    # 모델 파일 존재 여부 확인 (Cloud에서 모델이 실제로 체크아웃됐는지/경로가 맞는지)
+    try:
+        root = Path("/mount/src/whale-arbitrage") if env_is_streamlit_cloud else Path(__file__).resolve().parents[2]
+        model_dir = root / "data" / "models"
+        model_files = {
+            "model_dir_exists": model_dir.exists(),
+            "risk_ai_model_pkl": (model_dir / "risk_ai_model.pkl").exists(),
+            "hybrid_metadata_json": (model_dir / "hybrid_ensemble_dynamic_metadata.json").exists(),
+            "hybrid_xgb_json": (model_dir / "hybrid_ensemble_dynamic_xgb.json").exists(),
+            "hybrid_meta_pkl": (model_dir / "hybrid_ensemble_dynamic_meta.pkl").exists(),
+            "hybrid_scaler_pkl": (model_dir / "hybrid_ensemble_dynamic_xgb_scaler.pkl").exists(),
+        }
+    except Exception as e:
+        errors.append(f"model files check 실패: {e}")
 
     if db_exists and db_path:
         sqlite_max_dates["upbit_daily"] = _sqlite_max_date(
@@ -145,6 +164,25 @@ def collect_diagnostics(data_loader, coin: str = "BTC") -> Diagnostics:
     except Exception as e:
         errors.append(f"supabase 진단 중 예외: {e}")
 
+    # 모델 로드 자체를 진단에서 직접 수행 (로그 메뉴 없이도 원인 문자열 확보)
+    # - 값(키) 노출 없이, 실패 이유 문자열만 보여줌
+    try:
+        from app.utils.risk_predictor import RiskPredictor
+
+        try:
+            _ = RiskPredictor(model_type="legacy")
+            model_load["legacy"] = "OK"
+        except Exception as e:
+            model_load["legacy"] = f"FAIL: {type(e).__name__}: {e}"
+
+        try:
+            _ = RiskPredictor(model_type="hybrid")
+            model_load["hybrid"] = "OK"
+        except Exception as e:
+            model_load["hybrid"] = f"FAIL: {type(e).__name__}: {e}"
+    except Exception as e:
+        model_load["import_risk_predictor"] = f"FAIL: {type(e).__name__}: {e}"
+
     return Diagnostics(
         env_is_streamlit_cloud=env_is_streamlit_cloud,
         python_version=sys.version,
@@ -157,6 +195,8 @@ def collect_diagnostics(data_loader, coin: str = "BTC") -> Diagnostics:
         sqlite_max_dates=sqlite_max_dates,
         supabase_max_dates=supabase_max_dates,
         supabase_rpc_common_range=supabase_rpc_common_range,
+        model_files=model_files,
+        model_load=model_load,
         errors=errors,
     )
 
