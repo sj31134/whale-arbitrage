@@ -407,6 +407,22 @@ class DataLoader:
                 try:
                     supabase = self._get_supabase_client()
                     if supabase:
+                        # 1. RPC(get_common_date_range)를 사용하여 서버사이드에서 정확한 범위 계산 시도
+                        try:
+                            rpc_resp = supabase.rpc('get_common_date_range', {
+                                'p_market': market,
+                                'p_symbol': symbol
+                            }).execute()
+                            
+                            if rpc_resp.data and len(rpc_resp.data) > 0:
+                                row = rpc_resp.data[0]
+                                min_d, max_d = row.get('min_date'), row.get('max_date')
+                                if min_d and max_d:
+                                    return min_d, max_d
+                        except Exception as rpc_e:
+                            logging.warning(f"Supabase RPC 호출 실패 (get_common_date_range): {rpc_e}. 기존 방식으로 폴백합니다.")
+
+                        # 2. RPC 실패 시 기존 방식 (클라이언트 사이드 교집합 - row limit 주의)
                         # load_exchange_data가 사용하는 주요 테이블들의 교집합 날짜 조회
                         # 1. upbit_daily
                         upbit_dates = set()

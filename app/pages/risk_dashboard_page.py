@@ -25,6 +25,10 @@ sys.path.insert(0, str(ROOT))
 
 from data_loader import DataLoader
 from risk_predictor import RiskPredictor
+try:
+    from risk_predictor import HAS_HYBRID
+except ImportError:
+    HAS_HYBRID = False
 
 
 def render_dynamic_indicators(indicators: dict, data_loader=None, target_date=None, coin='BTC'):
@@ -535,7 +539,10 @@ def render():
         if (model_dir / "risk_ai_model.pkl").exists():
             available_models.append("legacy")
         if (model_dir / "hybrid_ensemble_dynamic_metadata.json").exists():
-            available_models.append("hybrid")
+            if HAS_HYBRID:
+                available_models.append("hybrid")
+            else:
+                st.warning("⚠️ 하이브리드 모델 파일은 감지되었으나, 런타임 환경(XGBoost 등) 문제로 로드할 수 없습니다.")
         
         if not available_models:
             st.error("❌ 사용 가능한 모델이 없습니다.")
