@@ -38,6 +38,19 @@ st.markdown("---")
 
 # 사이드바
 st.sidebar.title("📋 메뉴")
+
+# Cloud 진단 패널 (로그 메뉴가 없어도 원인 확인 가능)
+with st.sidebar.expander("🧪 Cloud 진단", expanded=False):
+    try:
+        from app.utils.data_loader import DataLoader
+        from app.utils.cloud_diagnostics import collect_diagnostics, to_dict
+        dl = DataLoader()
+        diag = collect_diagnostics(dl, coin="BTC")
+        st.caption("값(키)은 노출하지 않고 존재 여부/버전/최신 날짜만 표시합니다.")
+        st.json(to_dict(diag))
+    except Exception as e:
+        st.error(f"진단 패널 로드 실패: {e}")
+
 page = st.sidebar.selectbox(
     "페이지 선택",
     [

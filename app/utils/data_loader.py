@@ -635,7 +635,7 @@ class DataLoader:
 
     @st_cache_data(ttl=3600)
     def load_exchange_data(
-        self, 
+        _self, 
         start_date: str, 
         end_date: str, 
         coin: str = 'BTC'
@@ -651,9 +651,9 @@ class DataLoader:
             raise ValueError(f"지원하지 않는 코인: {coin}")
         
         # Supabase 우선 사용 (클라우드 환경)
-        if self.use_supabase:
+        if _self.use_supabase:
             try:
-                supabase = self._get_supabase_client()
+                supabase = _self._get_supabase_client()
                 if supabase:
                     # 각 테이블에서 데이터 로드
                     # 1. upbit_daily
@@ -761,7 +761,7 @@ class DataLoader:
         
         # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
         try:
-            if not hasattr(self, 'conn') or self.conn is None:
+            if not hasattr(_self, 'conn') or _self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")
                 return pd.DataFrame()
             
@@ -784,7 +784,7 @@ class DataLoader:
             """
             
             # pandas.read_sql 사용 (JOIN 쿼리는 복잡하므로 pandas 사용)
-            df = pd.read_sql(query, self.conn)
+            df = pd.read_sql(query, _self.conn)
         except sqlite3.Error as e:
             error_msg = f"SQL 오류 (load_exchange_data): {str(e)}"
             logging.error(error_msg)
@@ -870,7 +870,7 @@ class DataLoader:
         return True, ""
     
     @st_cache_data(ttl=3600)
-    def load_risk_data(self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
+    def load_risk_data(_self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
         """Project 3 (Risk AI) 데이터 로드
         
         Args:
@@ -899,9 +899,9 @@ class DataLoader:
             raise ValueError(f"지원하지 않는 코인: {coin}")
         
         # Supabase 우선 사용 (클라우드 환경)
-        if self.use_supabase:
+        if _self.use_supabase:
             try:
-                supabase = self._get_supabase_client()
+                supabase = _self._get_supabase_client()
                 if supabase:
                     # binance_futures_metrics 로드
                     futures_response = supabase.table("binance_futures_metrics") \
@@ -970,7 +970,7 @@ class DataLoader:
         
         # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
         try:
-            if not hasattr(self, 'conn') or self.conn is None:
+            if not hasattr(_self, 'conn') or _self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")
                 return pd.DataFrame()
             
@@ -991,7 +991,7 @@ class DataLoader:
             ORDER BY f.date
             """
             
-            df = pd.read_sql(query, self.conn)
+            df = pd.read_sql(query, _self.conn)
             
             if len(df) == 0:
                 return df
@@ -1051,7 +1051,7 @@ class DataLoader:
             return pd.DataFrame()
     
     @st_cache_data(ttl=3600)
-    def load_futures_extended_metrics(self, start_date: str, end_date: str, symbol: str = 'BTCUSDT') -> pd.DataFrame:
+    def load_futures_extended_metrics(_self, start_date: str, end_date: str, symbol: str = 'BTCUSDT') -> pd.DataFrame:
         """파생상품 확장 지표 로드 (futures_extended_metrics)
         
         Args:
@@ -1063,9 +1063,9 @@ class DataLoader:
             DataFrame with futures extended metrics
         """
         # Supabase 우선 사용 (클라우드 환경)
-        if self.use_supabase:
+        if _self.use_supabase:
             try:
-                supabase = self._get_supabase_client()
+                supabase = _self._get_supabase_client()
                 if supabase:
                     response = supabase.table("futures_extended_metrics") \
                         .select("*") \
@@ -1100,7 +1100,7 @@ class DataLoader:
         
         # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
         try:
-            if not hasattr(self, 'conn') or self.conn is None:
+            if not hasattr(_self, 'conn') or _self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")
                 return pd.DataFrame()
             
@@ -1123,7 +1123,7 @@ class DataLoader:
             ORDER BY date
             """
             
-            df = pd.read_sql(query, self.conn)
+            df = pd.read_sql(query, _self.conn)
             
             if len(df) == 0:
                 return df
@@ -1159,7 +1159,7 @@ class DataLoader:
             return pd.DataFrame()
     
     @st_cache_data(ttl=3600)
-    def load_risk_data_weekly(self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
+    def load_risk_data_weekly(_self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
         """Project 3 (Risk AI) 주봉 데이터 로드
         
         Args:
@@ -1180,9 +1180,9 @@ class DataLoader:
             raise ValueError(f"지원하지 않는 코인: {coin}")
         
         # Supabase 우선 사용 (클라우드 환경)
-        if self.use_supabase:
+        if _self.use_supabase:
             try:
-                supabase = self._get_supabase_client()
+                supabase = _self._get_supabase_client()
                 if supabase:
                     # 1. binance_spot_weekly 로드
                     weekly_response = supabase.table("binance_spot_weekly") \
@@ -1278,7 +1278,7 @@ class DataLoader:
         
         # SQLite 사용 (로컬 환경 또는 Supabase 실패 시)
         try:
-            if not hasattr(self, 'conn') or self.conn is None:
+            if not hasattr(_self, 'conn') or _self.conn is None:
                 logging.error("데이터베이스 연결이 없습니다")
                 return pd.DataFrame()
             
@@ -1314,7 +1314,7 @@ class DataLoader:
             ORDER BY w.date
             """
             
-            df = pd.read_sql(query, self.conn)
+            df = pd.read_sql(query, _self.conn)
             
             if len(df) == 0:
                 return df
