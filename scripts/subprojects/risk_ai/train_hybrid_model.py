@@ -215,8 +215,29 @@ class HybridEnsembleModel:
     def predict_proba(self, X):
         """확률 예측"""
         # XGBoost 예측
+        # - Streamlit Cloud 등 일부 환경에서 xgboost sklearn wrapper(XGBClassifier)와 scikit-learn 조합이
+        #   _estimator_type 관련 호환 문제를 일으키는 사례가 있어,
+        #   가능하면 Booster 기반 예측으로 우회합니다.
         X_xgb = self.xgb_scaler.transform(X)
-        xgb_pred = self.xgb_model.predict_proba(X_xgb)[:, 1]
+        try:
+            # Booster일 경우 (권장)
+            if isinstance(self.xgb_model, xgb.Booster):
+                dmat = xgb.DMatrix(X_xgb, feature_names=self.feature_names)
+                xgb_pred = self.xgb_model.predict(dmat)
+            else:
+                # sklearn wrapper일 경우
+                xgb_pred = self.xgb_model.predict_proba(X_xgb)[:, 1]
+        except Exception as e:
+            # 최후의 폴백: Booster로 강제 시도
+            try:
+                booster = getattr(self.xgb_model, "get_booster", None)
+                if callable(booster):
+                    dmat = xgb.DMatrix(X_xgb, feature_names=self.feature_names)
+                    xgb_pred = booster().predict(dmat)
+                else:
+                    raise
+            except Exception as e2:
+                raise RuntimeError(f"XGBoost 예측 실패: {e} / Booster 폴백 실패: {e2}") from e2
         
         # LSTM 예측
         if self.use_lstm and self.lstm_model is not None:
@@ -318,8 +339,14 @@ class HybridEnsembleModel:
         
         # XGBoost 로드
         xgb_path = MODEL_DIR / f"{model_name}_xgb.json"
-        self.xgb_model = xgb.XGBClassifier()
-        self.xgb_model.load_model(xgb_path)
+        # Streamlit Cloud 등에서 sklearn wrapper 호환 문제가 있을 수 있어 Booster로 로드 (권장)
+        try:
+            self.xgb_model = xgb.Booster()
+            self.xgb_model.load_model(xgb_path)
+        except Exception:
+            # 폴백: sklearn wrapper로 로드
+            self.xgb_model = xgb.XGBClassifier()
+            self.xgb_model.load_model(xgb_path)
         
         # XGBoost 스케일러 로드
         xgb_scaler_path = MODEL_DIR / f"{model_name}_xgb_scaler.pkl"
