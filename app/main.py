@@ -2,6 +2,7 @@
 """
 Project 2 UI/UX 서비스 메인 애플리케이션
 Streamlit 기반 웹 애플리케이션
+Updated: 2025-12-15 (Force Cloud Re-deploy)
 """
 
 import streamlit as st

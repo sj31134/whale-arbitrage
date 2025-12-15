@@ -13,6 +13,23 @@ from typing import Tuple, List, Optional
 import os
 import logging
 
+# Streamlit 모듈 조건부 임포트 및 더미 캐시 데코레이터 정의
+try:
+    import streamlit as st
+except ImportError:
+    st = None
+
+def dummy_cache(ttl=None):
+    def decorator(func):
+        return func
+    return decorator
+
+# st.cache_data가 없으면 더미 데코레이터 사용
+if st is None:
+    st_cache_data = dummy_cache
+else:
+    st_cache_data = st.cache_data
+
 # Streamlit Cloud 또는 로컬 환경 감지
 if os.path.exists('/mount/src'):
     # Streamlit Cloud
@@ -600,6 +617,7 @@ class DataLoader:
         
         return False, closest_dt.strftime("%Y-%m-%d"), days_diff
 
+    @st_cache_data(ttl=3600)
     def load_exchange_data(
         self, 
         start_date: str, 
@@ -835,6 +853,7 @@ class DataLoader:
         
         return True, ""
     
+    @st_cache_data(ttl=3600)
     def load_risk_data(self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
         """Project 3 (Risk AI) 데이터 로드
         
@@ -1015,6 +1034,7 @@ class DataLoader:
                 pass
             return pd.DataFrame()
     
+    @st_cache_data(ttl=3600)
     def load_futures_extended_metrics(self, start_date: str, end_date: str, symbol: str = 'BTCUSDT') -> pd.DataFrame:
         """파생상품 확장 지표 로드 (futures_extended_metrics)
         
@@ -1122,6 +1142,7 @@ class DataLoader:
             logging.error(error_msg)
             return pd.DataFrame()
     
+    @st_cache_data(ttl=3600)
     def load_risk_data_weekly(self, start_date: str, end_date: str, coin: str = 'BTC') -> pd.DataFrame:
         """Project 3 (Risk AI) 주봉 데이터 로드
         
