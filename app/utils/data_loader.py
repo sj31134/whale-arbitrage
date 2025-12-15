@@ -41,52 +41,27 @@ class DataLoader:
         try:
             import streamlit as st
             with st.spinner("데이터베이스 초기화 중..."):
-                self._initialize_database()
+                self._initialize_database(st_module=st)
         except ImportError:
             # Streamlit이 없는 환경 (테스트 등)
-            self._initialize_database()
+            self._initialize_database(st_module=None)
     
     def _get_supabase_client(self):
         """Supabase 클라이언트 가져오기 (지연 초기화)"""
         if self._supabase_client is None:
             try:
-                from dotenv import load_dotenv
                 from supabase import create_client
+                from .secrets_helper import get_secret
                 
-                # 환경 변수 로드
-                env_path = ROOT / "config" / ".env"
-                supabase_url = None
-                supabase_key = None
-                
-                if not env_path.exists():
-                    # Streamlit Cloud Secrets에서 가져오기
-                    try:
-                        import streamlit as st
-                        if hasattr(st, 'secrets'):
-                            try:
-                                # st.secrets는 딕셔너리처럼 접근 가능
-                                supabase_url = st.secrets.get("SUPABASE_URL", None) if hasattr(st.secrets, 'get') else (st.secrets["SUPABASE_URL"] if "SUPABASE_URL" in st.secrets else None)
-                                supabase_key = st.secrets.get("SUPABASE_KEY", None) if hasattr(st.secrets, 'get') else (st.secrets["SUPABASE_KEY"] if "SUPABASE_KEY" in st.secrets else None)
-                            except (KeyError, AttributeError, TypeError):
-                                # st.secrets 접근 실패 시 환경 변수로 폴백
-                                pass
-                    except ImportError:
-                        # streamlit이 없는 환경
-                        pass
-                
-                # Secrets에서 가져오지 못한 경우 환경 변수에서 가져오기
-                if not supabase_url:
-                    supabase_url = os.getenv("SUPABASE_URL")
-                if not supabase_key:
-                    supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-                
-                # .env 파일이 있으면 로드 (로컬 개발 환경)
-                if env_path.exists():
-                    load_dotenv(env_path, override=True)
-                    if not supabase_url:
-                        supabase_url = os.getenv("SUPABASE_URL")
-                    if not supabase_key:
-                        supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                is_streamlit_cloud = os.path.exists('/mount/src')
+
+                # Streamlit Cloud에서는 "서비스 롤 키" 사용을 피하고, 앱에서는 anon key 사용을 권장
+                supabase_url = get_secret("SUPABASE_URL")
+                supabase_key = get_secret("SUPABASE_KEY") or get_secret("SUPABASE_ANON_KEY")
+
+                # 로컬/서버 사이드 작업(maintenance 스크립트 등)에서는 서비스 롤 키 폴백 허용
+                if not is_streamlit_cloud and not supabase_key:
+                    supabase_key = get_secret("SUPABASE_SERVICE_ROLE_KEY")
                 
                 if not supabase_url or not supabase_key:
                     raise ValueError("Supabase 환경 변수가 설정되지 않았습니다. SUPABASE_URL과 SUPABASE_KEY를 확인하세요.")
@@ -102,11 +77,15 @@ class DataLoader:
         
         return self._supabase_client
     
-    def _initialize_database(self):
-        """데이터베이스 초기화 로직"""
-        import streamlit as st
+    def _initialize_database(self, st_module=None):
+        """데이터베이스 초기화 로직
         
-        # 환경 정보 표시 (디버깅용)
+        Args:
+            st_module: streamlit 모듈 (Streamlit 실행 환경에서만 전달). 없으면 UI 출력 없이 동작.
+        """
+        st = st_module
+        
+        # 환경 정보 (디버깅용)
         is_streamlit_cloud = os.path.exists('/mount/src')
         debug_info = {
             "환경": "Streamlit Cloud" if is_streamlit_cloud else "로컬/Docker",
@@ -122,7 +101,8 @@ class DataLoader:
             try:
                 supabase = self._get_supabase_client()
                 if supabase:
-                    st.success("✅ Supabase 연결 성공")
+                    if st:
+                        st.success("✅ Supabase 연결 성공")
                     # Supabase 사용 시 SQLite 파일 불필요
                     self._conn = None
                     self._db_path = None
@@ -134,19 +114,23 @@ class DataLoader:
         # 데이터베이스 파일이 없으면 다운로드 시도 (Streamlit Cloud용)
         if not self.db_path.exists():
             try:
-                st.info("📥 데이터베이스 파일을 다운로드하는 중...")
+                if st:
+                    st.info("📥 데이터베이스 파일을 다운로드하는 중...")
                 self._download_database_if_needed()
                 if self.db_path.exists():
-                    st.success(f"✅ 데이터베이스 다운로드 완료: {self.db_path}")
+                    if st:
+                        st.success(f"✅ 데이터베이스 다운로드 완료: {self.db_path}")
                 else:
-                    st.error(f"❌ 다운로드 후에도 파일이 없습니다: {self.db_path}")
+                    if st:
+                        st.error(f"❌ 다운로드 후에도 파일이 없습니다: {self.db_path}")
             except Exception as e:
                 # 다운로드 실패 시 상세한 에러 메시지
                 error_msg = f"데이터베이스 다운로드 실패: {str(e)}"
                 logging.error(error_msg)
                 try:
-                    st.error(f"❌ {error_msg}")
-                    st.json(debug_info)
+                    if st:
+                        st.error(f"❌ {error_msg}")
+                        st.json(debug_info)
                 except:
                     pass
                 raise FileNotFoundError(
@@ -158,8 +142,9 @@ class DataLoader:
         
         if not self.db_path.exists():
             try:
-                st.error(f"❌ 데이터베이스 파일을 찾을 수 없습니다: {self.db_path}")
-                st.json(debug_info)
+                if st:
+                    st.error(f"❌ 데이터베이스 파일을 찾을 수 없습니다: {self.db_path}")
+                    st.json(debug_info)
             except:
                 pass
             raise FileNotFoundError(

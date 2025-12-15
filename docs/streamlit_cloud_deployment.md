@@ -25,6 +25,10 @@ Streamlit Cloud는 GitHub와 연동하여 **무료로** 서비스를 배포할 �
 ### 3. 환경 변수 준비
 - `ECOS_API_KEY`: 한국은행 환율 API 키
 - 기타 필요한 API 키들
+- **Supabase (클라우드 DB 사용 시 필수)**:
+  - `SUPABASE_URL`
+  - `SUPABASE_KEY` (**권장: anon key / read-only 정책으로 운영**)
+  - (수집/동기화 같은 관리자 작업용) `SUPABASE_SERVICE_ROLE_KEY` 는 **Streamlit 앱에는 넣지 말고** 로컬/CI에서만 사용 권장
 
 ---
 
@@ -59,12 +63,14 @@ git push -u origin main
    - **App URL**: 원하는 URL (예: `whale-arbitrage`)
 3. **Advanced settings** 클릭:
    - **Python version**: 3.11
-   - **Secrets**: 환경 변수 추가
+   - **Secrets**: 환경 변수 추가 (예시)
      ```
      ECOS_API_KEY=your_ecos_api_key
      UPBIT_API_KEY=your_upbit_api_key
      BINANCE_API_KEY=your_binance_api_key
      BITGET_API_KEY=your_bitget_api_key
+     SUPABASE_URL=https://xxxx.supabase.co
+     SUPABASE_KEY=your_supabase_anon_key
      ```
 4. **Deploy!** 클릭
 
@@ -105,6 +111,10 @@ if not db_path.exists():
 - Supabase (PostgreSQL)
 - SQLite를 Supabase로 마이그레이션
 
+> **권장 운영 방식 (이번 프로젝트 현재 상태)**  
+> Streamlit Cloud에서는 `app/utils/data_loader.py`가 **Supabase 우선 연결**을 시도합니다.  
+> 따라서 Streamlit Cloud Secrets에 `SUPABASE_URL`, `SUPABASE_KEY(anon)`만 설정하면, 앱이 항상 최신 Supabase 데이터를 사용합니다.
+
 ---
 
 ## ⚙️ 환경 변수 설정
@@ -121,6 +131,8 @@ ECOS_API_KEY = "your_ecos_api_key"
 UPBIT_API_KEY = "your_upbit_api_key"
 BINANCE_API_KEY = "your_binance_api_key"
 BITGET_API_KEY = "your_bitget_api_key"
+SUPABASE_URL = "https://xxxx.supabase.co"
+SUPABASE_KEY = "your_supabase_anon_key"
 ```
 
 코드에서 사용:
