@@ -1,0 +1,9 @@
+{
+  "pipeline_name": "RealEstateMultiSourceDataPipeline_VerifiedPrices",
+  "execution_timestamp": "2026-11-18T20:48:55.260706",
+  "total_records_ingested": 9,
+  "super_core_count": 2,
+  "prime_core_count": 2,
+  "price_exceeded_vetoed_count": 2,
+  "pipeline_hash": "f00842339a664672"
+}

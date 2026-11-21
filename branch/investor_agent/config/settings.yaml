@@ -1,0 +1,28 @@
+app:
+  name: "Investor Subagent & Capital Allocation Engine"
+  version: "1.0.0"
+  environment: "production"
+
+macro_defaults:
+  risk_free_rate: 0.035          # 3.5% US 10Y benchmark
+  equity_risk_premium: 0.055     # 5.5% ERP
+  hurdle_rate: 0.12              # 12.0% minimum expected return
+
+portfolio_limits:
+  core_min_weight: 0.60
+  core_max_weight: 0.70
+  satellite_min_weight: 0.30
+  satellite_max_weight: 0.40
+  max_single_asset_core: 0.25
+  max_single_asset_satellite: 0.15
+  cash_buffer_min: 0.05
+
+scenario_weights:
+  bull_prob: 0.30
+  base_prob: 0.50
+  bear_prob: 0.20
+  min_payoff_ratio: 3.0          # Bull Upside / Bear Downside >= 3.0
+
+scoring_thresholds:
+  min_total_score: 7.0           # /10 to qualify for investment memo
+  margin_of_safety_target: 0.30  # 30% discount to Base Intrinsic Value

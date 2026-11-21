@@ -1,0 +1,80 @@
+{
+  "records": [
+    {
+      "record_id": "RE-HANNAM-UN_20261118_204854",
+      "asset_id": "RE-HANNAM-UN",
+      "asset_name": "Hannam UN Village Prime Land Plot",
+      "asset_class": "Real Estate",
+      "tier": "Core",
+      "current_price": 100.0,
+      "intrinsic_value": 135.0,
+      "expected_return": 0.295,
+      "payoff_ratio": 11.999999999999998,
+      "composite_score": 9.565,
+      "bottleneck_role": "Physical spatial monopoly for Top 0.01% UHNWI.",
+      "timestamp": "2026-11-18T20:48:54.987594",
+      "memo_path": "/Users/junyonglee/Documents/GitHub/whale_tracking/branch/investor_agent/data/memory/RE-HANNAM-UN_20261118_204854.md"
+    },
+    {
+      "record_id": "EQ-TSMC_20261118_204855",
+      "asset_id": "EQ-TSMC",
+      "asset_name": "TSMC (Taiwan Semiconductor Manufacturing Co.)",
+      "asset_class": "Equities & Infrastructure",
+      "tier": "Satellite",
+      "current_price": 150.0,
+      "intrinsic_value": 195.0,
+      "expected_return": 0.32299999999999995,
+      "payoff_ratio": 5.615384615384615,
+      "composite_score": 9.0,
+      "bottleneck_role": "Single Point of Failure (SPOF) for global AI & High-Performance Computing.",
+      "timestamp": "2026-11-18T20:48:55.001160",
+      "memo_path": "/Users/junyonglee/Documents/GitHub/whale_tracking/branch/investor_agent/data/memory/EQ-TSMC_20261118_204855.md"
+    },
+    {
+      "record_id": "EQ-EATON_20261118_204855",
+      "asset_id": "EQ-EATON",
+      "asset_name": "Eaton Corporation (Power Grid Infrastructure)",
+      "asset_class": "Equities & Infrastructure",
+      "tier": "Satellite",
+      "current_price": 280.0,
+      "intrinsic_value": 345.0,
+      "expected_return": 0.235,
+      "payoff_ratio": 5.0,
+      "composite_score": 8.64,
+      "bottleneck_role": "Critical physical gatekeeper for AI data center electrification.",
+      "timestamp": "2026-11-18T20:48:55.011606",
+      "memo_path": "/Users/junyonglee/Documents/GitHub/whale_tracking/branch/investor_agent/data/memory/EQ-EATON_20261118_204855.md"
+    },
+    {
+      "record_id": "CMD-GOLD_20261118_204855",
+      "asset_id": "CMD-GOLD",
+      "asset_name": "Physical Allocated Gold (Bullion Vault / XAU)",
+      "asset_class": "Commodities & Hard Assets",
+      "tier": "Core",
+      "current_price": 2400.0,
+      "intrinsic_value": 2800.0,
+      "expected_return": 0.16499999999999998,
+      "payoff_ratio": 4.625,
+      "composite_score": 8.975,
+      "bottleneck_role": "Ultimate collateral anchor of last resort in deglobalization.",
+      "timestamp": "2026-11-18T20:48:55.020857",
+      "memo_path": "/Users/junyonglee/Documents/GitHub/whale_tracking/branch/investor_agent/data/memory/CMD-GOLD_20261118_204855.md"
+    },
+    {
+      "record_id": "CRYPTO-BTC_20261118_204855",
+      "asset_id": "CRYPTO-BTC",
+      "asset_name": "Bitcoin (Digital Hard Reserve)",
+      "asset_class": "Crypto & RWA",
+      "tier": "Satellite",
+      "current_price": 65000.0,
+      "intrinsic_value": 95000.0,
+      "expected_return": 0.6080000000000001,
+      "payoff_ratio": 4.866666666666667,
+      "composite_score": 9.120000000000001,
+      "bottleneck_role": "Decentralized censorship-resistant settlement layer.",
+      "timestamp": "2026-11-18T20:48:55.028926",
+      "memo_path": "/Users/junyonglee/Documents/GitHub/whale_tracking/branch/investor_agent/data/memory/CRYPTO-BTC_20261118_204855.md"
+    }
+  ],
+  "last_updated": "2026-11-18T20:48:55.028926"
+}

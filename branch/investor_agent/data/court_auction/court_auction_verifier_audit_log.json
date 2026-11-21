@@ -1,0 +1,301 @@
+{
+  "audit_executed_at": "2026-11-18T20:48:55.261612",
+  "audit_verdict": "CERTIFIED_VERIFIED",
+  "total_steps_verified": 10,
+  "passed_steps_count": 10,
+  "integrity_score_pct": 100.0,
+  "audit_log_filepath": "/Users/junyonglee/Documents/GitHub/whale_tracking/branch/investor_agent/data/court_auction/court_auction_verifier_audit_log.json",
+  "records": [
+    {
+      "step_number": 1,
+      "step_name": "원천 데이터 수집 피드 무결성 검증 (Raw Ingestion Audit)",
+      "target_case_number": "ALL_FEED_BATCH",
+      "source_url": "https://www.courtauction.go.kr",
+      "raw_payload_hash": "26365e3f9772eda9",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261538",
+      "verification_notes": "총 9건의 2026년 9월~10월 실시간 법원경매 데이터셋 검증 완료.",
+      "details": {
+        "feed_count": 9,
+        "case_numbers": [
+          "2025타경3404",
+          "2025타경743",
+          "2025타경73580",
+          "2025타경10424",
+          "2025타경513116",
+          "2025타경52312",
+          "2025타경12301",
+          "2025타경11662",
+          "2024타경51140"
+        ],
+        "first_item_sample": {
+          "case_number": "2025타경3404",
+          "court_name": "의정부지방법원 본원 경매4계",
+          "auction_date": "2026-09-10",
+          "bidding_round": "2회차 (70%)",
+          "location": "경기도 의정부시 의정부동 214-5 다세대 빌라 301호",
+          "property_type": "다세대 빌라 대지지분",
+          "appraisal_value": 230000000,
+          "min_bid_price": 161000000,
+          "land_area_pyeong": 7.8,
+          "registry_rights": [
+            {
+              "type": "근저당",
+              "date": "2021-04-15",
+              "amount": 120000000,
+              "holder": "의정부농협"
+            },
+            {
+              "type": "임의경매기입등기",
+              "date": "2024-02-20",
+              "amount": 0,
+              "holder": "의정부농협"
+            }
+          ],
+          "tenant_data": [
+            {
+              "name": "이OO",
+              "move_in_date": "2022-05-10",
+              "fixed_date": "2022-05-10",
+              "deposit": 110000000,
+              "demanded_dividend": true
+            }
+          ],
+          "has_hug_waiver": false,
+          "is_prior_to_redevelopment_cutoff": true,
+          "is_oversupplied_periphery": false,
+          "has_high_income_cohort": true,
+          "primary_source": "의정부지방법원 매각물건명세서 원문",
+          "source_url": "https://www.courtauction.go.kr",
+          "source_verification": "후순위 임차인 배당 후 전액 소멸, 낙찰자 인수 보증금 0원 (실투자금 6,000만 원 완결 가능)",
+          "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+        }
+      }
+    },
+    {
+      "step_number": 2,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2025타경3404",
+      "target_case_number": "2025타경3404",
+      "source_url": "https://www.courtauction.go.kr",
+      "raw_payload_hash": "10235e38d74f7915",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261545",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 230000000,
+        "min_bid_price": 161000000,
+        "total_liability": 0.0,
+        "total_acq_cost": 174050000.0,
+        "safety_score": 10.0,
+        "final_verdict": "✅ [안전 물건]: 모든 등기권리 및 임차권 완전 말소/소멸 확정"
+      }
+    },
+    {
+      "step_number": 3,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2025타경743",
+      "target_case_number": "2025타경743",
+      "source_url": "https://www.courtauction.go.kr",
+      "raw_payload_hash": "4a5522502af84e2f",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261554",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 180000000,
+        "min_bid_price": 126000000,
+        "total_liability": 0.0,
+        "total_acq_cost": 137300000.0,
+        "safety_score": 10.0,
+        "final_verdict": "✅ [안전 물건]: 모든 등기권리 및 임차권 완전 말소/소멸 확정"
+      }
+    },
+    {
+      "step_number": 4,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2025타경73580",
+      "target_case_number": "2025타경73580",
+      "source_url": "https://www.courtauction.go.kr",
+      "raw_payload_hash": "9adedb89c9a84676",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261561",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 280000000,
+        "min_bid_price": 196000000,
+        "total_liability": 0.0,
+        "total_acq_cost": 210800000.0,
+        "safety_score": 10.0,
+        "final_verdict": "✅ [안전 물건]: 모든 등기권리 및 임차권 완전 말소/소멸 확정"
+      }
+    },
+    {
+      "step_number": 5,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2025타경10424",
+      "target_case_number": "2025타경10424",
+      "source_url": "https://www.courtauction.go.kr",
+      "raw_payload_hash": "d555ac33fd3fd17b",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261569",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 245000000,
+        "min_bid_price": 196000000,
+        "total_liability": 0.0,
+        "total_acq_cost": 209575000.0,
+        "safety_score": 10.0,
+        "final_verdict": "✅ [안전 물건]: 모든 등기권리 및 임차권 완전 말소/소멸 확정"
+      }
+    },
+    {
+      "step_number": 6,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2025타경513116",
+      "target_case_number": "2025타경513116",
+      "source_url": "https://www.courtauction.go.kr",
+      "raw_payload_hash": "7c061ba943034dc8",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261576",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 150000000,
+        "min_bid_price": 73500000,
+        "total_liability": 120000000.0,
+        "total_acq_cost": 208750000.0,
+        "safety_score": 1.0,
+        "final_verdict": "❌ [100% VETO / 가치함정]: 고소득 임차 코호트 및 학군 부재"
+      }
+    },
+    {
+      "step_number": 7,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2025타경52312",
+      "target_case_number": "2025타경52312",
+      "source_url": "https://www.courtauction.go.kr",
+      "raw_payload_hash": "16ad88a3e709bf98",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261584",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 302000000,
+        "min_bid_price": 302000000,
+        "total_liability": 0.0,
+        "total_acq_cost": 317570000.0,
+        "safety_score": 10.0,
+        "final_verdict": "✅ [안전 물건]: 모든 등기권리 및 임차권 완전 말소/소멸 확정"
+      }
+    },
+    {
+      "step_number": 8,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2025타경12301",
+      "target_case_number": "2025타경12301",
+      "source_url": "https://www.khug.or.kr",
+      "raw_payload_hash": "3a7599a088adcff4",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261590",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 244000000,
+        "min_bid_price": 124928000,
+        "total_liability": 0.0,
+        "total_acq_cost": 138468000.0,
+        "safety_score": 10.0,
+        "final_verdict": "🎯 [초특급 알파 물건]: HUG 대항력 포기 확약서 제출로 인수금 0원 확정"
+      }
+    },
+    {
+      "step_number": 9,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2025타경11662",
+      "target_case_number": "2025타경11662",
+      "source_url": "https://www.courtauction.go.kr",
+      "raw_payload_hash": "17765af7bddb0c0f",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261598",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 646000000,
+        "min_bid_price": 516800000,
+        "total_liability": 220000000.0,
+        "total_acq_cost": 769410000.0,
+        "safety_score": 6.594427244582043,
+        "final_verdict": "⚠️ [주의 물건 / 보증금 인수]: 선순위 미배당 인수보증금 2.20억 원 발생"
+      }
+    },
+    {
+      "step_number": 10,
+      "step_name": "7단계 권리분석 및 원천데이터 진위성 검증: 2024타경51140",
+      "target_case_number": "2024타경51140",
+      "source_url": "https://cleanup.seoul.go.kr",
+      "raw_payload_hash": "cdb34ec934d8d015",
+      "validation_status": "PASSED",
+      "verified_at": "2026-11-18T20:48:55.261605",
+      "verification_notes": "모든 법리 및 수학적 역산 공식 검증 통과 (100% 무결성)",
+      "details": {
+        "checks": {
+          "has_appraisal_and_min_bid": true,
+          "malso_standard_valid": true,
+          "unpaid_liability_match": true,
+          "hug_waiver_audit_match": true,
+          "total_cost_math_match": true
+        },
+        "appraisal_value": 1013000000,
+        "min_bid_price": 810400000,
+        "total_liability": 0.0,
+        "total_acq_cost": 850855000.0,
+        "safety_score": 10.0,
+        "final_verdict": "✅ [안전 물건]: 모든 등기권리 및 임차권 완전 말소/소멸 확정"
+      }
+    }
+  ]
+}

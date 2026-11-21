@@ -1,0 +1,48 @@
+asset_universes:
+  real_estate:
+    description: "Geographic Monopolies & High Land-Share Real Estate"
+    tier_type: "Core"
+    key_metrics: ["land_share_ratio", "orientation_view", "centrality_travel_time", "zoning_density", "buyer_cash_ratio"]
+    benchmark_assets:
+      - name: "Hannam UN Village Prime Land"
+        ticker: "RE-HANNAM-UN"
+        category: "Prime Geographic Monopoly"
+      - name: "Apgujeong Modern Waterfront Plot"
+        ticker: "RE-APGUJEONG-HYUNDAI"
+        category: "Prime Reconstruction Monopoly"
+
+  equities_infrastructure:
+    description: "Industrial Bottlenecks, Mission-Critical B2B & Energy Grid"
+    tier_type: "Satellite"
+    key_metrics: ["roic", "wacc", "pricing_power_margin", "shapley_bottleneck_index", "switching_cost_churn"]
+    benchmark_assets:
+      - name: "TSMC Advanced Foundry"
+        ticker: "TSM"
+        category: "Silicon Packaging Bottleneck"
+      - name: "ASML EUV Lithography"
+        ticker: "ASML"
+        category: "Lithography Hardware Monopoly"
+      - name: "Eaton Corporation / Grid Transformers"
+        ticker: "ETN"
+        category: "Power Grid Hardware Bottleneck"
+
+  commodities_hard_assets:
+    description: "Physical Monetary Hard Floor & Reserve Assets"
+    tier_type: "Core"
+    key_metrics: ["stock_to_flow", "sovereign_buying_demand", "marginal_cost_of_production"]
+    benchmark_assets:
+      - name: "Physical Allocated Gold"
+        ticker: "XAU"
+        category: "Sovereign Monetary Hard Floor"
+
+  crypto_rwa:
+    description: "L1 Settlement Blockspace & RWA Yield Protocols"
+    tier_type: "Satellite"
+    key_metrics: ["fee_capture_ratio", "whale_net_accumulation", "economic_security_cost", "collateral_quality"]
+    benchmark_assets:
+      - name: "Bitcoin Monetary Base"
+        ticker: "BTC"
+        category: "Digital Hard Reserve (Core/Satellite hybrid)"
+      - name: "Ethereum Settlement Blockspace"
+        ticker: "ETH"
+        category: "L1 Gas Tollbooth"

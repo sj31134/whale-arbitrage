@@ -175,3 +175,4 @@ if __name__ == "__main__":
         print("\n⚠️ Supabase에 데이터가 없습니다. Binance Vision Archive에서 복구가 필요합니다.")
 
 
+

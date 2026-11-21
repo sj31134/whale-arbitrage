@@ -1,0 +1,708 @@
+[
+  {
+    "as_of_date": "2026-10-13",
+    "timestamp": "2026-10-13T12:35:01.910825",
+    "macro": {
+      "us_10y_yield_pct": 5.244,
+      "us_30y_yield_pct": 5.32,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 102.35,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.1
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 38500.0,
+      "hbm4_12hi_contract_price_usd": 480.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 102.85,
+      "wti_crude_usd_bbl": 86.5,
+      "copper_spot_usd_lb": 6.692,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 4216.3,
+      "gold_paxg_binance_usd": 4181.35,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 685.0,
+      "stablecoin_total_marketcap_billion_usd": 185.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 22.4,
+      "algo_flash_overshoot_detected": true,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "SIDECAR_FLASH_CRASH_PANIC"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_COMPREHENSIVE"
+  },
+  {
+    "as_of_date": "2026-10-23",
+    "timestamp": "2026-10-23T09:53:47.741379",
+    "macro": {
+      "us_10y_yield_pct": 4.95,
+      "us_30y_yield_pct": 5.525,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 101.8,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.1,
+      "usdkrw_exchange_rate": 1327.95
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 38500.0,
+      "hbm4_12hi_contract_price_usd": 480.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 112.5,
+      "wti_crude_usd_bbl": 86.5,
+      "copper_spot_usd_lb": 6.398,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 4060.0,
+      "gold_paxg_binance_usd": 4039.2,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 702.0,
+      "stablecoin_total_marketcap_billion_usd": 190.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 16.87,
+      "vkospi_index": 55.2,
+      "futures_basis_regime": "BACKWARDATION",
+      "sidecar_triggered": true,
+      "vol_derisking_active": true,
+      "algo_flash_overshoot_detected": true,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "ALGORITHMIC_FLASH_CASCADE"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_COMPREHENSIVE"
+  },
+  {
+    "as_of_date": "2026-10-26",
+    "timestamp": "2026-10-26T10:18:21.148737",
+    "macro": {
+      "us_10y_yield_pct": 4.988,
+      "us_30y_yield_pct": 5.525,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 101.657,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.1,
+      "usdkrw_exchange_rate": 1327.95
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 38500.0,
+      "hbm4_12hi_contract_price_usd": 480.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 102.85,
+      "wti_crude_usd_bbl": 86.5,
+      "copper_spot_usd_lb": 6.49,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 3993.8,
+      "gold_paxg_binance_usd": 4009.46,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 685.0,
+      "stablecoin_total_marketcap_billion_usd": 185.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 16.87,
+      "vkospi_index": 55.2,
+      "futures_basis_regime": "BACKWARDATION",
+      "sidecar_triggered": true,
+      "vol_derisking_active": true,
+      "algo_flash_overshoot_detected": true,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "ALGORITHMIC_FLASH_CASCADE"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_COMPREHENSIVE"
+  },
+  {
+    "as_of_date": "2026-10-26",
+    "timestamp": "2026-10-26T10:21:40.201311",
+    "macro": {
+      "us_10y_yield_pct": 4.988,
+      "us_30y_yield_pct": 5.525,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 101.649,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.1,
+      "usdkrw_exchange_rate": 1327.95
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 38500.0,
+      "hbm4_12hi_contract_price_usd": 480.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 102.85,
+      "wti_crude_usd_bbl": 86.5,
+      "copper_spot_usd_lb": 6.4915,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 4007.7,
+      "gold_paxg_binance_usd": 4007.21,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 685.0,
+      "stablecoin_total_marketcap_billion_usd": 185.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 16.87,
+      "vkospi_index": 55.2,
+      "futures_basis_regime": "BACKWARDATION",
+      "sidecar_triggered": true,
+      "vol_derisking_active": true,
+      "algo_flash_overshoot_detected": true,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "ALGORITHMIC_FLASH_CASCADE"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_COMPREHENSIVE"
+  },
+  {
+    "as_of_date": "2026-10-27",
+    "timestamp": "2026-10-27T23:58:03.029205",
+    "macro": {
+      "us_10y_yield_pct": 4.995,
+      "us_30y_yield_pct": 5.525,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 102.216,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.1,
+      "usdkrw_exchange_rate": 1327.95
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 38500.0,
+      "hbm4_12hi_contract_price_usd": 480.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 102.85,
+      "wti_crude_usd_bbl": 86.5,
+      "copper_spot_usd_lb": 6.628,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 4063.6,
+      "gold_paxg_binance_usd": 4056.56,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 685.0,
+      "stablecoin_total_marketcap_billion_usd": 185.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 16.87,
+      "vkospi_index": 55.2,
+      "futures_basis_regime": "BACKWARDATION",
+      "sidecar_triggered": true,
+      "vol_derisking_active": true,
+      "algo_flash_overshoot_detected": true,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "ALGORITHMIC_FLASH_CASCADE"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_COMPREHENSIVE"
+  },
+  {
+    "as_of_date": "2026-11-18",
+    "timestamp": "2026-11-18T10:20:00",
+    "macro": {
+      "us_10y_yield_pct": 5.103,
+      "us_30y_yield_pct": 5.458,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 103.66,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.3,
+      "usdkrw_exchange_rate": 1330.4
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 41200.0,
+      "hbm4_12hi_contract_price_usd": 495.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 112.33,
+      "wti_crude_usd_bbl": 85.55,
+      "copper_spot_usd_lb": 6.01,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 3825.6,
+      "gold_paxg_binance_usd": 3811.83,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 685.0,
+      "stablecoin_total_marketcap_billion_usd": 185.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 25.46,
+      "vkospi_index": 34.5,
+      "futures_basis_regime": "NORMALIZING",
+      "sidecar_triggered": false,
+      "vol_derisking_active": true,
+      "algo_flash_overshoot_detected": false,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "POST_NVDA_EARNINGS_STABILIZING"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_2026_11_18_3M_AUDIT"
+  },
+  {
+    "as_of_date": "2026-11-18",
+    "timestamp": "2026-11-18T10:30:36.101922",
+    "macro": {
+      "us_10y_yield_pct": 5.103,
+      "us_30y_yield_pct": 5.525,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 103.658,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.1,
+      "usdkrw_exchange_rate": 1327.95
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 38500.0,
+      "hbm4_12hi_contract_price_usd": 480.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 112.33,
+      "wti_crude_usd_bbl": 86.5,
+      "copper_spot_usd_lb": 6.002,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 3824.2,
+      "gold_paxg_binance_usd": 3808.47,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 685.0,
+      "stablecoin_total_marketcap_billion_usd": 185.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 16.87,
+      "vkospi_index": 55.2,
+      "futures_basis_regime": "BACKWARDATION",
+      "sidecar_triggered": true,
+      "vol_derisking_active": true,
+      "algo_flash_overshoot_detected": true,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "ALGORITHMIC_FLASH_CASCADE"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_COMPREHENSIVE"
+  },
+  {
+    "as_of_date": "2026-11-18",
+    "timestamp": "2026-11-18T10:40:48.425728",
+    "macro": {
+      "us_10y_yield_pct": 5.103,
+      "us_30y_yield_pct": 5.525,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 103.647,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.1,
+      "usdkrw_exchange_rate": 1327.95
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 38500.0,
+      "hbm4_12hi_contract_price_usd": 480.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 112.33,
+      "wti_crude_usd_bbl": 86.5,
+      "copper_spot_usd_lb": 5.999,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 3818.8,
+      "gold_paxg_binance_usd": 3805.26,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 685.0,
+      "stablecoin_total_marketcap_billion_usd": 185.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 16.87,
+      "vkospi_index": 55.2,
+      "futures_basis_regime": "BACKWARDATION",
+      "sidecar_triggered": true,
+      "vol_derisking_active": true,
+      "algo_flash_overshoot_detected": true,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "ALGORITHMIC_FLASH_CASCADE"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_COMPREHENSIVE"
+  },
+  {
+    "as_of_date": "2026-11-18",
+    "timestamp": "2026-11-18T20:48:54.980395",
+    "macro": {
+      "us_10y_yield_pct": 5.103,
+      "us_30y_yield_pct": 5.525,
+      "global_m2_yoy_pct": 7.4,
+      "dxy_dollar_index": 103.795,
+      "fed_funds_rate_pct": 4.75,
+      "boj_policy_rate_pct": 0.5,
+      "us_sovereign_debt_trillion_usd": 37.2,
+      "core_cpi_yoy_pct": 3.1,
+      "usdkrw_exchange_rate": 1327.95
+    },
+    "real_estate": {
+      "seoul_apt_supply_annual_units": 12500,
+      "seoul_reconstruction_cost_pyeong_krw": 10500000,
+      "seoul_jeonse_supply_index": 104.5,
+      "seoul_consecutive_rise_weeks": 79,
+      "chungcheong_semi_cluster_capex_trillion_krw": 360.0,
+      "chungbuk_battery_motherfab_capex_trillion_krw": 35.0
+    },
+    "semiconductors": {
+      "dram_spot_dxi_index": 38500.0,
+      "hbm4_12hi_contract_price_usd": 480.0,
+      "tsmc_cowos_monthly_wafer_capacity": 65000,
+      "asml_high_na_euv_annual_deliveries": 12,
+      "silicon_wafer_300mm_utilization_pct": 88.5,
+      "hyperscaler_annual_ai_capex_billion_usd": 245.0,
+      "pricing_inelasticity_score": 0.88,
+      "megacycle_capex_yoy_velocity_pct": 42.5
+    },
+    "shipbuilding": {
+      "clarksons_newbuilding_price_index": 189.5,
+      "lng_carrier_174k_newbuild_usd_million": 268.0,
+      "vlac_ammonia_carrier_usd_million": 125.0,
+      "korean_shipyard_dock_backlog_years": 4.2,
+      "us_navy_mro_annual_market_billion_usd": 32.0
+    },
+    "energy_commodities": {
+      "brent_crude_usd_bbl": 112.33,
+      "wti_crude_usd_bbl": 86.5,
+      "copper_spot_usd_lb": 5.744,
+      "copper_lme_inventory_tons": 145000,
+      "uranium_spot_usd_lb": 88.0,
+      "potash_fob_vancouver_usd_ton": 340.0,
+      "singapore_complex_refining_margin_usd": 7.8,
+      "gold_spot_usd_oz": 3766.5,
+      "gold_paxg_binance_usd": 3754.51,
+      "grid_interconnect_queue_years": 5.8
+    },
+    "finance_crypto": {
+      "kr_commercial_code_mandatory_treasury_cancel": true,
+      "krx_daily_turnover_trillion_krw": 21.5,
+      "btc_network_hashrate_ehs": 685.0,
+      "stablecoin_total_marketcap_billion_usd": 185.0,
+      "net_cash_to_mcap_pct": 24.5
+    },
+    "policy": {
+      "us_ira_45u_nuclear_ptc_active": true,
+      "us_chips_act_subsidy_deployed_pct": 78.5,
+      "kr_value_up_tax_incentive_active": true,
+      "kr_real_estate_pf_put_active": true,
+      "jp_tse_pbr_1x_mandate_progress_pct": 74.0,
+      "cn_nine_measures_dividend_enforced": true,
+      "nato_2pct_gdp_defense_mandate_pct": 2.1
+    },
+    "microstructure": {
+      "vix_index": 16.87,
+      "vkospi_index": 55.2,
+      "futures_basis_regime": "BACKWARDATION",
+      "sidecar_triggered": true,
+      "vol_derisking_active": true,
+      "algo_flash_overshoot_detected": true,
+      "options_0dte_gamma_regime": "EXTREME_SHORT_GAMMA",
+      "liquidity_condition": "ALGORITHMIC_FLASH_CASCADE"
+    },
+    "dynamic_feed_status": "LIVE_SYNCED_COMPREHENSIVE"
+  }
+]

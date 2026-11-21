@@ -1,0 +1,7 @@
+# System packages for RWATransparency
+# This file is used for deployments (e.g., Streamlit Cloud, Docker)
+
+build-essential
+postgresql-client
+libpq-dev
+python3-dev

@@ -1,0 +1,14 @@
+{
+  "folders": [
+    {
+      "name": "Bitcoin Data Dir",
+      "path": "/Users/junyonglee/Library/Application Support/Bitcoin"
+    },
+    {
+      "path": "btc_ledger_research"
+    }
+  ],
+  "settings": {
+    "python.envFile": "${workspaceFolder:whale_tracking}/btc_ledger_research/config/.env"
+  }
+}

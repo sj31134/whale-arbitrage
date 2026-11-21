@@ -4,6 +4,17 @@
 
 ## 🚀 빠른 시작
 
+### 로컬에서 앱 실행 (localhost)
+```bash
+cd whale_tracking
+source venv/bin/activate   # Windows: venv\Scripts\activate
+# 리스크 예측·고래 데이터를 로컬 DB(SQLite)만 사용하려면:
+export USE_LOCAL_DB=1     # 또는 config/.env에 USE_LOCAL_DB=1 추가
+streamlit run app/main.py
+```
+**접속 주소:** **http://localhost:8501**  
+(포트는 `.streamlit/config.toml`에서 `port = 8501`로 설정됨)
+
 ### 데이터 수집
 ```bash
 # 병렬 수집 실행

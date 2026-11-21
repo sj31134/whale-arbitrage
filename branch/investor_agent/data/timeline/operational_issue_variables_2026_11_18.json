@@ -1,0 +1,217 @@
+{
+  "as_of_date": "2026-11-18T11:05:00+09:00",
+  "issues_and_operational_variables": [
+    {
+      "issue_id": "ISSUE_01_FED_CPI_HIKE_RISK",
+      "category": "Macro / Discount Rate",
+      "affected_assets": [
+        "ALL (특히 US-TSLA, US-MU, KR-005935, US-GOOG)"
+      ],
+      "impact_score_10": 9.5,
+      "operational_variables": {
+        "us_core_cpi_mom_pct": {
+          "definition": "미국 근원 CPI 전월비 상승률 (%)",
+          "value": 0.3,
+          "threshold_danger": ">= 0.3%",
+          "status": "BEAR_ALERT"
+        },
+        "us_10y_realized_yield_pct": {
+          "definition": "미국 10년물 국채금리 실시간 수익률 (%)",
+          "value": 5.103,
+          "threshold_bull": "< 4.55%",
+          "status": "BEAR_ALERT"
+        },
+        "dxy_3m_breakout_idx": {
+          "definition": "달러 인덱스 실시간 지수",
+          "value": 103.67,
+          "threshold_bull": "< 101.5",
+          "status": "BEAR_ALERT"
+        }
+      },
+      "impact_diagnosis": "10월 CPI(+0.4% MoM) 및 근원(+0.3% MoM) 끈적함으로 12월 FOMC 25bp(조건부 50bp) 인상 경계 부각 -> 금리 5.10% 고착화 및 고멀티플/이머징 수급 압박."
+    },
+    {
+      "issue_id": "ISSUE_02_NVDA_RUBIN_VS_JENSEN_GOVERNANCE",
+      "category": "Semiconductors / AI Supply Chain",
+      "affected_assets": [
+        "KR-005935",
+        "US-MU",
+        "US-NVDA",
+        "KR-396520"
+      ],
+      "impact_score_10": 9.2,
+      "operational_variables": {
+        "nvda_q3_rev_yoy_pct": {
+          "definition": "엔비디아 FY27 3Q 매출 전년비 성장률 (%)",
+          "value": 103.0,
+          "actual_usd_b": 115.8,
+          "q4_guide_usd_b": 130.0,
+          "status": "BULL_SURPRISE"
+        },
+        "nvda_rubin_qoq_delta_b": {
+          "definition": "HBM4 필수 탑재 차세대 '베라 루빈' 매출 전분기 순증액 ($B)",
+          "value": 20.0,
+          "threshold_bull": ">= +$10B",
+          "status": "STRONG_BULL"
+        },
+        "nvda_ceo_governance_shock_flag": {
+          "definition": "젠슨 황 사임(11/12)·이사회 복귀거부(11/17)·SEC/상원 조사 유무 (Binary + Severity)",
+          "value": 1,
+          "risk_score": 6.5,
+          "status": "GOVERNANCE_OVERHANG"
+        },
+        "non_nvda_asic_diversification_pressure": {
+          "definition": "엔비디아 1극 흔들림에 따른 구글 TPU/AWS/AMD 턴키 발주 전환 압력 (삼성전자 HBM4·파운드리 반사이익 점수 /10)",
+          "value": 8.5,
+          "status": "SAMSUNG_TAILWIND"
+        }
+      },
+      "impact_diagnosis": "베라 루빈 +$20B QoQ 매출 폭증으로 HBM4 실수요는 입증됨. 동시에 젠슨 황 공백에 따른 빅테크 자체 ASIC 다변화 가속으로 메모리+파운드리+패키징 턴키를 쥔 삼성전자(005935)의 상대 수혜 극대화."
+    },
+    {
+      "issue_id": "ISSUE_03_GOOG_CAPEX_FCF_DEFICIT",
+      "category": "Big Tech / AI ROI",
+      "affected_assets": [
+        "US-GOOG",
+        "US-MU",
+        "KR-005935"
+      ],
+      "impact_score_10": 8.6,
+      "operational_variables": {
+        "goog_cloud_yoy_pct": {
+          "definition": "구글 클라우드 3Q 매출 전년비 성장률 (%)",
+          "value": 103.0,
+          "actual_usd_b": 30.7,
+          "status": "STRONG_BULL"
+        },
+        "goog_q3_capex_usd_b": {
+          "definition": "구글 3Q 단일 분기 설비투자액 ($B)",
+          "value": 51.4,
+          "threshold_alert": ">= $40B",
+          "status": "CAPEX_SHOCK"
+        },
+        "goog_q3_fcf_usd_b": {
+          "definition": "구글 3Q 잉여현금흐름 ($B, 영업현금흐름 - CapEx)",
+          "value": -9.0,
+          "threshold_bull": "> $0B",
+          "status": "FCF_DEFICIT_OVERHANG"
+        }
+      },
+      "impact_diagnosis": "클라우드 +103%($30.7B) 폭증에도 분기 CapEx $51.4B 투입으로 FCF가 -$9B 적자 전환 & 스페이스X 평가손 발생. 기존 '연 $70B FCF' 가정 폐기하고 'ROI 회수 검증기 변동성 확대' 반영 필요."
+    },
+    {
+      "issue_id": "ISSUE_04_MERITZ_3Q_EARNINGS_MISS",
+      "category": "KR Financials / Core Compounder",
+      "affected_assets": [
+        "KR-138040"
+      ],
+      "impact_score_10": 8.4,
+      "operational_variables": {
+        "meritz_3q_op_yoy_pct": {
+          "definition": "메리츠금융지주 3Q 연결 영업이익 전년비 증감률 (%)",
+          "value": -39.7,
+          "actual_krw_eok": 5199,
+          "qoq_pct": -46.3,
+          "status": "EARNINGS_SHOCK"
+        },
+        "meritz_3q_ni_yoy_pct": {
+          "definition": "메리츠금융지주 3Q 지배/연결 순이익 전년비 증감률 (%)",
+          "value": -26.6,
+          "actual_krw_eok": 4905,
+          "cum_9m_ni_yoy_pct": -3.2,
+          "status": "EARNINGS_MISS"
+        },
+        "meritz_annualized_roe_pct": {
+          "definition": "메리츠금융지주 연환산 자기자본이익률 (%)",
+          "value": 23.5,
+          "prev_model_assumed": 27.5,
+          "status": "DOWNWARD_CALIBRATED"
+        }
+      },
+      "impact_diagnosis": "메리츠화재 본업(CSM·장기보험)은 견조하나 증시 급락으로 자산운용·투자손익이 악화되며 3Q 영업이익 -39.7%, 순이익 -26.6% 컨센서스 하회(증권 영업익 -44.7%). 기존 Bear -2%·ROE 27.5% 과대평가 수정 필수."
+    },
+    {
+      "issue_id": "ISSUE_05_INDIA_SHIPBUILDING_SOVEREIGN_ORDER",
+      "category": "Shipbuilding / Global Policy",
+      "affected_assets": [
+        "KR-009540"
+      ],
+      "impact_score_10": 8.2,
+      "operational_variables": {
+        "india_short_term_sci_tender_krw_t": {
+          "definition": "인도 국영 인도해운공사(SCI) VLGC·컨선 등 최대 22척 발주 입찰 규모 (조 원)",
+          "value": 4.3,
+          "actual_usd_b": 3.2,
+          "status": "IMMEDIATE_CATALYST"
+        },
+        "india_long_term_fleet_demand_krw_t": {
+          "definition": "인도 '조선 투자 콘클레이브 2026' 공개 400척+ 자국 선박 수요 (조 원)",
+          "value": 32.0,
+          "target_year": 2047,
+          "status": "SECULAR_TAM_EXPANSION"
+        },
+        "hd_india_jv_capex_usd_b": {
+          "definition": "HD한국조선해양 인도 타밀나두 투투쿠디 합작 조선소 추진 투자액 ($B)",
+          "value": 4.0,
+          "status": "LOCAL_CAPEX_RISK"
+        },
+        "shipbuilding_near_term_derating_flag": {
+          "definition": "단기 피크아웃·MASGA 지연 및 현지건조 마진 희석 우려 (1=압박 중)",
+          "value": 1,
+          "stock_3m_pct": -39.25,
+          "status": "ST_HEADWIND_LT_TAILWIND"
+        }
+      },
+      "impact_diagnosis": "인도 32조 원(400척)+SCI 4.3조 원(22척) 발주에서 HD한국조선해양이 투투쿠디 $40억 합작 추진으로 선두. 단, 인도 정부의 '현지 건조' 강제 조건이 단기 $40억 투자비 및 마진 희석·MASGA 지연 우려와 맞물려 오늘 -3.2% 하락 유발."
+    },
+    {
+      "issue_id": "ISSUE_06_NAVER_OP_DROP_VS_AI_FACTORY",
+      "category": "KR Internet / Sovereign AI",
+      "affected_assets": [
+        "KR-035420"
+      ],
+      "impact_score_10": 7.1,
+      "operational_variables": {
+        "naver_3q_rev_yoy_pct": {
+          "definition": "네이버 3Q 연결 매출 YoY 성장률 (%)",
+          "value": 10.7,
+          "actual_krw_eok": 34724,
+          "status": "SOLID_TOP_LINE"
+        },
+        "naver_3q_op_yoy_pct": {
+          "definition": "네이버 3Q 연결 영업이익 YoY 증감률 (%)",
+          "value": -20.9,
+          "actual_krw_eok": 4513,
+          "status": "MARGIN_COMPRESSION"
+        },
+        "naver_ai_factory_contract_krw_t": {
+          "definition": "2027 상반기 반영 예정 AI 팩토리 컴퓨팅 공급 계약 규모 (조 원)",
+          "value": 2.0,
+          "status": "NEXT_YEAR_CATALYST"
+        }
+      },
+      "impact_diagnosis": "매출 +10.7%(페이 26.2조)에도 AI 인프라·마케팅 투자로 영업익 -20.9% 감소. 다만 2조 원대 AI 팩토리 초기 고객 확보 및 물류 자회사 설립으로 2027년 실적 턴어라운드 교두보 구축."
+    },
+    {
+      "issue_id": "ISSUE_07_TSLA_ROBOTAXI_247_VS_RATE_BETA",
+      "category": "Physical AI / Mobility",
+      "affected_assets": [
+        "US-TSLA"
+      ],
+      "impact_score_10": 7.5,
+      "operational_variables": {
+        "tsla_robotaxi_24_7_rollout_active": {
+          "definition": "미국 전역 로보택시 24시간 연중무휴 운영 개시 여부 (1=개시)",
+          "value": 1,
+          "status": "TECH_CATALYST"
+        },
+        "tsla_fwd_per_vs_10y_spread": {
+          "definition": "테슬라 Fwd PER (75.2x) 상태에서 미 10Y 5.10% 금리 부담 지수",
+          "value": 75.2,
+          "status": "VALUATION_SENSITIVE"
+        }
+      },
+      "impact_diagnosis": "전 지역 로보택시 24/7 운영 모멘텀으로 3개월 빅테크 중 유일하게 플러스(+14%) 방어 중이나, 12월 FOMC 금리 인상 시 밸류에이션 멀티플 75x의 변동성 노출."
+    }
+  ]
+}

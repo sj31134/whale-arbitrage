@@ -1,0 +1,26 @@
+# RWATransparency Dependencies (Extends parent requirements)
+# Parent requirements can be installed via 'pip install -r ../../requirements.txt'
+
+web3>=6.0.0
+pandas>=2.0.0
+plotly>=5.10.0
+streamlit>=1.20.0
+requests>=2.28.0
+python-dotenv>=1.0.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# Analysis & Econometrics
+statsmodels>=0.14.0
+scikit-learn>=1.2.0
+scipy>=1.10.0
+
+# Scraping & Natural Language Processing (for Off-chain reports)
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+openai>=1.0.0
+tiktoken>=0.4.0
+
+# Utils
+cryptography>=41.0.0
+pytest>=7.0.0

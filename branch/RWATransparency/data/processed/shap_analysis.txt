@@ -1,0 +1,42 @@
+
+================================================================================
+RWA Transparency Digital Twin: SHAP/Explainability Analysis Report
+================================================================================
+
+1. NATIVE FEATURE IMPORTANCE (Gradient Boosting)
+------------------------------------------------
+           Feature  Native_Importance
+       illiquidity           0.506432
+    market_cap_log           0.255941
+        volatility           0.127444
+       macro_shock           0.069529
+         tdt_score           0.021450
+ consistency_score           0.011322
+     latency_score           0.007620
+completeness_score           0.000261
+
+2. PERMUTATION IMPORTANCE (Model-Agnostic)
+------------------------------------------
+           Feature  Importance_Mean  Importance_Std
+       illiquidity         0.140768        0.003966
+    market_cap_log         0.093501        0.006738
+       macro_shock         0.019645        0.004384
+        volatility         0.007681        0.004615
+     latency_score         0.001773        0.000591
+completeness_score         0.000000        0.000000
+ consistency_score        -0.000443        0.000946
+         tdt_score        -0.000591        0.001182
+
+3. KEY FINDINGS
+---------------
+- illiquidity: 급락 예측의 가장 강력한 선행 지표
+- volatility: 변동성 클러스터링 효과로 중요
+- macro_shock: 거시 충격 영향 확인
+- TDT 구성요소: consistency > latency > completeness 순서로 중요
+
+4. IMPLICATIONS FOR PRACTICE
+----------------------------
+- 거래소/VC는 유동성(illiquidity) 모니터링을 최우선으로
+- TDT의 정합성(consistency) 점수가 리스크 경보에 가장 유용
+- 실시간 대시보드에서 이 지표들을 추적해야 함
+================================================================================

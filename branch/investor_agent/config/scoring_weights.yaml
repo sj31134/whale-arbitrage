@@ -1,0 +1,22 @@
+skills_weights:
+  skill_1_asset_decomposition:
+    weight: 0.25
+    description: "Ratio of permanent compounding core asset value vs. depreciating shell/capex"
+  skill_2_supply_inelasticity:
+    weight: 0.25
+    description: "Physical or structural impossibility of copying or cloning supply when price multiplies"
+  skill_3_buyer_cohort_quality:
+    weight: 0.20
+    description: "Price-inelasticity of end buyers (UHNWI, sovereign, mission-critical enterprise)"
+  skill_4_walled_garden_privacy:
+    weight: 0.15
+    description: "Closed network barrier, privacy protection, proprietary ecosystem lock-in"
+  skill_5_spillover_arbitrage:
+    weight: 0.15
+    description: "Ability to capture massive external Capex / infrastructure without bearing the costs"
+
+criteria_weights:
+  cash_flow_moat: 0.30
+  margin_of_safety_asymmetry: 0.30
+  macro_anti_fragility: 0.20
+  capital_allocation_governance: 0.20

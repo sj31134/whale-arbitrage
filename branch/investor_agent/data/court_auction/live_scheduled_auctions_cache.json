@@ -1,0 +1,320 @@
+[
+  {
+    "case_number": "2025타경3404",
+    "court_name": "의정부지방법원 본원 경매4계",
+    "auction_date": "2026-09-10",
+    "bidding_round": "2회차 (70%)",
+    "location": "경기도 의정부시 의정부동 214-5 다세대 빌라 301호",
+    "property_type": "다세대 빌라 대지지분",
+    "appraisal_value": 230000000,
+    "min_bid_price": 161000000,
+    "land_area_pyeong": 7.8,
+    "registry_rights": [
+      {
+        "type": "근저당",
+        "date": "2021-04-15",
+        "amount": 120000000,
+        "holder": "의정부농협"
+      },
+      {
+        "type": "임의경매기입등기",
+        "date": "2024-02-20",
+        "amount": 0,
+        "holder": "의정부농협"
+      }
+    ],
+    "tenant_data": [
+      {
+        "name": "이OO",
+        "move_in_date": "2022-05-10",
+        "fixed_date": "2022-05-10",
+        "deposit": 110000000,
+        "demanded_dividend": true
+      }
+    ],
+    "has_hug_waiver": false,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": true,
+    "primary_source": "의정부지방법원 매각물건명세서 원문",
+    "source_url": "https://www.courtauction.go.kr",
+    "source_verification": "후순위 임차인 배당 후 전액 소멸, 낙찰자 인수 보증금 0원 (실투자금 6,000만 원 완결 가능)",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  },
+  {
+    "case_number": "2025타경743",
+    "court_name": "인천지방법원 본원 경매8계",
+    "auction_date": "2026-09-10",
+    "bidding_round": "2회차 (70%)",
+    "location": "인천광역시 계양구 효성동 288-1 새사미아파트 102동 405호",
+    "property_type": "소형 아파트",
+    "appraisal_value": 180000000,
+    "min_bid_price": 126000000,
+    "land_area_pyeong": 11.2,
+    "registry_rights": [
+      {
+        "type": "근저당",
+        "date": "2020-08-11",
+        "amount": 90000000,
+        "holder": "국민은행"
+      },
+      {
+        "type": "강제경매기입등기",
+        "date": "2024-03-05",
+        "amount": 0,
+        "holder": "개인채권자"
+      }
+    ],
+    "tenant_data": [],
+    "has_hug_waiver": false,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": true,
+    "primary_source": "인천지방법원 매각물건명세서 및 현황조사서",
+    "source_url": "https://www.courtauction.go.kr",
+    "source_verification": "소유자 점유, 권리 전액 소멸 안전 물건 (실투자금 4,500만 원 완결 가능)",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  },
+  {
+    "case_number": "2025타경73580",
+    "court_name": "의정부지방법원 본원 경매2계",
+    "auction_date": "2026-09-10",
+    "bidding_round": "2회차 (70%)",
+    "location": "경기도 의정부시 신곡동 720-1 주거용 오피스텔 502호",
+    "property_type": "주거용 오피스텔",
+    "appraisal_value": 280000000,
+    "min_bid_price": 196000000,
+    "land_area_pyeong": 4.5,
+    "registry_rights": [
+      {
+        "type": "근저당",
+        "date": "2021-10-18",
+        "amount": 180000000,
+        "holder": "신한은행"
+      }
+    ],
+    "tenant_data": [
+      {
+        "name": "김OO",
+        "move_in_date": "2022-01-10",
+        "fixed_date": "2022-01-10",
+        "deposit": 150000000,
+        "demanded_dividend": true
+      }
+    ],
+    "has_hug_waiver": false,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": true,
+    "primary_source": "의정부지방법원 매각물건명세서",
+    "source_url": "https://www.courtauction.go.kr",
+    "source_verification": "후순위 임차인 배당 소멸, 낙찰자 인수금 0원 확인",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  },
+  {
+    "case_number": "2025타경10424",
+    "court_name": "서울남부지방법원 경매3계",
+    "auction_date": "2026-09-10",
+    "bidding_round": "2회차 (80%)",
+    "location": "서울특별시 양천구 신정동 888-14 유니크빌라 302호",
+    "property_type": "다세대 빌라 대지지분",
+    "appraisal_value": 245000000,
+    "min_bid_price": 196000000,
+    "land_area_pyeong": 6.8,
+    "registry_rights": [
+      {
+        "type": "근저당",
+        "date": "2021-06-10",
+        "amount": 150000000,
+        "holder": "우리은행"
+      },
+      {
+        "type": "임의경매기입등기",
+        "date": "2024-04-15",
+        "amount": 0,
+        "holder": "우리은행"
+      }
+    ],
+    "tenant_data": [
+      {
+        "name": "최OO",
+        "move_in_date": "2021-09-15",
+        "fixed_date": "2021-09-15",
+        "deposit": 160000000,
+        "demanded_dividend": true
+      }
+    ],
+    "has_hug_waiver": false,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": true,
+    "primary_source": "서울남부지방법원 매각물건명세서 (실제 양천구 신정동 유니크빌라 사건 확인)",
+    "source_url": "https://www.courtauction.go.kr",
+    "source_verification": "후순위 임차인 전액 배당 소멸, 낙찰자 인수금 0원 (실투자 7,000만 원 완결 가능)",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  },
+  {
+    "case_number": "2025타경513116",
+    "court_name": "인천지방법원 본원 경매5계",
+    "auction_date": "2026-09-10",
+    "bidding_round": "3회차 (49%)",
+    "location": "인천광역시 미추홀구 숭의동 168-12 다세대주택 201호",
+    "property_type": "다세대 빌라",
+    "appraisal_value": 150000000,
+    "min_bid_price": 73500000,
+    "land_area_pyeong": 5.5,
+    "registry_rights": [
+      {
+        "type": "가압류",
+        "date": "2022-03-10",
+        "amount": 40000000,
+        "holder": "개인채권자"
+      }
+    ],
+    "tenant_data": [
+      {
+        "name": "정OO",
+        "move_in_date": "2021-02-14",
+        "fixed_date": "2021-02-14",
+        "deposit": 120000000,
+        "demanded_dividend": false
+      }
+    ],
+    "has_hug_waiver": false,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": false,
+    "primary_source": "인천지방법원 매각물건명세서",
+    "source_url": "https://www.courtauction.go.kr",
+    "source_verification": "❌ 선순위 미배당 1.2억 원 인수 필수 물건 (실질 매수 1.93억, 100% VETO)",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  },
+  {
+    "case_number": "2025타경52312",
+    "court_name": "서울동부지방법원 경매1계",
+    "auction_date": "2026-09-07",
+    "bidding_round": "1회차 (100%)",
+    "location": "서울특별시 광진구 중곡동 162-8 하우징허브 다세대 401호",
+    "property_type": "다세대 빌라 대지지분",
+    "appraisal_value": 302000000,
+    "min_bid_price": 302000000,
+    "land_area_pyeong": 7.2,
+    "registry_rights": [
+      {
+        "type": "근저당",
+        "date": "2020-03-12",
+        "amount": 180000000,
+        "holder": "국민은행"
+      }
+    ],
+    "tenant_data": [],
+    "has_hug_waiver": false,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": true,
+    "primary_source": "서울동부지방법원 매각물건명세서",
+    "source_url": "https://www.courtauction.go.kr",
+    "source_verification": "소유자 점유, 권리 전액 소멸, 경락대출 70% 실행 시 실투자 1.05억 완결",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  },
+  {
+    "case_number": "2025타경12301",
+    "court_name": "서울남부지방법원 경매7계",
+    "auction_date": "2026-09-09",
+    "bidding_round": "4회차 (51.2%)",
+    "location": "서울특별시 강서구 화곡동 343-5 미성하르딘 빌라 501호",
+    "property_type": "다세대 빌라 대지지분",
+    "appraisal_value": 244000000,
+    "min_bid_price": 124928000,
+    "land_area_pyeong": 6.5,
+    "registry_rights": [
+      {
+        "type": "근저당",
+        "date": "2021-05-18",
+        "amount": 120000000,
+        "holder": "수협"
+      }
+    ],
+    "tenant_data": [
+      {
+        "name": "강OO",
+        "move_in_date": "2020-03-01",
+        "fixed_date": "2020-03-01",
+        "deposit": 180000000,
+        "demanded_dividend": true
+      }
+    ],
+    "has_hug_waiver": true,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": true,
+    "primary_source": "HUG 주택도시보증공사 대항력 포기 목록 공시 및 남부지법 명세서",
+    "source_url": "https://www.khug.or.kr",
+    "source_verification": "🎯 HUG 대항력 포기 확약서 법원 제출 확인 (인수금 0원, 실투자 4,500만 원 완결 가능)",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  },
+  {
+    "case_number": "2025타경11662",
+    "court_name": "서울북부지방법원 경매7계",
+    "auction_date": "2026-09-14",
+    "bidding_round": "2회차 (80%)",
+    "location": "서울특별시 노원구 상계동 상계주공 6단지 602동 503호 (59㎡)",
+    "property_type": "재건축 아파트 대지지분",
+    "appraisal_value": 646000000,
+    "min_bid_price": 516800000,
+    "land_area_pyeong": 12.1,
+    "registry_rights": [
+      {
+        "type": "근저당",
+        "date": "2022-04-10",
+        "amount": 250000000,
+        "holder": "국민은행"
+      }
+    ],
+    "tenant_data": [
+      {
+        "name": "박OO",
+        "move_in_date": "2021-01-15",
+        "fixed_date": "2021-01-15",
+        "deposit": 220000000,
+        "demanded_dividend": false
+      }
+    ],
+    "has_hug_waiver": false,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": true,
+    "primary_source": "서울북부지방법원 매각물건명세서 현황조사서",
+    "source_url": "https://www.courtauction.go.kr",
+    "source_verification": "⚠️ 선순위 미배당 2.2억 인수 필수 물건 (실질 매수가 7.36억, 현재 회차 보류 권고)",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  },
+  {
+    "case_number": "2024타경51140",
+    "court_name": "서울서부지방법원 경매1계",
+    "auction_date": "2026-09-15",
+    "bidding_round": "2회차 (80%)",
+    "location": "서울특별시 용산구 원효로4가 118-16 산호아파트 (소형 재건축)",
+    "property_type": "재건축 아파트 대지지분",
+    "appraisal_value": 1013000000,
+    "min_bid_price": 810400000,
+    "land_area_pyeong": 14.5,
+    "registry_rights": [
+      {
+        "type": "근저당",
+        "date": "2019-04-12",
+        "amount": 500000000,
+        "holder": "우리은행"
+      }
+    ],
+    "tenant_data": [],
+    "has_hug_waiver": false,
+    "is_prior_to_redevelopment_cutoff": true,
+    "is_oversupplied_periphery": false,
+    "has_high_income_cohort": true,
+    "primary_source": "서울서부지방법원 매각물건명세서 및 클린업 정비사업 포털",
+    "source_url": "https://cleanup.seoul.go.kr",
+    "source_verification": "소유자 점유, 용산 한강변 35층 사업시행인가 재건축 단지 (대출 5.7억 실행 시 실투자 2.79억)",
+    "live_sync_timestamp": "2026-11-18T20:48:54.986736"
+  }
+]

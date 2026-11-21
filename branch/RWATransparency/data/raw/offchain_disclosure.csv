@@ -1,0 +1,23 @@
+coin_id,name,transparency_url,known_fields,custodian,auditor,latency_score,completeness_score,consistency_score,last_checked,symbol,source
+ondo-finance,Ondo Finance,https://ondo.finance/ousg,"aum,nav_frequency,custodian,audit_report,collateral_type,redemption_policy",Clear Street,Based on published attestations,70,75.0,85,2026-02-08,ONDO,
+ondo-short-term-us-government-bond-fund,,,,,,0,0.0,50,,OUSG,not_found
+blackrock-usd-institutional-digital-liquidity-fund,BlackRock BUIDL,https://www.blackrock.com,"aum,custodian,collateral_type,management_fee,nav_frequency",BNY Mellon,PwC,40,62.5,85,2026-02-08,BUIDL,
+ondo-us-dollar-yield,Ondo USDY,https://ondo.finance/usdy,"aum,nav_frequency,custodian,redemption_policy,management_fee",Ankura Trust,Based on published attestations,70,62.5,85,2026-02-08,USDY,
+mountain-protocol-usd,,,,,,0,0.0,50,,USDm,not_found
+paxos-standard,,,,,,0,0.0,50,,USDP,not_found
+paypal-usd,PayPal PYUSD,https://www.paypal.com/us/digital-wallet/manage-money/crypto/pyusd,"aum,audit_report,custodian,collateral_type,redemption_policy,nav_frequency",Paxos Trust,WithumSmith+Brown (monthly attestations),90,75.0,85,2026-02-08,PYUSD,
+usd-coin,Circle USDC,https://www.circle.com/en/transparency,"aum,audit_report,custodian,collateral_type,issuance_history,redemption_policy,nav_frequency","BNY Mellon, Customers Bank",Grant Thornton (monthly attestations),90,87.5,85,2026-02-08,USDC,
+tether,Tether USDT,https://tether.to/en/transparency/,"aum,audit_report,collateral_type",Multiple (not fully disclosed),BDO Italia (quarterly attestations),60,37.5,50,2026-02-08,USDT,
+dai,MakerDAO DAI,https://daistats.com/,"aum,collateral_type,issuance_history,management_fee",Decentralized (Smart Contracts),On-chain verifiable,90,50.0,95,2026-02-08,DAI,
+frax,Frax Finance,https://facts.frax.finance/,"aum,collateral_type,issuance_history",Algorithmic + Collateral,On-chain verifiable,90,37.5,85,2026-02-08,FRAX,
+liquity-usd,,,,,,0,0.0,50,,LUSD,not_found
+gemini-dollar,,,,,,0,0.0,50,,GUSD,not_found
+true-usd,,,,,,0,0.0,50,,TUSD,not_found
+binance-usd,,,,,,0,0.0,50,,BUSD,not_found
+euro-coin,,,,,,0,0.0,50,,EURC,not_found
+tether-eurt,,,,,,0,0.0,50,,EURT,not_found
+susd,,,,,,0,0.0,50,,sUSD,not_found
+magic-internet-money,,,,,,0,0.0,50,,MIM,not_found
+crvusd,,,,,,0,0.0,50,,CRVUSD,not_found
+gho,Aave GHO,https://gho.aave.com/,"aum,collateral_type,management_fee,issuance_history",Decentralized (Aave Protocol),On-chain verifiable,90,50.0,95,2026-02-08,GHO,
+dola-usd,,,,,,0,0.0,50,,DOLA,not_found

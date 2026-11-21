@@ -31,7 +31,13 @@ else:
     st_cache_data = st.cache_data
 
 # Streamlit Cloud 또는 로컬 환경 감지
-if os.path.exists('/mount/src'):
+# USE_LOCAL_DB=1 또는 USE_SUPABASE=0 이면 무조건 로컬 SQLite만 사용 (Supabase 미사용)
+_force_local = os.getenv("USE_LOCAL_DB", "").strip() == "1" or os.getenv("USE_SUPABASE", "").strip() == "0"
+if _force_local:
+    ROOT = Path(__file__).resolve().parents[2]
+    DB_PATH = ROOT / "data" / "project.db"
+    USE_SUPABASE = False
+elif os.path.exists('/mount/src'):
     # Streamlit Cloud
     ROOT = Path('/mount/src/whale-arbitrage')
     DB_PATH = Path('/tmp') / "project.db"

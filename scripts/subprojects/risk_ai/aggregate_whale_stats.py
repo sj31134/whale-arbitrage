@@ -87,6 +87,136 @@ def ensure_tables():
     conn.close()
 
 
+def _whale_tx_has_columns(conn):
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(whale_transactions)")
+    cols = {row[1] for row in cur.fetchall()}
+    return "amount_usd" in cols, "transaction_direction" in cols
+
+
+def ensure_whale_tx_columns(conn):
+    """SQLite whale_transactions에 amount_usd, transaction_direction 컬럼이 없으면 추가"""
+    has_usd, has_dir = _whale_tx_has_columns(conn)
+    cur = conn.cursor()
+    if not has_usd:
+        cur.execute("ALTER TABLE whale_transactions ADD COLUMN amount_usd REAL")
+    if not has_dir:
+        cur.execute("ALTER TABLE whale_transactions ADD COLUMN transaction_direction VARCHAR(20)")
+    conn.commit()
+
+
+def update_whale_tx_usd_and_direction(conn):
+    """로컬 whale_transactions의 amount_usd·transaction_direction 보정 (가격·라벨 기반)"""
+    cur = conn.cursor()
+    # 일별 종가 (symbol: BTCUSDT/ETHUSDT -> coin_symbol BTC/ETH)
+    try:
+        prices = pd.read_sql(
+            "SELECT date, symbol, close FROM binance_spot_daily WHERE symbol IN ('BTCUSDT','ETHUSDT')",
+            conn,
+        )
+    except Exception:
+        return
+    if prices.empty:
+        return
+    prices["date"] = pd.to_datetime(prices["date"]).dt.strftime("%Y-%m-%d")
+    price_btc = prices[prices["symbol"] == "BTCUSDT"].set_index("date")["close"]
+    price_eth = prices[prices["symbol"] == "ETHUSDT"].set_index("date")["close"]
+
+    # amount_usd: value * close (날짜 = block_timestamp 날짜)
+    cur.execute(
+        "SELECT tx_hash, chain, block_timestamp, value, coin_symbol FROM whale_transactions WHERE amount_usd IS NULL OR amount_usd = 0"
+    )
+    rows = cur.fetchall()
+    for tx_hash, chain, block_ts, value, coin in rows:
+        if value is None:
+            continue
+        try:
+            dt = pd.to_datetime(block_ts)
+            date_str = dt.strftime("%Y-%m-%d")
+            if coin == "BTC":
+                price = price_btc.get(date_str)
+            elif coin == "ETH":
+                price = price_eth.get(date_str)
+            else:
+                price = None
+            if price is not None and float(value) >= 0:
+                amount_usd = float(value) * float(price)
+                cur.execute("UPDATE whale_transactions SET amount_usd = ? WHERE tx_hash = ? AND chain = ?", (amount_usd, tx_hash, chain))
+        except Exception:
+            pass
+    conn.commit()
+
+    # transaction_direction: from_label / to_label 기반 (거래소 -> BUY/SELL)
+    try:
+        cur.execute("SELECT tx_hash, chain, from_label, to_label FROM whale_transactions WHERE transaction_direction IS NULL OR transaction_direction = ''")
+        label_rows = cur.fetchall()
+    except Exception:
+        return
+    exchange_keywords = ("binance", "coinbase", "kraken", "bitfinex", "huobi", "okx", "gate", "bybit", "kucoin", "crypto.com", "upbit")
+    for tx_hash, chain, from_l, to_l in label_rows:
+        from_l = (from_l or "").lower()
+        to_l = (to_l or "").lower()
+        is_from_ex = any(k in from_l for k in exchange_keywords)
+        is_to_ex = any(k in to_l for k in exchange_keywords)
+        if is_to_ex and not is_from_ex:
+            direction = "exchange_outflow"  # BUY
+        elif is_from_ex and not is_to_ex:
+            direction = "exchange_inflow"   # SELL
+        else:
+            direction = "MOVE"
+        cur.execute(
+            "UPDATE whale_transactions SET transaction_direction = ? WHERE tx_hash = ? AND chain = ?",
+            (direction, tx_hash, chain),
+        )
+    conn.commit()
+
+
+def fetch_whale_transactions_from_sqlite(conn, start_date, end_date, coin_symbols=None):
+    """로컬 SQLite whale_transactions에서 집계용 트랜잭션 목록 반환 (Supabase 미사용)"""
+    if coin_symbols is None:
+        coin_symbols = ["BTC", "ETH"]
+    start_str = start_date.strftime("%Y-%m-%dT%H:%M:%S") if hasattr(start_date, "strftime") else str(start_date)[:19]
+    end_str = end_date.strftime("%Y-%m-%dT%H:%M:%S") if hasattr(end_date, "strftime") else str(end_date)[:19]
+    placeholders = ",".join("?" for _ in coin_symbols)
+    query = """
+        SELECT block_timestamp, value, amount_usd, coin_symbol, from_address, to_address, transaction_direction
+        FROM whale_transactions
+        WHERE block_timestamp >= ? AND block_timestamp < ?
+        AND coin_symbol IN ({})
+    """.format(placeholders)
+    params = [start_str, end_str] + list(coin_symbols)
+    try:
+        df = pd.read_sql(query, conn, params=params)
+    except Exception as e:
+        print(f"  ⚠️ SQLite whale_transactions 조회 실패: {e}")
+        return []
+    if df.empty:
+        return []
+    df["block_timestamp"] = pd.to_datetime(df["block_timestamp"], utc=True, errors="coerce")
+    df = df.dropna(subset=["block_timestamp"])
+    # amount_usd 없으면 value 사용 (USD 근사는 update_whale_tx_usd_and_direction에서 처리)
+    if "amount_usd" not in df.columns or df["amount_usd"].isna().all():
+        df["amount_usd"] = 0.0
+    else:
+        df["amount_usd"] = pd.to_numeric(df["amount_usd"], errors="coerce").fillna(0)
+    if "transaction_direction" not in df.columns or df["transaction_direction"].isna().all():
+        df["transaction_direction"] = "MOVE"
+    return df.to_dict("records")
+
+
+def aggregate_daily_whale_stats_from_sqlite(conn, start_date, end_date, coin_symbols=None):
+    """로컬 SQLite whale_transactions만 사용해 whale_daily_stats 집계 (Supabase 미사용)"""
+    if coin_symbols is None:
+        coin_symbols = ["BTC", "ETH"]
+    ensure_whale_tx_columns(conn)
+    update_whale_tx_usd_and_direction(conn)
+    all_txs = fetch_whale_transactions_from_sqlite(conn, start_date, end_date, coin_symbols=coin_symbols)
+    if not all_txs:
+        print("⚠️ 로컬 whale_transactions 데이터 없음")
+        return []
+    return aggregate_daily_whale_stats(None, start_date, end_date, coin_symbols=coin_symbols, txs_override=all_txs)
+
+
 def fetch_whale_transactions_with_direction(supabase, start_date, end_date, coin_symbols=None):
     """
     whale_transactions에서 거래 방향(transaction_direction) 포함하여 데이터 가져오기
@@ -141,7 +271,7 @@ def fetch_whale_transactions_with_direction(supabase, start_date, end_date, coin
     return all_txs
 
 
-def aggregate_daily_whale_stats(supabase, start_date, end_date, coin_symbols=None):
+def aggregate_daily_whale_stats(supabase, start_date, end_date, coin_symbols=None, txs_override=None):
     """
     일별 고래 통계 집계:
     - 거래소 유입/유출량
@@ -149,10 +279,14 @@ def aggregate_daily_whale_stats(supabase, start_date, end_date, coin_symbols=Non
     - 고래간 거래량
     - 활성 주소 수
     - 대형 거래 건수
+    txs_override: 리스트가 주어지면 Supabase 조회 없이 이 데이터로 집계 (로컬 SQLite용)
     """
     print("\n📊 일별 고래 통계 집계 중...")
     
-    all_txs = fetch_whale_transactions_with_direction(supabase, start_date, end_date, coin_symbols=coin_symbols)
+    if txs_override is not None:
+        all_txs = txs_override
+    else:
+        all_txs = fetch_whale_transactions_with_direction(supabase, start_date, end_date, coin_symbols=coin_symbols)
     
     if not all_txs:
         print("⚠️ 데이터 없음")
