@@ -27,30 +27,45 @@ The agent screens, values, models, and executes investment decisions across **Re
 
 ## 📁 Repository & Folder Structure
 
-```
+```text
 branch/investor_agent/
 ├── README.md                           # Comprehensive documentation & framework guide
 ├── requirements.txt                    # Python dependencies
-├── main.py                             # CLI orchestrator & pipeline runner
+├── main.py                             # CLI orchestrator & 9-universe pipeline runner
 ├── config/
 │   ├── settings.yaml                   # Global risk thresholds, hurdle rates, and limits
 │   ├── asset_classes.yaml              # Multi-asset universe definitions & benchmarks
 │   └── scoring_weights.yaml            # Weights for 5 skills and 4 criteria
 ├── data/
-│   ├── raw/                            # Ingested raw research/market data
-│   ├── processed/                      # Standardized metrics
-│   └── memos/                          # Generated institutional investment committee memos
+│   ├── timeline/                       # Live quotes, active 10-holding portfolio, 3M & issue variables
+│   ├── memos/                          # Generated institutional investment committee memos (90 files)
+│   ├── memory/                         # Persistent memory index & latest per-asset snapshots
+│   ├── graph/                          # Global cross-asset & real-estate knowledge graphs
+│   ├── order_flow/                     # Order flow subagent feed & history
+│   ├── real_estate/                    # Multi-source real-estate cache & audit log
+│   └── court_auction/                  # Live court auction cache & SHA-256 verification log
+├── scripts/
+│   ├── audit_system_integrity.py       # Memory & knowledge graph integrity auditor
+│   ├── sync_cross_asset_graph.py       # Global cross-asset value-chain graph sync
+│   ├── fetch_binance_tokens.py         # Binance 24/7 RWA token fetcher
+│   └── audit_binance_tokens.py         # Binance RWA token auditor
 ├── skills/
 │   └── investor-principles/
-│       └── SKILL.md                    # Antigravity skill specification
+│       └── SKILL.md                    # Synced with .agents/skills/investor-principles/SKILL.md
 ├── src/
+│   ├── agent/                          # InvestorAgentRunner master orchestrator
 │   ├── core/                           # Core asset models, DCF/Decomposition valuation, scoring
-│   ├── research/                       # Macro analysis & multi-asset universe screener
-│   ├── strategy/                       # 3-Stage scenario modeler, Barbell optimizer, Risk manager
-│   ├── execution/                      # Investment memo generator & portfolio tracker
-│   └── agent/                          # Investor agent runner orchestrator
-└── tests/
-    └── test_investor_agent.py          # Full test suite for valuation, scoring & barbell allocation
+│   ├── data_pipeline/                  # DynamicDataUpdater, LivePriceService, Tier-1 verifier
+│   ├── research/                       # US/KR/JP/CN/Macro/Crypto/RE screeners & 300M evaluator
+│   ├── strategy/                       # ScenarioModeler, BarbellOptimizer, RiskManager (5-Factor + Counter-Algo)
+│   ├── execution/                      # InvestmentMemoGenerator & PortfolioTracker
+│   ├── graph/                          # InvestmentKnowledgeGraph & Real Estate network builder
+│   ├── memory/                         # InvestmentMemoryManager
+│   ├── skills_distiller/               # SkillSynthesizer
+│   └── subagents/
+│       ├── order_flow/                 # Tier 2-A Order Flow, $10 Inflection, Red Team Auditor
+│       └── real_estate/                # Tier 2-B Land Share, 3-Gate Veto & 7-Step Court Auction
+└── tests/                              # 6 isolated test suites (using TemporaryDirectory)
 ```
 
 ---

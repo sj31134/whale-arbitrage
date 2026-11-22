@@ -42,13 +42,17 @@ class TestSettingsManager(unittest.TestCase):
         """설정 저장 및 로드 테스트"""
         test_settings = {
             'api': {
-                'upbit_access_key': 'test_key',
-                'upbit_secret_key': 'test_secret'
+                'upbit_access_key': 'test_key_1234567890',
+                'upbit_secret_key': 'test_secret_1234567890'
             },
             'trading': {
                 'target_coin': 'BTC',
-                'initial_capital': 1000000
-            }
+                'initial_capital': 1000000,
+                'max_position_size': 0.3,
+                'stop_loss_pct': -0.05,
+                'take_profit_pct': 0.10
+            },
+            'strategy': {}
         }
         
         # 저장
@@ -58,7 +62,7 @@ class TestSettingsManager(unittest.TestCase):
         
         # 로드
         loaded_settings = self.settings_manager.load_settings()
-        self.assertEqual(loaded_settings['api']['upbit_access_key'], 'test_key')
+        self.assertEqual(loaded_settings['api']['upbit_access_key'], 'test_key_1234567890')
         self.assertEqual(loaded_settings['trading']['target_coin'], 'BTC')
     
     def test_validate_settings(self):

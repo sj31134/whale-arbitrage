@@ -98,14 +98,23 @@ $$\Pi(t) = \text{Seed}_0 \cdot \prod_{k=1}^{f \cdot t} \left(1 + L_k \cdot R_{\t
 ## 5. Market Microstructure, Algorithmic Trading, & Time-Horizon Arbitrage
 
 Modern financial markets are 70~80% dominated by algorithmic and quantitative execution:
-* **HFT & Market Makers:** Exploit milliseconds of latency; provide liquidity in calm regimes but withdraw liquidity during volatility spikes.
-* **CTA & Trend Following Bots:** Mechanically short assets breaking below 50D/200D Moving Averages, causing exaggerated liquidity cascades.
+* **HFT & Market Makers (Avellaneda-Stoikov Model):**
+  $$r(s, q, t) = s - q \gamma \sigma^2 (T - t)$$
+  When volatility ($\sigma^2$) or toxic order flow spikes (e.g. VKOSPI > 50), HFT market makers withdraw bid quotes and widen spreads ($Order Book Thinning$), creating an artificial liquidity vacuum where prices collapse on negligible volume.
+* **Vol-Targeting & Risk Parity Forced Liquidation:**
+  $$w_t = \min\left(1, \frac{\sigma_{\text{target}}}{\sigma_t}\right)$$
+  When volatility spikes from 15% to 55%, vol-targeting and risk parity funds are mathematically forced to slash equity exposure from 70% to 27% (a massive -43%p forced liquidation), dumping high-quality assets purely to satisfy automated volatility budgets.
+* **CTA & Trend Following Bots:** Mechanically short assets breaking below 20D/50D/200D Moving Averages, driving futures basis into deep backwardation ($Basis = F - S < 0$).
+* **StatArb & Program Arbitrage Cascades:**
+  When futures basis collapses below theoretical carry costs, arbitrage bots execute index program selling ($Program Sell$), dumping KOSPI 200 basket stocks indiscriminately while buying back futures (short covering).
 * **Multi-Manager Pod Shops (Point72, Millennium):** Enforce strict -3% to -5% risk-limit stop-outs, dumping pristine fundamental assets regardless of intrinsic value.
 * **0DTE Options Gamma Hedging:** Market-maker delta hedging causes violent intraday overshoot beyond fundamental reality.
 
 ### 🛡️ Exploitation Strategy (Time-Horizon Arbitrage):
-1. **Time-Horizon Arbitrage:** While quant algorithms operate on millisecond-to-monthly horizons with rigid stop-outs, the fundamental investor exploits a **3 to 10-year holding horizon**, absorbing forced algorithmic selling at extreme discounts.
-2. **Flash Liquidity Provision (Opportunistic Limit Orders):** Place staggered limit bids at deep discounts (e.g., -15% to -25% below intrinsic value) to catch cascade selling from algorithmic stop-outs.
+1. **Time-Horizon Arbitrage ($\lim_{\Delta t \to 0} \text{Algo} \text{ vs } \lim_{\Delta t \to \infty} \text{Value}$):** While quant algorithms operate on millisecond-to-monthly horizons with rigid stop-outs, the fundamental investor exploits a **1 to 3-year holding horizon**, absorbing forced algorithmic selling at extreme discounts.
+2. **KOSPI 200 Non-Inclusion Structural Shield:**
+   Assets excluded from the KOSPI 200 index (e.g., **삼성전자우**) are **exempt from mechanical program arbitrage basket dumping**. While they may temporarily suffer collateral sentiment correlation, they possess the highest mean-reversion velocity once index selling subsides.
+3. **Flash Liquidity Provision (Opportunistic Limit Orders):** Place staggered limit bids at deep discounts (e.g., -15% to -25% below intrinsic value, or when PER < 4.0x and Dividend Yield > 5.5%) to catch cascade selling from algorithmic stop-outs.
 
 ---
 
@@ -172,6 +181,18 @@ Every asset is modeled through a rigorous 3-stage probability distribution:
 3. **Margin of Safety Gate:**
    $$\text{Margin of Safety} = \frac{\text{Intrinsic Value}_{\text{Base}} - \text{Current Price}}{\text{Intrinsic Value}_{\text{Base}}} \ge 20.0\%$$
 
+### 🌊 Institutional 4-Scenario Stress Testing Engine (복합 위기 스트레스 테스트 모형):
+During systemic macro/credit flash-crashes (e.g. CPI shocks, VKOSPI > 50, sidecars, Neocloud debt defaults), the portfolio must be stress-tested across 4 institutional regimes:
+
+| Stress Scenario | Probability | Core Drivers | Portfolio Hurdle | Action Protocol |
+| :--- | :---: | :--- | :---: | :--- |
+| **S1: Mean Reversion** | **45%** | CPI shock absorbed, 10Y yield < 5.1%, Futures short-covering | $R_{\text{Port}} \ge +12.0\%$ | 100% 영구 보유, 회복 향유 |
+| **S2: Credit Contagion** | **30%** | Neocloud default, Capex cut 20%, 10Y yield 5.4~5.5% | $R_{\text{Port}} \ge -8.0\%$ | 삼전우 PER 3.0x 진입 시 현금 50% 분할 매수 |
+| **S3: Black-Swan Freeze** | **10%** | 10Y yield 5.7%+, Global margin calls, Circuit breakers | $\text{MDD} \ge -20.0\%$ | 삼전우 청산가치 근접 시 비상현금 100% 집중 투입 |
+| **S4: Supercycle Boom** | **15%** | 1선 빅테크 독점 심화, HBM4 쇼티지, KOSPI 7,000p 탈환 | $R_{\text{Port}} \ge +30.0\%$ | Stage 2 진입 및 실물 부동산 닻 전환 준비 |
+
+$$\text{Portfolio Expected Value } \mathbb{E}[V] = V_0 \cdot \left(1 + \sum_{k=1}^{4} P(S_k) \cdot R_{\text{Port}}(S_k)\right)$$
+
 ---
 
 ## 10. Master Barbell Portfolio Allocation & Downside Protection Protocol
@@ -216,3 +237,68 @@ graph TD
     S5 --> S6["6. Master Barbell Optimization & Stress Testing<br/>(Core 65% / Satellite 35% / Bear <= -20%)"]
     S6 --> S7["7. Dual-Layer Storage & Knowledge Graph Sync<br/>(Memos, memory_index.json, knowledge_graph.json)"]
 ```
+
+---
+
+## 12. Agent Context Isolation & Anti-Hallucination Harness (하네스 및 컨텍스트 격리 지침)
+
+To prevent severe context confusion between the Master Investor Agent and subagent pipelines (e.g., Order Flow Subagent / Momentum Tickers):
+
+1. **Active Thesis Thread Primacy (주제 스레드 최우선 락인):**
+   * When the active discussion is focused on a specific asset class (e.g., **Real Estate Land Decomposition & Candidate Selection**), the Agent MUST NEVER let background file diffs or subagent ticker feeds hijack or replace the conversation topic.
+   * Ambiguous user inputs (e.g., "신규 종목들 발굴해") MUST be interpreted in the context of the **currently active research topic (e.g., 신규 부동산 단지/대지지분 후보)** unless the user explicitly directs a switch to equities.
+
+2. **Subagent Universe vs. Master Barbell Strict Boundary (서브에이전트와 마스터 코어의 완전 격리):**
+   * Subagent tickers (`US-POET`, `US-CIFR`, `US-OKLO`, `US-CLBT`, `US-LUNR` 등) belong strictly to high-frequency order-flow / momentum research.
+   * The Master Barbell Core Portfolio belongs strictly to permanent compounding moats (Land Float, 100T Net Cash, Insurance Float, Tech Monopolies).
+   * **Rule:** Subagent diffs and ticker updates must NEVER be hallucinated or mixed into the Master Barbell Core asset allocation without explicit, deliberate user command.
+
+3. **Pre-Response Context Check (응답 전 스레드 자가 검증):**
+   * Before formulating any output, verify: *"What was the exact asset class and problem we were solving in the last turn?"* If it was Real Estate, the response MUST address Real Estate.
+
+4. **Real Estate Value-Trap Prevention & Hard Veto Gates (부동산 가치 함정 방지 3대 선행 탈락 게이트):**
+   * **Gate 1: Absolute Supply Inelasticity Audit ($E_s \approx 0$):**
+     - Verify whether the surrounding 5km radius has open greenfield expanses, new town expansions (e.g. 옥정/회천 등 신도시 대규모 택지), or unrestricted building potential.
+     - **Rule:** If supply elasticity $E_s \gg 0$, the asset MUST be **INSTANTLY VETOED / DISQUALIFIED (100% 탈락)** regardless of how low the gap or raw land price is. Low price in an infinite supply zone is a value trap, not a margin of safety.
+   * **Gate 2: Price-Inelastic High-Income Cohort Audit (고소득 영구 임차 코호트 검증):**
+     - Verify anchor employment: Semiconductor Mega-Cluster, Top-tier IT/Bio hubs, 30-min direct transit to CBD/GBD/YBD, or Tier-1 School District (대치/목동/은행사거리).
+     - **Rule:** Outer peripheral bedroom communities lacking high-income corporate anchors or school districts MUST be **DISQUALIFIED FROM CORE SELECTION**.
+   * **Gate 3: Denominator Artifact & Compounding Factor ($g$) Safeguard (분모 왜곡 방지 및 토지 복리 계수):**
+     - When Gap $\le 0.5$억 KRW, NEVER allow mathematical leverage $L = \frac{P}{\text{Gap}}$ to produce artificial expected return explosion without first passing Gates 1 & 2.
+     - In $V(t) = \text{Land}(0) \cdot e^{g \cdot t}$, apply strictly differentiated location compounding factor:
+       $$g_{\text{Seoul 1-Tier / 1st New Town Saturated}} \ge 1.0, \quad g_{\text{Semiconductor Anchor}} \ge 0.9, \quad g_{\text{Periphery Oversupplied}} \le 0.2$$
+
+---
+
+## 13. 3-Tier Hierarchical Multi-Agent Architecture (3계층 멀티에이전트 오케스트레이션 및 혼선 방지 규약)
+
+To eliminate strategic flipping, context bleeding, and domain confusion:
+
+```
+                  ┌────────────────────────────────────────────────────────┐
+                  │        👑 Tier 1: Master Investor Agent (상위 총괄)     │
+                  │  - Macro Asset Allocation (Core 65% / Satellite 35%)   │
+                  │  - Portfolio State Machine & Capital Rotation Control  │
+                  │  - Cross-Asset Risk Governance & Barbell Rebalancing   │
+                  └──────────────────────────┬─────────────────────────────┘
+                                             │
+               ┌─────────────────────────────┴─────────────────────────────┐
+               ▼                                                           ▼
+┌──────────────────────────────────────────────┐  ┌──────────────────────────────────────────────┐
+│ 🚀 Tier 2-A: Tenbagger Equities Subagent     │  │ 🏠 Tier 2-B: Real Estate & Auction Subagent  │
+│ - Name: `tenbagger_subagent`                 │  │ - Name: `real_estate_subagent`               │
+│ - Mandate: $10 Inflection DNA, Microstructure│  │ - Mandate: Seoul Land Decomposition, Moa-Town│
+│   Order Flow, Momentum Breakouts, Micro-Caps │  │   Rapid Planning, 7-Step Court Auction Rights│
+│ - Strict Rule: NEVER touches Real Estate     │  │ - Strict Rule: NEVER touches Equities/Tickers│
+└──────────────────────────────────────────────┘  └──────────────────────────────────────────────┘
+```
+
+1. **Domain Strict Isolation (상호 영역 절대 불가침):**
+   * `tenbagger_subagent` only researches, scores, and outputs equity tickers and order flow microstructure. It NEVER analyzes land shares, redevelopment rights, or court auctions.
+   * `real_estate_subagent` only researches, scores, and outputs real estate land shares, redevelopment rights, and court auction case analyses. It NEVER analyzes equity tickers, crypto tokens, or order flow microstructure.
+   * Reference Dedicated Subagent Skill: [real-estate-subagent](file:///Users/junyonglee/Documents/GitHub/whale_tracking/.agents/skills/real-estate-subagent/SKILL.md)
+2. **Master Synthesis & State Lock (상위 총괄의 포트폴리오 상태 고정):**
+   * The Master Investor Agent ingests outputs from both subagents and maps them onto the Master Barbell Portfolio without letting user queries cause reactive strategy flipping.
+3. **No Domain Hijacking Rule (하위 에이전트 독립성 보장):**
+   * When the user interacts specifically with `/real_estate_subagent` or focuses on Real Estate/Auctions, the agent MUST stay 100% within the Real Estate domain, providing pure real estate expertise without bleeding into equities or tokens.
+

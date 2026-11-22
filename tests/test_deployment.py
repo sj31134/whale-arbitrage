@@ -93,12 +93,13 @@ class TestDatabaseFiles:
     def test_db_or_archive_exists(self):
         """DB 또는 압축 파일 존재 여부"""
         db_path = ROOT / "data" / "project.db"
-        archive_path = ROOT / "project.db.tar.gz"
+        archive_path = ROOT / "data" / "project.db.tar.gz"
+        legacy_archive_path = ROOT / "project.db.tar.gz"
         
         has_db = db_path.exists()
-        has_archive = archive_path.exists()
+        has_archive = archive_path.exists() or legacy_archive_path.exists()
         
-        assert has_db or has_archive, "Neither project.db nor project.db.tar.gz found"
+        assert has_db or has_archive, "Neither project.db nor data/project.db.tar.gz found"
     
     def test_model_files_exist(self):
         """모델 파일 존재 여부"""

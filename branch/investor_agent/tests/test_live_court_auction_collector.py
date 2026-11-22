@@ -3,6 +3,7 @@ Unit Tests for LiveCourtAuctionCollector & CourtAuctionVerifier:
 Tests live crawling ingestion, SHA-256 evidence logging, and mathematical integrity.
 """
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -18,9 +19,14 @@ from src.subagents.real_estate.real_estate_subagent import RealEstateSubagent
 class TestLiveCourtAuctionCollectorAndVerifier(unittest.TestCase):
 
     def setUp(self):
-        self.collector = LiveCourtAuctionCollector()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+        self.collector = LiveCourtAuctionCollector(cache_dir=self.tmp_path / "court_auction")
         self.verifier = self.collector.verifier
-        self.subagent = RealEstateSubagent()
+        self.subagent = RealEstateSubagent(data_dir=self.tmp_path)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
 
     def test_fetch_live_auction_feed(self):
         cases = self.collector.fetch_live_auction_feed(

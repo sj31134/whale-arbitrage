@@ -2,6 +2,7 @@
 Unit tests for Order Flow & Microstructure Short-Term Trading Subagent across KRX & US Equities.
 """
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -21,12 +22,17 @@ from src.agent.investor_agent_runner import InvestorAgentRunner
 class TestOrderFlowSubagent(unittest.TestCase):
 
     def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
         self.disaggregator = OrderFlowDisaggregator()
         self.sr_engine = SupportResistanceEngine()
         self.network_engine = ImpactNetworkEngine()
-        self.updater = DynamicFlowUpdater()
+        self.updater = DynamicFlowUpdater(data_dir=self.tmp_path / "order_flow")
         self.trading_engine = MicrostructureTradingEngine(min_payoff_ratio=3.0)
-        self.subagent = OrderFlowSubagent(hurdle_payoff=3.0)
+        self.subagent = OrderFlowSubagent(hurdle_payoff=3.0, data_dir=self.tmp_path / "order_flow")
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
 
     def test_kr_order_flow_disaggregation(self):
         profile = self.disaggregator.disaggregate_stock_flow(
@@ -141,7 +147,7 @@ class TestOrderFlowSubagent(unittest.TestCase):
         self.assertGreaterEqual(all_results["newly_discovered_count"], 5)
 
     def test_subagent_full_pipeline_and_parent_integration(self):
-        runner = InvestorAgentRunner()
+        runner = InvestorAgentRunner(data_dir=self.tmp_path / "runner")
         parent_flow_results = runner.run_order_flow_trading_pipeline(market_filter="all")
         
         self.assertGreaterEqual(parent_flow_results["analyzed_count"], 10)

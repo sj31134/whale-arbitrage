@@ -91,9 +91,9 @@ def main():
         print("   3. 좌측 메뉴에서 'SQL Editor' 클릭")
         print("   4. 'New query' 클릭")
         print("   5. 다음 파일의 SQL을 복사해서 실행:")
-        print(f"      {PROJECT_ROOT / 'sql' / 'fix_whale_address_primary_key.sql'}")
+        print(f"      {PROJECT_ROOT / 'sql' / 'schema' / 'fix_whale_address_primary_key.sql'}")
         print("\n   또는 다음 명령어로 SQL 내용 확인:")
-        print(f"   cat {PROJECT_ROOT / 'sql' / 'fix_whale_address_primary_key.sql'}")
+        print(f"   cat {PROJECT_ROOT / 'sql' / 'schema' / 'fix_whale_address_primary_key.sql'}")
         print("\n   SQL 실행 후, 이 스크립트를 다시 실행하세요.")
         return
     

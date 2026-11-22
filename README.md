@@ -1,111 +1,89 @@
-# Whale Tracking 프로젝트
+# 🐋 Whale Tracking & Multi-Asset Research Monorepo
 
-고래(Whale) 지갑의 거래 데이터를 수집하고 분석하는 프로젝트입니다.
+암호화폐 고래 추적·차익거래·Risk AI 웹 플랫폼, 업비트 자동매매 봇, 기관급 멀티에셋 투자 에이전트(`branch/investor_agent`), RWA 투명성 연구(`branch/RWATransparency`)를 목적별 폴더로 체계화한 통합 저장소입니다.
+
+> 상세 폴더·파일 구조는 [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) 및 [docs/README.md](./docs/README.md)를 참조하세요.
+
+---
+
+## 🧭 주요 워크스트림 구성
+
+| 영역 | 경로 | 설명 |
+| :--- | :--- | :--- |
+| **1. Crypto Web App (Arbitrage & Risk AI)** | `app/`, `src/`, `scripts/`, `sql/`, `data/` | Streamlit 10페이지 분석 대시보드, 멀티체인 고래 수집, 파생/고래 기반 Risk AI 모델 |
+| **2. Upbit Auto Trading Bot** | `trading_bot/` | `data/project.db` 읽기 전용 연동, Risk AI + 김치 프리미엄 필터 기반 자동매매 봇 |
+| **3. Institutional Investor Agent** | `branch/investor_agent/` | 글로벌 멀티에셋(US/KR/JP/CN/Macro/Crypto/RE) + Order Flow·부동산/경매 서브에이전트 + 5-Factor 타이밍 엔진 |
+| **4. RWA Transparency Research** | `branch/RWATransparency/` | TDT(Transparency Digital Twin) 3계층 지표, 패널 회귀·SHAP 분석, 논문 및 대시보드 |
+| **5. Agent Skills** | `.agents/skills/` | Antigravity AI 에이전트용 투자 원칙 및 부동산/경매 전담 스킬 명세 |
+
+---
 
 ## 🚀 빠른 시작
 
-### 로컬에서 앱 실행 (localhost)
-```bash
-cd whale_tracking
-source venv/bin/activate   # Windows: venv\Scripts\activate
-# 리스크 예측·고래 데이터를 로컬 DB(SQLite)만 사용하려면:
-export USE_LOCAL_DB=1     # 또는 config/.env에 USE_LOCAL_DB=1 추가
-streamlit run app/main.py
-```
-**접속 주소:** **http://localhost:8501**  
-(포트는 `.streamlit/config.toml`에서 `port = 8501`로 설정됨)
-
-### 데이터 수집
-```bash
-# 병렬 수집 실행
-python3 scripts/main/run_parallel_collection.py
-
-# 개별 수집
-python3 scripts/collectors/collect_btc_whale_transactions.py
-python3 scripts/collectors/collect_price_history_hourly.py
-```
-
-### 데이터 분석
-```bash
-python3 scripts/analysis/analyze_top_picks.py
-```
-
-### 유지보수
-```bash
-# 라벨 업데이트
-python3 scripts/maintenance/update_labels_stable.py
-
-# Transaction Direction 업데이트
-python3 scripts/maintenance/update_direction_direct.py
-```
-
-## 📁 프로젝트 구조
-
-자세한 구조는 [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)를 참조하세요.
-
-### 핵심 디렉토리
-- `scripts/collectors/` - 기존 Supabase 중심 수집 스크립트
-- `scripts/subprojects/` - Arbitrage & Risk AI 전용 수집/분석 템플릿
-- `scripts/maintenance/` - 데이터베이스/라벨 관리 도구
-- `scripts/main/` - 통합 실행 스크립트
-- `data/` - 수집한 과거 데이터 + SQLite(`project.db`)
-- `docs/` - 가이드 및 구조 문서
-
-# 📌 서브 프로젝트 시작
-
-Project 2/3 서브 프로젝트는 `docs/guides/subproject_data_pipeline.md`를 참고하세요.  
-`scripts/maintenance/init_subproject_db.py`를 실행하여 `data/project.db` 구조를 만든 후 다음을 실행하면 됩니다:
-
-```bash
-python3 scripts/subprojects/arbitrage/fetch_spot_quotes.py
-python3 scripts/subprojects/risk_ai/fetch_futures_metrics.py
-python3 scripts/subprojects/risk_ai/fetch_bitinfo_whale.py
-```
-
-## 📋 요구사항
-
+### 1) 암호화폐 분석 웹 앱 (Streamlit)
 ```bash
 pip install -r requirements.txt
+export USE_LOCAL_DB=1          # 로컬 SQLite(data/project.db)만 사용 시
+streamlit run app/main.py      # http://localhost:8501
 ```
 
-## ⚙️ 설정
+### 2) 데이터 수집·업데이트 및 라벨링
+```bash
+# 오늘 기준 통합 데이터 업데이트 (현물·환율·선물·고래 통계)
+./scripts/main/run_data_update_to_today.sh
 
-`config/.env` 파일에 Supabase 설정을 추가하세요:
+# 병렬 고래 데이터 수집
+python3 scripts/main/run_parallel_collection.py
+
+# 라벨·트랜잭션 방향 업데이트
+python3 scripts/labeling/update_labels_stable.py
+python3 scripts/labeling/update_direction_direct.py
+
+# 차익거래 / Risk AI 개별 수집
+python3 scripts/subprojects/arbitrage/fetch_spot_quotes.py
+python3 scripts/subprojects/risk_ai/fetch_futures_metrics.py
 ```
+
+### 3) 기관급 멀티에셋 투자 에이전트 (`branch/investor_agent`)
+```bash
+python3 branch/investor_agent/main.py --universe multi
+python3 branch/investor_agent/main.py --universe order_flow --market all
+python3 branch/investor_agent/main.py --universe real_estate
+```
+
+### 4) RWA Transparency 대시보드 (`branch/RWATransparency`)
+```bash
+streamlit run branch/RWATransparency/dashboard/app.py
+```
+
+---
+
+## ⚙️ 환경 설정
+
+`config/.env` 파일에 Supabase 및 API 키를 설정합니다 (상세: [docs/guides/API_키_발급_가이드.md](./docs/guides/API_키_발급_가이드.md)):
+```env
 SUPABASE_URL=your_url
 SUPABASE_SERVICE_ROLE_KEY=your_key
 ```
 
-## 🐳 배포 방법
+---
 
-차익거래 분석 서비스를 배포하는 여러 방법:
+## 🐳 배포 및 테스트
 
-### 방법 1: Streamlit Cloud (가장 간단! 무료!)
-GitHub에 푸시하고 Streamlit Cloud에서 배포
-- [README_STREAMLIT_CLOUD.md](./README_STREAMLIT_CLOUD.md)
-- [docs/streamlit_cloud_deployment.md](./docs/streamlit_cloud_deployment.md)
+### 배포 가이드 (`docs/deployment/`)
+- **Streamlit Cloud**: [docs/deployment/README_STREAMLIT_CLOUD.md](./docs/deployment/README_STREAMLIT_CLOUD.md)
+- **Docker 로컬/운영**: [docs/deployment/README_DOCKER.md](./docs/deployment/README_DOCKER.md) / `docker-compose up -d --build`
+- **Docker + ngrok**: [docs/deployment/README_NGROK.md](./docs/deployment/README_NGROK.md)
+- **서버 배포 스크립트**: `./scripts/deploy/deploy_to_server.sh` ([docs/deployment/README_DEPLOY.md](./docs/deployment/README_DEPLOY.md))
 
-### 방법 2: Docker + ngrok (로컬에서 외부 접속)
-로컬 Docker 컨테이너를 ngrok으로 외부 접속 가능하게
-- [README_NGROK.md](./README_NGROK.md)
-- [docs/docker_ngrok_deployment.md](./docs/docker_ngrok_deployment.md)
-
-### 방법 3: 로컬 Docker
+### 테스트 실행
 ```bash
-docker-compose up -d --build
-# 접속: http://localhost:8501
+# 코어 수집·피처·통합·배포 테스트
+pytest tests -v
+
+# 멀티에셋 투자 에이전트 전체 테스트 (tmp_path 격리)
+pytest branch/investor_agent/tests -v
+
+# 트레이딩 봇 단위 테스트
+pytest trading_bot/tests/test_settings_manager.py trading_bot/tests/test_data_collector.py -v
 ```
-- [README_DOCKER.md](./README_DOCKER.md)
-
-### 방법 4: 클라우드 서버 배포
-```bash
-./scripts/deploy_to_server.sh [서버IP] [사용자명]
-```
-- [README_DEPLOY.md](./README_DEPLOY.md)
-
-## 📚 문서
-
-- [프로젝트 구조 가이드](./PROJECT_STRUCTURE.md)
-- [API 키 발급 가이드](./docs/guides/API_키_발급_가이드.md)
-- [Docker 배포 가이드](./docs/docker_deployment_guide.md)
-

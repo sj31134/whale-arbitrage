@@ -4,6 +4,7 @@ Executes pre-analysis data ingestion, research, scoring, valuation, barbell opti
 memo generation, and automated memory/knowledge graph synchronization.
 """
 from typing import Dict, Any, List, Optional
+from pathlib import Path
 from ..research.macro_analyzer import MacroAnalyzer
 
 from ..research.multi_asset_screener import MultiAssetScreener
@@ -28,8 +29,9 @@ from ..subagents.real_estate import RealEstateSubagent
 
 
 class InvestorAgentRunner:
-    def __init__(self):
-        self.data_updater = DynamicDataUpdater()
+    def __init__(self, data_dir: Optional[Path] = None):
+        base_data = Path(data_dir) if data_dir is not None else None
+        self.data_updater = DynamicDataUpdater(data_dir=(base_data / "timeline") if base_data else None)
         self.macro_analyzer = MacroAnalyzer()
         self.screener = MultiAssetScreener()
         self.us_screener = USEquityScreener()
@@ -43,11 +45,16 @@ class InvestorAgentRunner:
         self.barbell_optimizer = BarbellOptimizer(core_target_weight=0.65, satellite_target_weight=0.35, cash_buffer=0.05)
         self.risk_manager = RiskManager(max_portfolio_drawdown=0.20)
         self.memo_generator = InvestmentMemoGenerator()
-        self.memory = InvestmentMemoryManager()
-        self.knowledge_graph = InvestmentKnowledgeGraph()
+        self.memory = InvestmentMemoryManager(memory_dir=str(base_data / "memory") if base_data else None)
+        self.knowledge_graph = InvestmentKnowledgeGraph(
+            graph_path=str(base_data / "graph" / "knowledge_graph.json") if base_data else None
+        )
         self.skill_synthesizer = SkillSynthesizer()
-        self.order_flow_subagent = OrderFlowSubagent(hurdle_payoff=3.0)
-        self.real_estate_subagent = RealEstateSubagent()
+        self.order_flow_subagent = OrderFlowSubagent(
+            hurdle_payoff=3.0,
+            data_dir=(base_data / "order_flow") if base_data else None
+        )
+        self.real_estate_subagent = RealEstateSubagent(data_dir=base_data)
 
 
     def run_full_investment_pipeline(self) -> Dict[str, Any]:

@@ -9,6 +9,7 @@ Enforces the 4-Pillar Quantitative & Empirical Harness Architecture approved by 
 """
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from pathlib import Path
 from .auction_rights_analyzer import AuctionRightsAnalyzer, AuctionAnalysisReport, TenantRight
 from .live_court_auction_collector import LiveCourtAuctionCollector
 from .court_auction_verifier import CourtAuctionVerifier
@@ -22,13 +23,15 @@ class RealEstateSubagent:
     Dedicated Tier 2-B Real Estate Subagent Engine.
     """
 
-    def __init__(self):
+    def __init__(self, data_dir: Optional[Path] = None):
         self.valuation_engine = ValuationEngine()
         self.scoring_engine = ScoringEngine()
         self.auction_analyzer = AuctionRightsAnalyzer()
-        self.auction_collector = LiveCourtAuctionCollector()
+        auction_dir = (Path(data_dir) / "court_auction") if data_dir is not None else None
+        re_dir = (Path(data_dir) / "real_estate") if data_dir is not None else None
+        self.auction_collector = LiveCourtAuctionCollector(cache_dir=auction_dir)
         self.verifier = self.auction_collector.verifier
-        self.pipeline = RealEstateDataPipeline()
+        self.pipeline = RealEstateDataPipeline(data_dir=re_dir)
 
     def fetch_comprehensive_market_universe(
         self,

@@ -4,6 +4,7 @@ Tests multi-source ingestion (KB Real Estate, MOLIT, Urban Renewal, Court Auctio
 4-Pillar scoring, Cash 300M financial engineering, Anti-Price-Distortion Guardrails, and cache persistence.
 """
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -18,8 +19,13 @@ from src.subagents.real_estate.real_estate_subagent import RealEstateSubagent
 class TestRealEstateDataPipeline(unittest.TestCase):
 
     def setUp(self):
-        self.pipeline = RealEstateDataPipeline()
-        self.subagent = RealEstateSubagent()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+        self.pipeline = RealEstateDataPipeline(data_dir=self.tmp_path / "real_estate")
+        self.subagent = RealEstateSubagent(data_dir=self.tmp_path)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
 
     def test_fetch_multi_source_listings(self):
         records = self.pipeline.fetch_multi_source_listings(

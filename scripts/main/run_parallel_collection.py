@@ -38,7 +38,7 @@ def signal_handler(sig, frame):
     
     print("\n💾 체크포인트 저장 중...")
     try:
-        subprocess.run([sys.executable, 'scripts/save_collection_checkpoint.py'], 
+        subprocess.run([sys.executable, 'scripts/main/save_collection_checkpoint.py'], 
                       cwd=PROJECT_ROOT, check=False)
     except:
         pass
@@ -172,7 +172,7 @@ def print_summary(processes: List[Dict]):
     print("=" * 80)
     print("\n다음 단계:")
     print("  1. 로그 파일을 확인하여 세부 내용 검토")
-    print("  2. 검증 스크립트 실행: python3 scripts/verify_data_collection_2025.py")
+    print("  2. 검증 스크립트 실행: python3 scripts/diagnostics/verify_data_collection_2025.py")
     print("  3. 체크포인트 확인: cat collection_checkpoint.json")
     print()
 

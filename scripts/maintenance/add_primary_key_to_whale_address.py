@@ -27,7 +27,7 @@ def add_primary_key():
     print("=" * 70)
     
     # SQL 파일 읽기
-    sql_file = PROJECT_ROOT / 'sql' / 'fix_whale_address_primary_key.sql'
+    sql_file = PROJECT_ROOT / 'sql' / 'schema' / 'fix_whale_address_primary_key.sql'
     
     if not sql_file.exists():
         print(f"❌ SQL 파일을 찾을 수 없습니다: {sql_file}")

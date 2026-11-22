@@ -6,6 +6,7 @@ causal network forecasting, independent third-party risk auditing, and tactical 
 """
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from pathlib import Path
 from .models import (
     ActorType, SupportResistanceType, TradingStrategyType, MarketType,
     StockMicrostructureProfile, ShortTermPriceForecast,
@@ -34,12 +35,12 @@ class OrderFlowSubagent:
     7. Execution of Asymmetric Tactical Trading conforming to Parent Investor Principles.
     """
 
-    def __init__(self, hurdle_payoff: float = 3.0):
+    def __init__(self, hurdle_payoff: float = 3.0, data_dir: Optional[Path] = None):
         self.universe_collector = UniverseCollector()
         self.disaggregator = OrderFlowDisaggregator()
         self.sr_engine = SupportResistanceEngine()
         self.network_engine = ImpactNetworkEngine()
-        self.flow_updater = DynamicFlowUpdater()
+        self.flow_updater = DynamicFlowUpdater(data_dir=data_dir)
         self.trading_engine = MicrostructureTradingEngine(min_payoff_ratio=hurdle_payoff)
         self.risk_auditor = ThirdPartyRiskAuditor()
         self.inflection_engine = TenDollarInflectionEngine()

@@ -23,14 +23,14 @@ class DynamicDataUpdater:
     commodity, real estate, court auctions, semiconductor, and policy variables.
     """
     def __init__(self, data_dir: Optional[Path] = None):
-        self.base_dir = data_dir or (Path(__file__).resolve().parent.parent.parent / "data" / "timeline")
+        self.base_dir = Path(data_dir) if data_dir is not None else (Path(__file__).resolve().parent.parent.parent / "data" / "timeline")
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.feed_file = self.base_dir / "timeline_data_feed.json"
         self.history_file = self.base_dir / "timeline_history.json"
         self.sources_file = self.base_dir / "verified_sources.json"
         self.verifier = DataSourceVerifier()
-        self.price_service = LivePriceService()
-        self.auction_collector = LiveCourtAuctionCollector()
+        self.price_service = LivePriceService(cache_file=(self.base_dir / "live_market_quotes.json") if data_dir is not None else None)
+        self.auction_collector = LiveCourtAuctionCollector(cache_dir=(self.base_dir / "court_auction") if data_dir is not None else None)
         self.current_snapshot: TimelineDataSnapshot = self._load_or_initialize()
 
 

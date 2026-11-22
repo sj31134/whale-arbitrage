@@ -26,6 +26,9 @@ build/
 config/.env
 
 # Data (큰 파일은 제외, 필요시 GitHub LFS 사용)
+**/*.db
+**/*.db-shm
+**/*.db-wal
 data/*.db
 data/*.db-shm
 data/*.db-wal

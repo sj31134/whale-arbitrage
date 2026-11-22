@@ -20,9 +20,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # 애플리케이션 코드 복사
 COPY app/ ./app/
+COPY trading_bot/ ./trading_bot/
 
 # 필요한 스크립트 디렉토리 생성 및 복사
-RUN mkdir -p ./scripts/subprojects/arbitrage
+RUN mkdir -p ./scripts/subprojects/arbitrage ./scripts/subprojects/risk_ai
 COPY scripts/subprojects/arbitrage/backtest_engine_optimized.py ./scripts/subprojects/arbitrage/
 RUN test -f ./scripts/subprojects/arbitrage/__init__.py || touch ./scripts/subprojects/arbitrage/__init__.py
 

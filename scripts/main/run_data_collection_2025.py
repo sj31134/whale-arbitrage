@@ -87,7 +87,7 @@ def main():
     print("💡 다음 단계")
     print("=" * 70)
     print("데이터 수집이 완료되었습니다. 다음 명령으로 데이터를 검증할 수 있습니다:")
-    print("\n  python scripts/verify_data_collection_2025.py")
+    print("\n  python scripts/diagnostics/verify_data_collection_2025.py")
 
 if __name__ == '__main__':
     try:

@@ -3,6 +3,7 @@ Unit Tests for RealEstateSubagent (Tier 2-B Dedicated Domain Specialist):
 Tests 3-Gate Veto, 7-Step Court Auction Rights, Land Decomposition, and End-to-End Pipeline Execution.
 """
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -16,7 +17,11 @@ from src.subagents.real_estate.real_estate_subagent import RealEstateSubagent
 class TestRealEstateSubagent(unittest.TestCase):
 
     def setUp(self):
-        self.subagent = RealEstateSubagent()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.subagent = RealEstateSubagent(data_dir=Path(self.temp_dir.name))
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
 
     def test_screen_land_candidate_pass(self):
         res = self.subagent.screen_land_candidate(

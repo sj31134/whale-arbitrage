@@ -279,11 +279,11 @@ def generate_recommendations():
     
     print("""
 [1] transaction_direction이 NULL이거나 잘못된 값인 경우:
-    → sql/update_direction_and_unknown.sql 실행
-    → 또는 scripts/label_transaction_direction_fast_batch.py 재실행
+    → sql/batch/update_direction_and_unknown.sql 실행
+    → 또는 scripts/labeling/label_transaction_direction_fast_batch.py 재실행
 
 [2] transaction_direction 값이 'exchange_inflow'/'exchange_outflow'가 아닌 경우:
-    → scripts/post_process_labels.py의 is_exchange() 함수 확인
+    → scripts/labeling/post_process_labels.py의 is_exchange() 함수 확인
     → 거래소 라벨 매칭 로직 검토
 
 [3] 집계 로직 문제:
@@ -292,7 +292,7 @@ def generate_recommendations():
 
 [4] 데이터 동기화 문제:
     → Supabase와 SQLite 간 데이터 동기화 확인
-    → scripts/sync_sqlite_to_supabase.py 실행
+    → scripts/maintenance/sync_sqlite_to_supabase.py 실행
 
 [5] 재집계 실행:
     → 문제 해결 후 aggregate_whale_stats.py --rebuild-all 실행

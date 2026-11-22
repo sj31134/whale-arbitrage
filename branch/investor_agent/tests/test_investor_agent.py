@@ -2,6 +2,7 @@
 Comprehensive unit tests for the Investor Subagent suite using Python's standard unittest.
 """
 import sys
+import tempfile
 import unittest
 import math
 from pathlib import Path
@@ -81,18 +82,19 @@ class TestInvestorAgent(unittest.TestCase):
         self.assertTrue(res["is_asymmetric_opportunity"])
 
     def test_investor_agent_full_pipeline(self):
-        runner = InvestorAgentRunner()
-        results = runner.run_full_investment_pipeline()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            runner = InvestorAgentRunner(data_dir=Path(tmp_dir))
+            results = runner.run_full_investment_pipeline()
 
-        self.assertGreaterEqual(results["total_screened_assets"], 5)
-        self.assertGreaterEqual(results["qualified_assets_count"], 3)
-        alloc = results["portfolio_allocation"]
-        self.assertGreaterEqual(alloc["core_weight_total"], 0.55)
-        self.assertLessEqual(alloc["core_weight_total"], 0.70)
-        self.assertGreaterEqual(alloc["satellite_weight_total"], 0.25)
-        self.assertLessEqual(alloc["satellite_weight_total"], 0.40)
-        self.assertIn("portfolio_memo", results)
-        self.assertGreaterEqual(len(results["asset_memos"]), 3)
+            self.assertGreaterEqual(results["total_screened_assets"], 5)
+            self.assertGreaterEqual(results["qualified_assets_count"], 3)
+            alloc = results["portfolio_allocation"]
+            self.assertGreaterEqual(alloc["core_weight_total"], 0.55)
+            self.assertLessEqual(alloc["core_weight_total"], 0.70)
+            self.assertGreaterEqual(alloc["satellite_weight_total"], 0.25)
+            self.assertLessEqual(alloc["satellite_weight_total"], 0.40)
+            self.assertIn("portfolio_memo", results)
+            self.assertGreaterEqual(len(results["asset_memos"]), 3)
 
 
 if __name__ == "__main__":
