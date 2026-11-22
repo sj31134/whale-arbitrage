@@ -2,6 +2,8 @@
 
 현역으로 참조하는 기술·운영 문서와 과거 시점의 완료/진단 보고서(`archive/`)를 명확히 분리했습니다.
 
+분야별 문서 원본은 [고래 문서](../agents/whale/docs/)와 [코인 문서](../agents/crypto/docs/)에 있다. 아래 경로는 기존 문서 링크로도 열 수 있다.
+
 ## 📁 디렉토리 구조
 
 ```text
@@ -25,14 +27,14 @@ docs/
 - [DB_구조_분석_요약.md](./architecture/DB_구조_분석_요약.md) — 테이블 구조 요약
 - [메뉴별_테이블_및_데이터_기간_정리.md](./architecture/메뉴별_테이블_및_데이터_기간_정리.md) — 앱 페이지별 DB 매핑
 - [timezone_standard.md](./architecture/timezone_standard.md) — UTC/KST 타임존 표준
-- [project3_summary.md](./architecture/project3_summary.md) — Project 3(Risk AI) 요약
+- [project3_summary.md](../agents/crypto/docs/architecture/project3_summary.md) — Project 3(Risk AI) 요약
 
 ### 2. 운영 & 개발 가이드 (`docs/guides/`)
 - [API_키_발급_가이드.md](./guides/API_키_발급_가이드.md) — 거래소·블록체인 API 키 설정
 - [SQL_실행_가이드.md](./guides/SQL_실행_가이드.md) — Supabase SQL 실행 절차
-- [subproject_data_pipeline.md](./guides/subproject_data_pipeline.md) — Arbitrage & Risk AI 파이프라인
-- [TRADING_BOT_ARCHITECTURE.md](./guides/TRADING_BOT_ARCHITECTURE.md) / [TRADING_BOT_GUIDE.md](./guides/TRADING_BOT_GUIDE.md) — 업비트 자동매매 봇
-- [FAST_LABEL_UPDATE_GUIDE.md](./guides/FAST_LABEL_UPDATE_GUIDE.md) / [TRANSACTION_DIRECTION_GUIDE.md](./guides/TRANSACTION_DIRECTION_GUIDE.md) — 고래 라벨·거래방향 업데이트
+- [subproject_data_pipeline.md](../agents/crypto/docs/guides/subproject_data_pipeline.md) — Arbitrage & Risk AI 파이프라인
+- [TRADING_BOT_ARCHITECTURE.md](../agents/crypto/docs/guides/TRADING_BOT_ARCHITECTURE.md) / [TRADING_BOT_GUIDE.md](../agents/crypto/docs/guides/TRADING_BOT_GUIDE.md) — 업비트 자동매매 봇
+- [FAST_LABEL_UPDATE_GUIDE.md](../agents/whale/docs/guides/FAST_LABEL_UPDATE_GUIDE.md) / [TRANSACTION_DIRECTION_GUIDE.md](../agents/whale/docs/guides/TRANSACTION_DIRECTION_GUIDE.md) — 고래 라벨·거래방향 업데이트
 
 ### 3. 배포 가이드 (`docs/deployment/`)
 - [README_STREAMLIT_CLOUD.md](./deployment/README_STREAMLIT_CLOUD.md) / [STREAMLIT_CLOUD_TROUBLESHOOTING.md](./deployment/STREAMLIT_CLOUD_TROUBLESHOOTING.md)

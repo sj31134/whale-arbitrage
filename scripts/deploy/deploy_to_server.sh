@@ -61,6 +61,10 @@ rsync -avz --exclude '.git' \
     --exclude '__pycache__' \
     --exclude '*.pyc' \
     --exclude '.env' \
+    --exclude '.env.*' \
+    --exclude 'private_accounts/' \
+    --exclude '.local-build/' \
+    --exclude '*accounts_stocks*.xls*' \
     --exclude 'data/*.db' \
     --exclude 'data/*.db-shm' \
     --exclude 'data/*.db-wal' \

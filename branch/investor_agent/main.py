@@ -14,6 +14,32 @@ sys.path.insert(0, str(BASE_DIR))
 from src.agent.investor_agent_runner import InvestorAgentRunner
 
 
+def asset_memo_path(export_dir: Path, asset_id: str) -> Path:
+    """Keep flat CLI exports while storing default asset memos with their owner."""
+    export_path = export_dir / f"MEMO_{asset_id}.md"
+    if export_dir.resolve() != BASE_DIR / "data" / "memos":
+        return export_path
+
+    prefix = asset_id.partition("-")[0]
+    if prefix in {"US", "KR", "JP", "CN", "EQ"}:
+        owner = "equities"
+    elif prefix == "RE":
+        owner = "real_estate"
+    elif prefix == "CRYPTO":
+        owner = "crypto"
+    else:
+        return export_path
+
+    if not os.path.lexists(export_path):
+        destination = BASE_DIR.parents[1] / "agents" / owner / "memos" / export_path.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            export_path.symlink_to(os.path.relpath(destination, export_dir))
+        except FileExistsError:
+            pass  # Another export has already established the flat path.
+    return export_path
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Autonomous Multi-Asset Investor Subagent & Capital Allocation Engine"
@@ -133,7 +159,7 @@ def main():
             
         # Save individual memos
         for asset_id, memo_text in results["asset_memos"].items():
-            memo_file = export_dir / f"MEMO_{asset_id}.md"
+            memo_file = asset_memo_path(export_dir, asset_id)
             with open(memo_file, "w", encoding="utf-8") as f:
                 f.write(memo_text)
                 

@@ -43,8 +43,17 @@ docs/
 .coverage
 htmlcov/
 
-# Environment (볼륨으로 마운트)
-# .env는 볼륨으로 마운트되므로 제외하지 않음
+# Private local configuration and collector
+.env
+**/.env
+.env.*
+**/.env.*
+**/secrets.toml
+trading_bot/config/user_settings.json
+trading_bot/data/
+.local-build/
+private_accounts/
+**/*accounts_stocks*.xls*
 
 # Docker
 Dockerfile

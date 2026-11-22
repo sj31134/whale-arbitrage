@@ -27,6 +27,8 @@ The agent screens, values, models, and executes investment decisions across **Re
 
 ## 📁 Repository & Folder Structure
 
+분야별 스크리너, 부동산·수급 서브에이전트, 종목 메모의 실제 파일은 [agents](../../agents/)에 있다. 아래 트리는 기존 CLI와 Python 패키지에서 접근하는 경로를 보여 준다. [프로젝트 폴더 구조](../../PROJECT_STRUCTURE.md) · [파일 분류표](../../agents/FILE_MAP.csv)
+
 ```text
 branch/investor_agent/
 ├── README.md                           # Comprehensive documentation & framework guide

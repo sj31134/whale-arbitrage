@@ -1,108 +1,38 @@
-# 프로젝트 구조 가이드 (`PROJECT_STRUCTURE.md`)
+# whale_tracking 폴더 구조
 
-> **최종 업데이트**: 2026-11-22  
-> Streamlit Cloud·Docker·기존 CLI 호환성을 유지하면서 모든 폴더와 파일을 주요 목적별로 재구성했습니다.
+분야별 구현과 분석 자료의 실제 위치는 `agents/`다. 공용 실행기, 서비스 배포 경로, 자동 테스트, 독립 RWA 연구는 아래 표의 경로를 사용한다. [전체 폴더트리](agents/FILE_TREE.md)에서 분야별 파일을 펼쳐 볼 수 있다. [전체 파일 분류표](agents/FILE_MAP.csv)에서 파일명으로 검색하거나 `owner`로 필터링할 수 있다.
 
----
+## 에이전트 폴더트리
 
-## 📁 전체 디렉토리 구조
+| 폴더 | 실제 하위 폴더 | 담당 업무 |
+| --- | --- | --- |
+| [agents/whale/](agents/whale/) | `chain/`, `collectors/`, `data/`, `labeling/`, `analysis/`, `diagnostics/`, `main/`, `maintenance/`, `utils/`, `sql/`, `docs/` | 멀티체인 거래 수집, 고래 지갑 식별, 라벨링·거래 방향 집계 |
+| [agents/crypto/](agents/crypto/) | `screeners/`, `collectors/`, `diagnostics/`, `maintenance/`, `packaging/`, `sql/`, `memos/`, `docs/` | 코인 투자 후보, 거래소 시세, 차익거래·Risk AI 운영 자료, 봇 패키징 |
+| [agents/real_estate/](agents/real_estate/) | `screeners/`, `subagent/`, `graph/`, `data/{court_auction,real_estate,graph}/`, `memos/` | 부동산 평가, 경매 수집·권리 분석, 부동산 지식그래프 |
+| [agents/equities/](agents/equities/) | `screeners/`, `memos/` | 미국·한국·일본·중국 주식 후보 평가와 종목별 메모 |
+| [agents/us_small_cap_high_beta/](agents/us_small_cap_high_beta/) | `order_flow/`, `scripts/`, `data/order_flow/`, `memos/` | 단기 수급·가격 변곡점 분석. 구현은 한국·미국 및 토큰화 자산 경로를 공유한다 |
 
-```text
-whale_tracking/
-├── app/                                # [서비스] Streamlit 암호화폐 차익거래·Risk AI·봇 통합 웹 앱
-│   ├── main.py                         # 메인 진입점 (10개 페이지 라우팅 + Cloud 진단)
-│   ├── pages/                          # 기능별 페이지 모듈 (10개)
-│   └── utils/                          # 데이터 로더, RiskPredictor/Analyzer, SHAP, 추천/계산/시각화 (9개)
-│
-├── trading_bot/                        # [서비스] 업비트(Upbit) 연동 독립형 자동매매 봇
-│   ├── config/                         # 설정 관리 (default_config.json, settings_manager.py)
-│   ├── core/                           # 봇 엔진 및 포지션 관리
-│   ├── collectors/                     # 실시간 시세·지표 수집
-│   ├── strategies/                     # Risk AI 데이터 기반 전략 + 김프 필터
-│   ├── execution/                      # 주문 실행 및 잔고 관리
-│   ├── ui/                             # Streamlit UI 탭
-│   ├── utils/                          # 로거, 텔레그램 알림, 입력 검증
-│   └── tests/                          # 봇 단위/통합 테스트
-│
-├── src/                                # [코어 라이브러리] 재사용 수집 모듈
-│   └── collectors/
-│       └── multi_chain_collector.py    # 멀티체인(Etherscan v2 등) 고래 트랜잭션 수집기
-│
-├── scripts/                            # [파이프라인/운영] 목적별 실행 스크립트
-│   ├── main/                           # 통합 실행기·일일 업데이트 쉘·체크포인트
-│   ├── collectors/                     # 거래소·블록체인·리치리스트 데이터 수집
-│   ├── subprojects/                    # 서브프로젝트 코어 엔진
-│   │   ├── arbitrage/                  # Project 2: 현물·환율 수집 및 3~4거래소 백테스트
-│   │   └── risk_ai/                    # Project 3: 선물/OI/고래 피처, XGBoost/LSTM/SHAP 학습
-│   ├── labeling/                       # 거래소 지갑 등록, 라벨링, 거래방향·USD 후처리
-│   ├── maintenance/                    # DB 초기화, 스냅샷 빌드, Supabase 동기화, 스키마 엑셀
-│   ├── analysis/                       # 수집 커버리지·DB 구조·Top Picks 분석
-│   ├── diagnostics/                    # 스키마·타임존·결측·API 디버깅 및 검증 스크립트
-│   ├── deploy/                         # Docker·서버·GitHub·ngrok 배포 쉘 스크립트
-│   ├── utils/                          # 테이블/업로드/중복 점검 유틸리티
-│   ├── tests/                          # 외부 API·스크래핑 수동 테스트 스크립트
-│   └── data/                           # 정적 거래소 주소 사전 (known_exchanges.py)
-│
-├── sql/                                # [데이터베이스] Supabase / PostgreSQL SQL
-│   ├── schema/                         # 테이블 생성 DDL 및 컬럼/PK 변경 스키마
-│   ├── rpc/                            # Supabase RPC 함수 정의
-│   └── batch/                          # 대용량 라벨·거래방향·중복 제거 배치 SQL
-│
-├── data/                               # [데이터/모델] 시계열 CSV, SQLite 스냅샷, 학습 모델
-│   ├── project.db.tar.gz               # 배포용 SQLite 스냅샷 (단일 정본)
-│   ├── whale_transactions.csv          # 고래 트랜잭션 아카이브 CSV (95.84 MB)
-│   ├── *.csv                           # 거래소 일/주봉, 선물, 환율, 백테스트 결과
-│   ├── models/                         # 학습된 XGBoost/Hybrid 모델, 스케일러, 평가 결과
-│   ├── analysis/                       # BTC/ETH 고래-가격 상관 및 동적 백테스트 결과
-│   └── project3_shap/                  # SHAP 분석 결과 CSV
-│
-├── tests/                              # [테스트] 코어 수집·피처·통합·배포 자동화 테스트
-│
-├── docs/                               # [문서] 현역 문서 vs 과거 이력 아카이브 분리
-│   ├── README.md                       # 문서 마스터 인덱스
-│   ├── architecture/                   # ERD, DB 스키마, 타임존 표준, Project 3 구조
-│   ├── guides/                         # API 키, SQL, Trading Bot, 라벨링, 파이프라인 가이드
-│   ├── deployment/                     # Streamlit Cloud, Docker, ngrok, 연동·테스트 가이드
-│   └── archive/                        # 완료된 시점별 진단·배포·PM 보고서 아카이브
-│       ├── analysis/
-│       ├── deployment/
-│       └── reports/
-│
-├── branch/                             # [독립 리서치/에이전트 워크스트림]
-│   ├── investor_agent/                 # 기관급 멀티에셋 투자 에이전트 (US/KR/JP/CN/Macro/Crypto/RE)
-│   │   ├── main.py                     # CLI 오케스트레이터 (9개 유니버스)
-│   │   ├── config/                     # 자산군·리스크·스코어링 가중치 YAML
-│   │   ├── src/                        # core, data_pipeline, research, strategy, execution, graph, memory, subagents/
-│   │   ├── scripts/                    # 시스템 정합성 감사, 지식그래프 동기화, 바이낸스 토큰 스크립트
-│   │   ├── data/                       # timeline, memos, memory, graph, order_flow, real_estate, court_auction
-│   │   ├── skills/                     # 에이전트 스킬 사본 (.agents/skills와 동기화)
-│   │   └── tests/                      # 6개 모듈 단위/통합 테스트 (tmp_path 격리)
-│   └── RWATransparency/                # RWA 투명성 디지털 트윈(TDT) 석사 연구 프로젝트
-│       ├── dashboard/                  # Streamlit TDT 대시보드
-│       ├── scripts/                    # layer1~3 수집/TDT 산출 + analysis(패널 회귀·ML·SHAP)
-│       ├── data/                       # raw/ 및 processed/ 패널 데이터
-│       └── *.md                        # 논문 본문·초록·비평·결과표
-│
-├── .agents/skills/                     # [AI 스킬] Antigravity 자동 인식 스킬 정본
-│   ├── investor-principles/SKILL.md    # 마스터 투자 원칙·5대 스킬·알고리즘 역공·스트레스 모형
-│   └── real-estate-subagent/SKILL.md   # Tier 2-B 부동산·법원경매 전담 스킬
-│
-├── .streamlit/                         # Streamlit 서버 및 다크 테마 설정
-├── .devcontainer/                      # DevContainer 설정
-├── Dockerfile                          # Docker 배포 이미지 정의 (app + trading_bot 포함)
-├── docker-compose.yml                  # 로컬 Docker Compose
-├── docker-compose.prod.yml             # 운영 Docker Compose
-├── requirements.txt                    # 메인 의존성
-├── requirements_trading_bot.txt        # 자동매매 봇 전용 의존성
-├── runtime.txt                         # Python 3.11 런타임 핀
-├── build_executable.py                 # 실행파일 패키징 스크립트
-├── install_trading_bot.py              # 자동매매 봇 설치 스크립트
-└── 코인_데이터스키마_구조.xlsx           # 테이블 스키마 정의 엑셀
-```
+미국 시장은 투자 CLI의 `--universe order_flow --market us`로 선택한다. 이 옵션의 종목 필터는 거래 시장을 확인하며 시가총액이나 베타 기준은 적용하지 않는다.
 
----
+## 공용 코드·데이터와 기존 진입점
 
-## 🔄 2026-11-22 재구성 주요 변경 요약
+| 위치 | 담당 범위 |
+| --- | --- |
+| [branch/investor_agent/](branch/investor_agent/) | 공용 CLI·투자 실행기, 평가·전략·리스크·메모리, 거시경제 분석, 설정·포트폴리오 타임라인 |
+| [private_accounts/](private_accounts/README.md) | 로컬 조회 전용 계좌 수집기, 개인 잔고 DB 관리, 개인 화면 |
+| [app/](app/) · [trading_bot/](trading_bot/) | Streamlit 앱과 업비트 자동매매 서비스 |
+| [scripts/subprojects/](scripts/subprojects/) | 기존 차익거래·Risk AI 패키지와 백테스트 진입점 |
+| [data/](data/) | 운영 SQLite 스냅샷, 고래 거래 원장, 거래소 데이터, 학습 모델 |
+| [scripts/](scripts/) · [sql/](sql/) · [src/](src/) | 공용 운영 도구와 기존 스크립트·SQL·Python 경로. 이동한 파일의 이전 위치에는 상대 심볼릭 링크가 있다. |
+| [docs/](docs/) | 공용 아키텍처·배포·과거 보고서와 분야별 문서 인덱스 |
+| [tests/](tests/) · [투자 테스트](branch/investor_agent/tests/) · [봇 테스트](trading_bot/tests/) | 기존 테스트 수집 위치. 파일별 담당 분야는 분류표에 표시한다. |
+| [branch/RWATransparency/](branch/RWATransparency/) | 실물자산 토큰의 투명성에 관한 독립 연구, 원자료, 분석 코드, 논문, 대시보드 |
+| `.agents/skills/` | 투자 원칙과 부동산·경매 분석 지침 원본 |
+| 루트 설정 | Docker·Compose·Streamlit 설정, 패키지 의존성, Python 버전, 프로젝트 안내 |
+
+기존 CLI 및 Python 모듈 경로는 계속 사용할 수 있다. Git 체크아웃에서 심볼릭 링크가 실제 링크로 복원되어야 한다. 커스텀 `--export-memos` 경로는 지정한 폴더에 파일을 쓴다. 기본 출력에서는 종목별 메모가 분야별 `memos/`에 저장되고 `branch/investor_agent/data/memos/`에서도 같은 파일을 열 수 있다.
+
+## 이전 구조 변경 이력 (958d5a5)
 
 1. **`scripts/` 루트 정리**: 흩어져 있던 75개 파일을 `deploy/`, `labeling/`, `diagnostics/`, `collectors/`, `maintenance/`, `main/`, `analysis/`, `tests/`로 100% 분류하고 상대 루트 경로(`PROJECT_ROOT`) 및 내부 참조 경로 일괄 보정.
 2. **`sql/` 목적별 분리**: 평면 20개 SQL 파일을 `schema/`(8), `rpc/`(4), `batch/`(8)로 구조화하고 스크립트 내 SQL 경로 보정.

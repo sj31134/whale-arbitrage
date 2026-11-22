@@ -4,6 +4,10 @@
 
 > 상세 폴더·파일 구조는 [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) 및 [docs/README.md](./docs/README.md)를 참조하세요.
 
+[프로젝트 목표·운영 지침·검증 명령](AGENTS.md)에서 분석과 계좌 관리의 기준을 확인할 수 있습니다.
+
+[전체 폴더트리](agents/FILE_TREE.md)와 [파일 분류표](agents/FILE_MAP.csv)에서 담당 분야와 실제 위치를 확인할 수 있습니다. 분야별 코드와 데이터는 [고래](agents/whale/), [코인](agents/crypto/), [부동산](agents/real_estate/), [주식](agents/equities/), [미국 소형·고베타 주식](agents/us_small_cap_high_beta/)에서 찾을 수 있습니다.
+
 ---
 
 ## 🧭 주요 워크스트림 구성
@@ -17,6 +21,8 @@
 | **5. Agent Skills** | `.agents/skills/` | Antigravity AI 에이전트용 투자 원칙 및 부동산/경매 전담 스킬 명세 |
 
 ---
+
+개인 Mac에서 관리하는 여섯 기관의 잔고와 등록 절차는 [개인 계좌 관리](private_accounts/README.md)에서 확인할 수 있습니다.
 
 ## 🚀 빠른 시작
 

@@ -68,3 +68,13 @@ trading_bot/config/user_settings.json
 trading_bot/data/positions.json
 trading_bot/data/*.json
 
+
+# macOS local account reader
+/.local-build/
+
+# Local portfolio sources, Excel temporary files and private local runtime
+*accounts_stocks*.xls*
+/private_accounts/**/*.xls*
+/private_accounts/**/*.csv
+/private_accounts/.local/
+.env.*

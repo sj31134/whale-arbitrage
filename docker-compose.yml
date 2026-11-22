@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: arbitrage-ui
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     volumes:
       # 데이터베이스 마운트 (데이터 영속성)
       - ./data:/app/data:rw
