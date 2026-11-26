@@ -1,0 +1,22 @@
+{
+  "order": 9,
+  "id": "social",
+  "title": "X·SNS 관심",
+  "agents": [
+    "whale",
+    "crypto",
+    "real_estate",
+    "equities",
+    "us_small_cap_high_beta"
+  ],
+  "stale_days": 2,
+  "assessment": "확산 주제의 원문·독립 근거를 찾아 사실 여부를 검토한다.",
+  "sources": [
+    {
+      "kind": "x",
+      "id": "world",
+      "label": "X 전 세계 트렌드",
+      "url": "https://api.x.com/2/trends/by/woeid/1?max_trends=30&trend.fields=trend_name,tweet_count"
+    }
+  ]
+}

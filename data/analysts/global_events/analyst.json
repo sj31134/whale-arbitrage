@@ -1,0 +1,35 @@
+{
+  "order": 3,
+  "id": "global_events",
+  "title": "글로벌 이슈·지정학",
+  "agents": [
+    "whale",
+    "crypto",
+    "real_estate",
+    "equities",
+    "us_small_cap_high_beta"
+  ],
+  "stale_days": 14,
+  "assessment": "사건 지역과 공급망·사업장의 실제 접점을 확인한다.",
+  "sources": [
+    {
+      "kind": "rss",
+      "id": "un_security",
+      "label": "유엔 뉴스 · 평화와 안보",
+      "url": "https://news.un.org/feed/subscribe/en/news/topic/peace-and-security/feed/rss.xml"
+    },
+    {
+      "kind": "rss",
+      "id": "gdacs",
+      "label": "GDACS 세계 재난 경보",
+      "url": "https://www.gdacs.org/contentdata/xml/rss.xml"
+    },
+    {
+      "kind": "fred",
+      "id": "DCOILBRENTEU",
+      "label": "브렌트유 현물 가격",
+      "unit": "USD/배럴",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import re
 import stat
 import zipfile
 from datetime import datetime, timezone
+from decimal import Decimal, localcontext
 
 from . import store
 
@@ -41,7 +42,6 @@ def account_alias(label):
 
 
 def amount(cell, signed=False):
-    from decimal import Decimal
     if cell.value is None:
         return None
     if type(cell.value) not in (int, float):
@@ -52,6 +52,8 @@ def amount(cell, signed=False):
 
 
 def valuation_currency(fmt):
+    if not isinstance(fmt, str):
+        raise ValueError("평가통화 서식 없음")
     # Locale-only markers such as [$-409] do not specify a currency.
     fmt = re.sub(r"\[\$-[\da-fA-F]+\]", "", fmt).upper()
     currencies = []
@@ -67,7 +69,7 @@ def valuation_currency(fmt):
     return currencies[0]
 
 
-def workbook_accounts(path):
+def workbook_accounts(path, *, include_pnl=False):
     """Read the current source in memory, preserving account labels and displayed measures."""
     try:
         from openpyxl import load_workbook
@@ -112,12 +114,42 @@ def workbook_accounts(path):
                         account = accounts.setdefault((provider, account_alias(label)), {"label": label, "rows": []})
                         if account["label"] != label or qty.value is None or val.value is None:
                             raise ValueError
+                        if "시장" in headings and "종목코드" in headings:
+                            market = row[headings.index("시장")].value
+                            code = row[headings.index("종목코드")].value
+                            prefix = {"KR":"stock:KR:", "KRX":"stock:KR:", "KOSPI":"stock:KR:", "KOSDAQ":"stock:KR:",
+                                      "US":"stock:US:", "NYSE":"stock:US:", "NASDAQ":"stock:US:", "AMEX":"stock:US:",
+                                      "KRAKEN_X":"token:XT:"}.get(str(market).strip().upper())
+                            ids = account.setdefault("identifiers",{}).setdefault((symbol,currency),set())
+                            if prefix and isinstance(code,str) and re.fullmatch(r"[A-Za-z0-9.\-]{1,32}",code.strip()):
+                                ids.add(prefix+code.strip().upper())
+                            elif market is not None or code is not None:
+                                ids.add("invalid:workbook")
                         row_values = (symbol, currency, amount(qty), amount(val), amount(gain, True),
                                       amount(rate, True), amount(cost), amount(price))
                         if rate.value is not None and "%" not in rate.number_format:
                             raise ValueError
                         if row_values[2] == "0" and row_values[3] != "0":
                             raise ValueError
+                        if include_pnl and row_values[2] != "0":
+                            try:
+                                gain_ccy = valuation_currency(gain.number_format)
+                            except ValueError:
+                                gain_ccy = None
+                            totals = account.setdefault("pnl", {})
+                            key = (symbol, currency)
+                            prior = totals.get(key, Decimal(0))
+                            with localcontext() as ctx:
+                                ctx.prec = 100
+                                lot_gain = Decimal(row_values[4]) if row_values[4] is not None and gain_ccy == currency else None
+                                if lot_gain is None and row_values[6] is not None:
+                                    try:
+                                        cost_ccy = valuation_currency(cost.number_format)
+                                    except ValueError:
+                                        cost_ccy = None
+                                    if cost_ccy == currency and Decimal(row_values[6]) > 0:
+                                        lot_gain = Decimal(row_values[3])-Decimal(row_values[2])*Decimal(row_values[6])
+                                totals[key] = prior+lot_gain if prior is not None and lot_gain is not None else None
                         account["rows"].append(row_values)
                     except (ValueError, KeyError, IndexError) as exc:
                         raise WorkbookInputError(f"시트 {tab}, {n}행의 기관·수량·금액·통화·퍼센트 서식을 확인하세요.") from exc
@@ -282,7 +314,6 @@ def metadata(package):
 
 def workbook_view(account, when):
     # Reuse the existing within-currency weights. Detailed account metrics stay in the workbook.
-    from decimal import Decimal, localcontext
     totals = {}
     with localcontext() as ctx:
         ctx.prec = 100

@@ -1,0 +1,21 @@
+{
+  "order": 10,
+  "id": "exposure",
+  "title": "내 포트폴리오 노출·현금 일정",
+  "agents": [
+    "whale",
+    "crypto",
+    "real_estate",
+    "equities",
+    "us_small_cap_high_beta"
+  ],
+  "stale_days": 7,
+  "assessment": "계좌·평가통화 안에서 보유 비중, 최대 노출, 미평가와 현금 필요일을 점검한다.",
+  "sources": [
+    {
+      "kind": "portfolio",
+      "id": "exposure",
+      "label": "최신 로컬 보유와 현금 일정"
+    }
+  ]
+}

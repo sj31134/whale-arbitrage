@@ -1,0 +1,30 @@
+{
+  "order": 1,
+  "id": "macro",
+  "title": "거시경제·경기",
+  "agents": [
+    "whale",
+    "crypto",
+    "real_estate",
+    "equities",
+    "us_small_cap_high_beta"
+  ],
+  "stale_days": 65,
+  "assessment": "성장·고용 변화에 따른 수요와 이익 가정을 점검한다.",
+  "sources": [
+    {
+      "kind": "fred",
+      "id": "UNRATE",
+      "label": "미국 실업률",
+      "unit": "%",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=UNRATE"
+    },
+    {
+      "kind": "fred",
+      "id": "CPIAUCSL",
+      "label": "미국 소비자물가지수",
+      "unit": "지수",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL"
+    }
+  ]
+}

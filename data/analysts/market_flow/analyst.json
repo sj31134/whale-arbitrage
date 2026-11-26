@@ -1,0 +1,34 @@
+{
+  "order": 8,
+  "id": "market_flow",
+  "title": "가격·수급·포지션",
+  "agents": [
+    "whale",
+    "crypto",
+    "real_estate",
+    "equities",
+    "us_small_cap_high_beta"
+  ],
+  "stale_days": 3,
+  "assessment": "전일 대비 가격과 체인 순유입 변화를 확인하고 지갑 이동의 원인을 검토한다.",
+  "sources": [
+    {
+      "kind": "upbit",
+      "id": "upbit",
+      "label": "업비트 전체 원화마켓",
+      "url": "https://api.upbit.com/v1/ticker/all?quote_currencies=KRW"
+    },
+    {
+      "kind": "whale",
+      "id": "whale",
+      "label": "로컬 고래 일별 순유입"
+    },
+    {
+      "kind": "fred",
+      "id": "VIXCLS",
+      "label": "미국 변동성 지수",
+      "unit": "지수",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS"
+    }
+  ]
+}

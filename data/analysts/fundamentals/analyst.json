@@ -1,0 +1,32 @@
+{
+  "order": 7,
+  "id": "fundamentals",
+  "title": "개별 자산·권리",
+  "agents": [
+    "equities",
+    "us_small_cap_high_beta",
+    "crypto",
+    "real_estate"
+  ],
+  "stale_days": 100,
+  "assessment": "발행 주체와 공개일을 대조하고 재무·권리 변화를 원문으로 확인한다.",
+  "sources": [
+    {
+      "kind": "dart",
+      "id": "dart",
+      "label": "금감원 최근 14일 정기공시 · 최신 100건",
+      "url": "https://opendart.fss.or.kr/api/list.json"
+    },
+    {
+      "kind": "atom",
+      "id": "edgar",
+      "label": "미 SEC 신규 10-Q 분기공시",
+      "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=10-Q&owner=exclude&count=100&output=atom"
+    },
+    {
+      "kind": "registry",
+      "id": "registry",
+      "label": "저장소 자산별 기초지표 연구 기록"
+    }
+  ]
+}

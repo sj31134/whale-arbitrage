@@ -1,0 +1,22 @@
+{
+  "order": 5,
+  "id": "policy",
+  "title": "정책·규제·세제",
+  "agents": [
+    "whale",
+    "crypto",
+    "real_estate",
+    "equities",
+    "us_small_cap_high_beta"
+  ],
+  "stale_days": 60,
+  "assessment": "공표·시행 단계와 적용 대상을 원문에서 대조한다.",
+  "sources": [
+    {
+      "kind": "rss",
+      "id": "fed",
+      "label": "미 연준 통화정책 발표",
+      "url": "https://www.federalreserve.gov/feeds/press_monetary.xml"
+    }
+  ]
+}

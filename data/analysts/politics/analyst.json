@@ -1,0 +1,21 @@
+{
+  "order": 4,
+  "id": "politics",
+  "title": "정치·의회",
+  "agents": [
+    "real_estate",
+    "equities",
+    "us_small_cap_high_beta",
+    "crypto"
+  ],
+  "stale_days": 30,
+  "assessment": "표결 대상과 관할 시장을 식별하고 입법 단계를 확인한다.",
+  "sources": [
+    {
+      "kind": "votes",
+      "id": "commons",
+      "label": "영국 하원 표결",
+      "url": "https://commonsvotes-api.parliament.uk/data/divisions.json/search?queryParameters.take=20"
+    }
+  ]
+}

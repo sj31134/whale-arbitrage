@@ -1,0 +1,29 @@
+{
+  "order": 6,
+  "id": "industry",
+  "title": "산업·기술·실물 수급",
+  "agents": [
+    "equities",
+    "us_small_cap_high_beta",
+    "real_estate",
+    "crypto"
+  ],
+  "stale_days": 65,
+  "assessment": "생산과 공급 변화가 마진 또는 임대 수요에 미치는 경로를 검토한다.",
+  "sources": [
+    {
+      "kind": "fred",
+      "id": "INDPRO",
+      "label": "미국 산업생산",
+      "unit": "지수",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=INDPRO"
+    },
+    {
+      "kind": "research",
+      "id": "seoul_apt_supply_annual_units",
+      "label": "서울 연간 아파트 공급 연구값",
+      "unit": "호/년",
+      "group": "real_estate"
+    }
+  ]
+}

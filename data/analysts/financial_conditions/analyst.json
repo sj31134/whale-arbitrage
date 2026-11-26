@@ -1,0 +1,37 @@
+{
+  "order": 2,
+  "id": "financial_conditions",
+  "title": "금리·환율·신용",
+  "agents": [
+    "whale",
+    "crypto",
+    "real_estate",
+    "equities",
+    "us_small_cap_high_beta"
+  ],
+  "stale_days": 10,
+  "assessment": "차환비용과 원화 환산 노출을 분리해 점검한다.",
+  "sources": [
+    {
+      "kind": "fred",
+      "id": "DGS10",
+      "label": "미국 10년 국채금리",
+      "unit": "%",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10"
+    },
+    {
+      "kind": "fred",
+      "id": "DEXKOUS",
+      "label": "달러당 원화",
+      "unit": "원/USD",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DEXKOUS"
+    },
+    {
+      "kind": "fred",
+      "id": "BAMLH0A0HYM2",
+      "label": "미국 하이일드 신용 스프레드",
+      "unit": "%",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2"
+    }
+  ]
+}
