@@ -194,7 +194,7 @@
 </details>
 
 <details>
-<summary>코인 (198개)</summary>
+<summary>코인 (200개)</summary>
 
 - `agents/`
   - `crypto/`
@@ -332,6 +332,8 @@
   - `project3_shap/`
     - [shap_values.csv](<../data/project3_shap/shap_values.csv>)
   - [upbit_daily.csv](<../data/upbit_daily.csv>)
+- `private_accounts/`
+  - [spot_history_import.py](<../private_accounts/spot_history_import.py>)
 - `scripts/`
   - `subprojects/`
     - `arbitrage/`
@@ -428,6 +430,7 @@
     - [test_data_collector.py](<../trading_bot/tests/test_data_collector.py>)
     - [test_integration.py](<../trading_bot/tests/test_integration.py>)
     - [test_settings_manager.py](<../trading_bot/tests/test_settings_manager.py>)
+    - [test_trading_hold.py](<../trading_bot/tests/test_trading_hold.py>)
   - `ui/`
     - [__init__.py](<../trading_bot/ui/__init__.py>)
     - [trading_page.py](<../trading_bot/ui/trading_page.py>)
@@ -511,12 +514,18 @@
 </details>
 
 <details>
-<summary>주식 (52개)</summary>
+<summary>주식 (68개)</summary>
 
 - `agents/`
   - `equities/`
     - [README.md](<equities/README.md>)
+    - [cash_review.py](<equities/cash_review.py>)
+    - [daily_bars.py](<equities/daily_bars.py>)
     - `memos/`
+      - [2026-11-24-cash-review.md](<equities/memos/2026-11-24-cash-review.md>)
+      - [2026-11-24-public-sma-forward.csv](<equities/memos/2026-11-24-public-sma-forward.csv>)
+      - [2026-11-24-sma-study.md](<equities/memos/2026-11-24-sma-study.md>)
+      - [2026-11-24-strategy-evidence.md](<equities/memos/2026-11-24-strategy-evidence.md>)
       - [MEMO_CN-0700.md](<equities/memos/MEMO_CN-0700.md>)
       - [MEMO_CN-1211.md](<equities/memos/MEMO_CN-1211.md>)
       - [MEMO_CN-1810.md](<equities/memos/MEMO_CN-1810.md>)
@@ -573,6 +582,18 @@
       - `memory/`
         - [EQ-EATON_20261118_204855.md](<../branch/investor_agent/data/memory/EQ-EATON_20261118_204855.md>)
         - [EQ-TSMC_20261118_204855.md](<../branch/investor_agent/data/memory/EQ-TSMC_20261118_204855.md>)
+- `private_accounts/`
+  - [binance_daily.py](<../private_accounts/binance_daily.py>)
+  - [equity_screen.py](<../private_accounts/equity_screen.py>)
+  - [quant.py](<../private_accounts/quant.py>)
+  - [quant_page.py](<../private_accounts/quant_page.py>)
+  - [strategy_catalog.py](<../private_accounts/strategy_catalog.py>)
+  - [strategy_page.py](<../private_accounts/strategy_page.py>)
+  - [strategy_registry.py](<../private_accounts/strategy_registry.py>)
+- `tests/`
+  - [test_binance_daily.py](<../tests/test_binance_daily.py>)
+  - [test_quant.py](<../tests/test_quant.py>)
+  - [test_strategy_registry.py](<../tests/test_strategy_registry.py>)
 
 </details>
 
@@ -612,7 +633,7 @@
 </details>
 
 <details>
-<summary>공용 운영·투자 (217개)</summary>
+<summary>공용 운영·투자 (274개)</summary>
 
 - `.agents/`
   - `skills/`
@@ -631,7 +652,22 @@
 - `agents/`
   - [FILE_MAP.csv](<FILE_MAP.csv>)
   - [FILE_TREE.md](<FILE_TREE.md>)
+  - [INVESTMENT_MANDATE.md](<INVESTMENT_MANDATE.md>)
   - [README.md](<README.md>)
+  - [__init__.py](<__init__.py>)
+  - [analyst_feeds.py](<analyst_feeds.py>)
+  - [desk_variables.py](<desk_variables.py>)
+  - [intelligence.py](<intelligence.py>)
+  - `manager/`
+    - [DASHBOARD_REVIEW.csv](<manager/DASHBOARD_REVIEW.csv>)
+    - [README.md](<manager/README.md>)
+    - [WORK.md](<manager/WORK.md>)
+  - [market_anomalies.py](<market_anomalies.py>)
+  - [market_prices.py](<market_prices.py>)
+  - [personas.py](<personas.py>)
+  - [portfolio.py](<portfolio.py>)
+  - [public_variables.py](<public_variables.py>)
+  - [research_chat.py](<research_chat.py>)
 - `app/`
   - [__init__.py](<../app/__init__.py>)
   - [main.py](<../app/main.py>)
@@ -737,6 +773,28 @@
       - [test_data_pipeline.py](<../branch/investor_agent/tests/test_data_pipeline.py>)
       - [test_investor_agent.py](<../branch/investor_agent/tests/test_investor_agent.py>)
 - `data/`
+  - `analysts/`
+    - [README.md](<../data/analysts/README.md>)
+    - `exposure/`
+      - [analyst.json](<../data/analysts/exposure/analyst.json>)
+    - `financial_conditions/`
+      - [analyst.json](<../data/analysts/financial_conditions/analyst.json>)
+    - `fundamentals/`
+      - [analyst.json](<../data/analysts/fundamentals/analyst.json>)
+    - `global_events/`
+      - [analyst.json](<../data/analysts/global_events/analyst.json>)
+    - `industry/`
+      - [analyst.json](<../data/analysts/industry/analyst.json>)
+    - `macro/`
+      - [analyst.json](<../data/analysts/macro/analyst.json>)
+    - `market_flow/`
+      - [analyst.json](<../data/analysts/market_flow/analyst.json>)
+    - `policy/`
+      - [analyst.json](<../data/analysts/policy/analyst.json>)
+    - `politics/`
+      - [analyst.json](<../data/analysts/politics/analyst.json>)
+    - `social/`
+      - [analyst.json](<../data/analysts/social/analyst.json>)
   - [project.db.tar.gz](<../data/project.db.tar.gz>)
 - [docker-compose.prod.yml](<../docker-compose.prod.yml>)
 - [docker-compose.yml](<../docker-compose.yml>)
@@ -746,6 +804,7 @@
     - [DB_구조_분석_요약.md](<../docs/architecture/DB_구조_분석_요약.md>)
     - [ERD.md](<../docs/architecture/ERD.md>)
     - [README_테이블_통합_및_데이터_수집.md](<../docs/architecture/README_테이블_통합_및_데이터_수집.md>)
+    - [investment_system_references.md](<../docs/architecture/investment_system_references.md>)
     - [timezone_standard.md](<../docs/architecture/timezone_standard.md>)
     - [메뉴별_테이블_및_데이터_기간_정리.md](<../docs/architecture/메뉴별_테이블_및_데이터_기간_정리.md>)
     - [스키마_비교_및_매핑_전략.md](<../docs/architecture/스키마_비교_및_매핑_전략.md>)
@@ -815,14 +874,38 @@
   - [README.md](<../private_accounts/README.md>)
   - [__init__.py](<../private_accounts/__init__.py>)
   - [__main__.py](<../private_accounts/__main__.py>)
+  - [account_performance.py](<../private_accounts/account_performance.py>)
+  - [chat_page.py](<../private_accounts/chat_page.py>)
+  - [chat_service.py](<../private_accounts/chat_service.py>)
+  - [daily_review.py](<../private_accounts/daily_review.py>)
+  - [dashboard_launcher.py](<../private_accounts/dashboard_launcher.py>)
+  - [desk_feedback.py](<../private_accounts/desk_feedback.py>)
   - [exchanges.py](<../private_accounts/exchanges.py>)
+  - [history_panel.py](<../private_accounts/history_panel.py>)
+  - [launcher.js](<../private_accounts/launcher.js>)
+  - [live.js](<../private_accounts/live.js>)
+  - [live_panel.py](<../private_accounts/live_panel.py>)
+  - [live_valuation.py](<../private_accounts/live_valuation.py>)
+  - [local_model.py](<../private_accounts/local_model.py>)
   - [local_sources.py](<../private_accounts/local_sources.py>)
+  - [market_panel.py](<../private_accounts/market_panel.py>)
+  - [market_review.py](<../private_accounts/market_review.py>)
+  - [monitor.css](<../private_accounts/monitor.css>)
+  - [monitor.py](<../private_accounts/monitor.py>)
   - `native/`
     - [AccountReader.swift](<../private_accounts/native/AccountReader.swift>)
+    - [research_chat.cpp](<../private_accounts/native/research_chat.cpp>)
     - `tests/`
       - [ReaderTests.swift](<../private_accounts/native/tests/ReaderTests.swift>)
+  - [open_dashboard.command](<../private_accounts/open_dashboard.command>)
+  - [price_history.py](<../private_accounts/price_history.py>)
+  - [reports.py](<../private_accounts/reports.py>)
+  - [research_archive.py](<../private_accounts/research_archive.py>)
+  - [research_book.py](<../private_accounts/research_book.py>)
+  - [research_page.py](<../private_accounts/research_page.py>)
   - [store.py](<../private_accounts/store.py>)
   - [view.py](<../private_accounts/view.py>)
+  - [work.py](<../private_accounts/work.py>)
 - [requirements.txt](<../requirements.txt>)
 - [runtime.txt](<../runtime.txt>)
 - `scripts/`
@@ -882,9 +965,16 @@
 - `src/`
   - [__init__.py](<../src/__init__.py>)
 - `tests/`
+  - [conftest.py](<../tests/conftest.py>)
   - [test_deployment.py](<../tests/test_deployment.py>)
   - [test_integration.py](<../tests/test_integration.py>)
+  - [test_investment_pipeline.py](<../tests/test_investment_pipeline.py>)
+  - [test_live_valuation.py](<../tests/test_live_valuation.py>)
+  - [test_market_review.py](<../tests/test_market_review.py>)
+  - [test_price_history.py](<../tests/test_price_history.py>)
   - [test_private_accounts.py](<../tests/test_private_accounts.py>)
+  - [test_research_book.py](<../tests/test_research_book.py>)
+  - [test_work.py](<../tests/test_work.py>)
 - [whale_tracking_research.code-workspace](<../whale_tracking_research.code-workspace>)
 - [코인_데이터스키마_구조.xlsx](<../코인_데이터스키마_구조.xlsx>)
 

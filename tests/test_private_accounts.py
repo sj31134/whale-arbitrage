@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import http.client
 import json
 import errno
@@ -139,8 +140,8 @@ def test_private_http_requests(local, monkeypatch):
     assert address == ("127.0.0.1", 8765)
     u = urlsplit(url)
     for method, path, host, code in [
-        ("GET", u.path, u.netloc, 200), ("GET", "/", u.netloc, 404),
-        ("GET", u.path, "example.invalid", 404), ("POST", u.path, u.netloc, 501)]:
+        ("GET", u.path + "/portfolio", u.netloc, 200), ("GET", "/", u.netloc, 404),
+        ("GET", u.path, "example.invalid", 404), ("POST", u.path, u.netloc, 404)]:
         with _request_socket(server, handler, method, path, host) as c:
             response = http_client_response(c)
             assert response.status == code
@@ -149,12 +150,22 @@ def test_private_http_requests(local, monkeypatch):
             assert (b"005930" in response.read()) == (code == 200)
 
 
+@contextmanager
 def _request_socket(server, handler, method, path, host):
     peer, client = socket.socketpair()
-    with peer:
+    def serve():
+        with peer:
+            handler(peer, ("127.0.0.1", 1), server)
+    thread = threading.Thread(target=serve, daemon=True)
+    with client:
+        client.settimeout(4)
+        thread.start()
         client.sendall(f"{method} {path} HTTP/1.0\r\nHost: {host}\r\n\r\n".encode())
-        handler(peer, ("127.0.0.1", 1), server)
-    return client
+        try:
+            yield client
+        finally:
+            client.close()
+            thread.join(timeout=4)
 
 
 def http_client_response(client):
@@ -177,7 +188,7 @@ def test_private_http_listener(local):
         u = urlsplit(url)
         assert u.hostname == server.server_address[0] == "127.0.0.1"
         client = http.client.HTTPConnection(u.hostname, u.port, timeout=3)
-        client.request("GET", u.path)
+        client.request("GET", u.path + "/portfolio")
         response = client.getresponse()
         assert response.status == 200 and b"005930" in response.read()
         client.close()
@@ -314,7 +325,7 @@ def test_dashboard_skips_totals_and_reports_partial_holdings(workbook_setup, loc
     _, url = view.server(local, package=package)
     _, handler = factory.call_args.args
     u = urlsplit(url)
-    with _request_socket(httpd, handler, "GET", u.path, u.netloc) as sock:
+    with _request_socket(httpd, handler, "GET", u.path + "/portfolio", u.netloc) as sock:
         response = http_client_response(sock)
         assert response.status == 200 and "시험 종목" in response.read().decode()
 
@@ -322,8 +333,213 @@ def test_dashboard_skips_totals_and_reports_partial_holdings(workbook_setup, loc
     sheet["F8"] = 1
     wb.save(path)
     wb.close()
-    with _request_socket(httpd, handler, "GET", u.path, u.netloc) as sock:
+    with _request_socket(httpd, handler, "GET", u.path + "/portfolio", u.netloc) as sock:
         response = http_client_response(sock)
         data = response.read().decode()
         assert response.status == 503 and "8행" in data and "private-instrument" not in data
         assert response.getheader("Cache-Control") == "no-store"
+
+
+def test_portfolio_review_routes_real_sources_within_accounts(workbook_setup, local, capsys):
+    from private_accounts import local_sources as src
+    from agents.portfolio import portfolio_review
+
+    root = workbook_setup
+    src.prepare(root)
+    package = root / "private_accounts"
+    roles = package / ".local/agent_roles.json"
+    roles.write_text(json.dumps([
+        dict(provider="kis", account="isa", symbol="시험 종목", role="us_small_cap_high_beta"),
+        dict(provider="kis", account="irp", symbol="시험 현금", role="cash"),
+    ]))
+    roles.chmod(0o600)
+
+    def positions(domain):
+        doc = portfolio_review(local, package, domain)
+        return {a["account"]: a["holdings"] for a in doc["accounts"]}
+
+    assert positions("whale")["spot"][0]["symbol"] == "TEST"
+    assert positions("crypto")["spot"][0]["symbol"] == "TEST"
+    assert positions("us_small_cap_high_beta")["irp"] == []
+    assert positions("us_small_cap_high_beta")["isa"][0]["task"] == "시총·베타·단기 수급 검증"
+    assert positions("equities")["irp"] == [dict(symbol="시험 종목", currency="KRW", weight_pct="75",
+                                              task="증권 계좌 상품 유형 확인")]
+    assert all(not holdings for holdings in positions("real_estate").values())
+
+    # Use a fixed workbook mtime between two valid, historical snapshots.
+    import os
+    os.utime(package / "accounts_stocks.xlsx", (1735862400, 1735862400))
+    import_sample(local, "OLD,1,USD,40\n", alias="isa")
+    capsys.readouterr()
+    run(["portfolio-review", "equities"], local, root)
+    doc = json.loads(capsys.readouterr().out)
+    assert "upbit" in doc["providers_without_data"]
+    isa, = [a for a in doc["accounts"] if a["account"] == "isa"]
+    assert isa["source"] == "workbook" and len(isa["holdings"]) == 1
+    assert isa["holdings"][0]["symbol"] == "시험 종목"
+
+    import_sample(local, "PROP,1,KRW,5\n", alias="isa", when="2025-01-04T00:00:00Z")
+    roles.write_text(json.dumps([dict(provider="kis", account="isa", symbol="PROP", role="real_estate")]))
+    doc = portfolio_review(local, package, "real_estate")
+    isa, = [a for a in doc["accounts"] if a["account"] == "isa"]
+    assert isa["source"] == "snapshot" and isa["time_basis"] == "balance_as_of"
+    assert isa["holdings"] == [dict(symbol="PROP", currency="KRW", weight_pct="100", task="보유 분석")]
+    roles.chmod(0o644)
+    with pytest.raises(ValueError, match="0600"):
+        portfolio_review(local, package, "whale")
+
+
+def test_daily_review_signed_loss_and_latest_source(workbook_setup, local, capsys, monkeypatch):
+    from openpyxl import load_workbook
+    from agents import intelligence
+    from private_accounts import daily_review
+    src = workbook_setup / "private_accounts"
+    path = src / "accounts_stocks.xlsx"
+    book = load_workbook(path)
+    sheet = book.active
+    # Two rows in one KRW account, one offsetting gain. A USD profit has ambiguous units.
+    for n, val in ((2, -100), (3, 20), (4, 80), (5, -20)):
+        sheet.cell(n, 4, val).number_format = sheet.cell(n, 7).number_format if n != 4 else "General"
+    book.save(path)
+    book.close()
+    path.chmod(0o600)
+    refreshed = []
+    monkeypatch.setattr(intelligence, "collect", lambda package, *, domains=None: refreshed.append(domains))
+    run(["daily-review", "--refresh"], local, workbook_setup)
+    assert refreshed == [None]
+    assert capsys.readouterr().out == "로컬 일일 검토 저장 완료\n"
+    def latest():
+        log = intelligence.private_json(src, daily_review.FILE, {})
+        assert len(log) == 1
+        return next(iter(log.values()))
+    krw = latest()["currencies"]["KRW"]
+    assert (krw["net"],krw["gross_loss"],krw["recovery_pct"]) == ("-80","100","20.00")
+    assert krw["losses"][0]["loss_share_pct"] == "100.0"
+    usd = latest()["currencies"]["USD"]
+    assert usd["known"] == 1 and usd["total"] == 2 and usd["recovery_pct"] is None
+    # Give a saved balance a later as-of than a historical workbook mtime.
+    import os
+    os.utime(path, (1735689600,1735689600))
+    import_sample(local, "NEW,1,KRW,40\n", alias="irp", when="2025-01-04T00:00:00Z")
+    run(["daily-review"], local, workbook_setup)
+    krw = latest()["currencies"]["KRW"]
+    assert krw["known"] == 0 and krw["net"] is None and krw["recovery_pct"] is None
+    assert krw["missing"][0]["symbol"] == "NEW"
+    assert krw["missing"][0]["source"] == "snapshot"
+    assert (src/".local"/daily_review.FILE).stat().st_mode & 0o777 == 0o600
+
+
+def test_daily_flows_compare_like_periods_and_reject_bad_input():
+    import io
+    from datetime import date
+    from private_accounts.daily_review import read_flows
+    row = dict(market="테스트",period="주간",as_of="2025-01-01",metric="순설정",unit="USD",
+               theme="A",net="-10",source="https://example.org/report")
+    def read(rows):
+        return read_flows(io.StringIO(json.dumps(rows)),date(2025,1,2))
+    assert [r["theme"] for r in read([row,dict(row,theme="B",net="2"),row])] == ["B","A"]
+    for invalid in (dict(row,net="NaN"),dict(row,net="unknown"),dict(row,as_of="2025-03-01"),dict(row,source="file:///fake")):
+        with pytest.raises(ValueError):
+            read([invalid])
+    with pytest.raises(ValueError,match="충돌"):
+        read([row,dict(row,net="100")])
+
+
+def test_daily_research_compares_with_previous_day(workbook_setup, local):
+    from datetime import date
+    from agents import intelligence
+    from private_accounts import daily_review, monitor
+
+    package = workbook_setup / "private_accounts"
+    (package / "accounts_stocks.xlsx").chmod(0o600)
+    run(["daily-review"], local, workbook_setup)
+    reports = intelligence.private_json(package, daily_review.FILE, {})
+    first = next(iter(reports.values()))
+    assert first["compared_to"] is None
+    position = intelligence.board(local, package)["positions"][0]
+    evidence = dict(
+        position=position["id"], category="fundamentals", day=date.today().isoformat(), action="evidence",
+        title="공시 테스트", source="https://example.org/filing", value="1", analysis="검증용 근거",
+    )
+    # A dated prior review supplies the comparison, even on repeated intraday runs.
+    intelligence.update_json(package, daily_review.FILE, {}, lambda _: {"2024-12-31": dict(first)})
+    intelligence.manage(local, package, evidence)
+    for _ in range(2):
+        run(["daily-review"], local, workbook_setup)
+        saved = intelligence.private_json(package, daily_review.FILE, {})[first["day"]]
+        assert saved["compared_to"] == "2024-12-31"
+        assert any(o["title"] == "공시 테스트" for o in saved["new_observations"])
+    assert "공시 테스트" in monitor.daily_panel(package, "/test")
+
+
+def test_stable_dashboard_survives_restart_and_reuses_listener(local, tmp_path, monkeypatch, listener):
+    from private_accounts import dashboard_launcher as launcher
+    from urllib.request import build_opener, ProxyHandler
+
+    package = tmp_path.resolve() / "project"
+    package.mkdir()
+    key = launcher.identity(package)
+    assert launcher.identity(package) == key
+    assert (package / ".local" / launcher.IDENTITY).stat().st_mode & 0o777 == 0o600
+    client = build_opener(ProxyHandler({}))
+    port = 0
+    links = []
+    for _ in range(2):
+        http, url = listener(local, port, package, identity_key=key)
+        port = http.server_port
+        monkeypatch.setattr(launcher, "PORT", port)
+        worker = threading.Thread(target=http.serve_forever, daemon=True)
+        worker.start()
+        try:
+            assert launcher.running(key)
+            with pytest.raises(ValueError):
+                launcher.running(b"other")
+            links.append(launcher.entry(key))
+            assert links[-1] == url + "/desk/manager"
+            with client.open(links[-1], timeout=5) as response:
+                assert response.status == 200
+            with monkeypatch.context() as patch:
+                patch.setattr(launcher.subprocess, "Popen", lambda *a, **kw: pytest.fail("duplicate listener"))
+                patch.setattr(launcher.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0))
+                patch.setattr(launcher.webbrowser, "open", lambda url: True)
+                launcher.open_manager(package)
+        finally:
+            http.shutdown()
+            http.server_close()
+            worker.join()
+    assert links[0] == links[1] and not launcher.running(key)
+
+
+def test_public_launcher_only_opens_the_local_window(local, tmp_path, monkeypatch, listener):
+    from contextlib import closing
+    import re
+    from urllib.parse import urlencode
+    from private_accounts import dashboard_launcher
+
+    package = tmp_path.resolve() / "project"
+    package.mkdir()
+    identity = dashboard_launcher.identity(package)
+    native_open = Mock()
+    monkeypatch.setattr(dashboard_launcher, "open_running_manager", native_open)
+    server, private_url = listener(local, 0, package, identity_key=identity)
+    port = server.server_port
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with closing(http.client.HTTPConnection("127.0.0.1", port)) as client:
+            client.request("GET", "/start")
+            reply = client.getresponse()
+            body = reply.read().decode()
+            assert reply.status == 200 and "투자 대시보드 열기" in body
+            assert urlsplit(private_url).path not in body
+            native_open.assert_not_called()
+            nonce = re.search(r'name="open" value="([^"]+)"', body)[1]
+            headers = {"Content-Type": "application/x-www-form-urlencoded", "Origin": f"http://127.0.0.1:{port}"}
+            client.request("POST", "/start", urlencode({"open": nonce}), headers)
+            reply = client.getresponse()
+            assert reply.status == 200 and urlsplit(private_url).path not in reply.read().decode()
+            native_open.assert_called_once_with(package, identity, port)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
