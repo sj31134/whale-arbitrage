@@ -1,10 +1,14 @@
 # 🐋 Whale Tracking & Multi-Asset Research Monorepo
 
+[로컬 투자 관리 화면](private_accounts/README.md) · [10개 정보 애널리스트와 종목 연결](data/analysts/README.md)
+
+투자 분석은 Codex·Claude·Cowork의 [공통 작업 접수](agents/manager/WORK.md)로 지시한다. Mac에서는 `python3 -m private_accounts dashboard --open`으로 분야별 결과, 매니저 종합, 자료 기준시각과 계좌 현황을 확인한다.
+
 암호화폐 고래 추적·차익거래·Risk AI 웹 플랫폼, 업비트 자동매매 봇, 기관급 멀티에셋 투자 에이전트(`branch/investor_agent`), RWA 투명성 연구(`branch/RWATransparency`)를 목적별 폴더로 체계화한 통합 저장소입니다.
 
 > 상세 폴더·파일 구조는 [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) 및 [docs/README.md](./docs/README.md)를 참조하세요.
 
-[프로젝트 목표·운영 지침·검증 명령](AGENTS.md)에서 분석과 계좌 관리의 기준을 확인할 수 있습니다.
+[프로젝트 목표·운영 지침·검증 명령](AGENTS.md)과 [분야별 투자 목표·10개 정보 범주](agents/INVESTMENT_MANDATE.md)에서 보유 자산과 투자 후보를 검토하는 기준을 확인할 수 있습니다. 직접 트레이딩은 보류 중입니다.
 
 [전체 폴더트리](agents/FILE_TREE.md)와 [파일 분류표](agents/FILE_MAP.csv)에서 담당 분야와 실제 위치를 확인할 수 있습니다. 분야별 코드와 데이터는 [고래](agents/whale/), [코인](agents/crypto/), [부동산](agents/real_estate/), [주식](agents/equities/), [미국 소형·고베타 주식](agents/us_small_cap_high_beta/)에서 찾을 수 있습니다.
 
@@ -15,10 +19,11 @@
 | 영역 | 경로 | 설명 |
 | :--- | :--- | :--- |
 | **1. Crypto Web App (Arbitrage & Risk AI)** | `app/`, `src/`, `scripts/`, `sql/`, `data/` | Streamlit 10페이지 분석 대시보드, 멀티체인 고래 수집, 파생/고래 기반 Risk AI 모델 |
-| **2. Upbit Auto Trading Bot** | `trading_bot/` | `data/project.db` 읽기 전용 연동, Risk AI + 김치 프리미엄 필터 기반 자동매매 봇 |
+| **2. Upbit Auto Trading Bot** | `trading_bot/` | `data/project.db` 읽기 전용 연동, Risk AI + 김치 프리미엄 필터 기반 신호 분석. 실주문 보류 |
 | **3. Institutional Investor Agent** | `branch/investor_agent/` | 글로벌 멀티에셋(US/KR/JP/CN/Macro/Crypto/RE) + Order Flow·부동산/경매 서브에이전트 + 5-Factor 타이밍 엔진 |
 | **4. RWA Transparency Research** | `branch/RWATransparency/` | TDT(Transparency Digital Twin) 3계층 지표, 패널 회귀·SHAP 분석, 논문 및 대시보드 |
 | **5. Agent Skills** | `.agents/skills/` | Antigravity AI 에이전트용 투자 원칙 및 부동산/경매 전담 스킬 명세 |
+| **6. Local Investment Management** | `private_accounts/`, `agents/`, `data/analysts/` | 개인 Mac의 조회 전용 계좌 평가, 투자 매니저와 다섯 담당 분석실, 10개 공개 정보 범주, 퀀트 SMA·전략 검증, 일일 검토와 작업 원장 |
 
 ---
 
@@ -84,12 +89,17 @@ SUPABASE_SERVICE_ROLE_KEY=your_key
 
 ### 테스트 실행
 ```bash
-# 코어 수집·피처·통합·배포 테스트
-pytest tests -v
+# 분류표와 호환 경로 검사
+python3 scripts/maintenance/check_agent_layout.py
+
+# 코어 수집·피처·통합·배포, 로컬 투자 관리 테스트
+python3 -m pytest -q tests
 
 # 멀티에셋 투자 에이전트 전체 테스트 (tmp_path 격리)
-pytest branch/investor_agent/tests -v
+python3 -m pytest -q branch/investor_agent/tests
 
-# 트레이딩 봇 단위 테스트
-pytest trading_bot/tests/test_settings_manager.py trading_bot/tests/test_data_collector.py -v
+# 트레이딩 봇 테스트 (실주문·봇 시작 보류 검증 포함)
+python3 -m pytest -q trading_bot/tests
 ```
+
+2026-11-26 기준 통과 건수는 순서대로 133건, 28건, 14건이며 경로 검사는 812개 파일이 일치했다. `data/project.db`가 없는 체크아웃에서는 `tests`의 통합 시험 2건을 건너뛴다. 커밋 전 검사 전체는 [운영 지침](AGENTS.md#변경-및-검증-하네스)에 있다.

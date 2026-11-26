@@ -4,12 +4,14 @@
 
 분야별 문서 원본은 [고래 문서](../agents/whale/docs/)와 [코인 문서](../agents/crypto/docs/)에 있다. 아래 경로는 기존 문서 링크로도 열 수 있다.
 
+[투자관리 시스템 선행 사례](architecture/investment_system_references.md)는 로컬 포트폴리오 원장, 다중 시장 시세, 전략 검증, 에이전트 평가에 참고할 15개 프로젝트를 비교한다.
+
 ## 📁 디렉토리 구조
 
 ```text
 docs/
 ├── README.md                  # 이 파일 (문서 인덱스)
-├── architecture/              # DB 스키마, ERD, 타임존 표준, Project 3 설계 (9개)
+├── architecture/              # DB 스키마, ERD, 타임존 표준, 투자관리 선행 사례, Project 3 설계 (10개)
 ├── guides/                    # API 키, SQL, Trading Bot, 라벨링, 수집 파이프라인 가이드 (13개)
 ├── deployment/                # Streamlit Cloud, Docker, ngrok, 연동·테스트 가이드 (11개)
 └── archive/                   # 완료된 시점별 보고서·장애진단·PM 로그 (81개)

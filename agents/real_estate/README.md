@@ -1,5 +1,9 @@
 # 부동산·법원경매
 
+보유 실물의 순현금흐름·부채 만기·보증금 반환 능력을 점검한다. 후보 물건은 실거래·토지지분·공급·권리 인수액을 원문과 대조하고 총필요현금을 산출한다. [공통 투자 지침과 정보 범주](../INVESTMENT_MANDATE.md)
+
+[10개 정보 애널리스트](../../data/analysts/README.md)의 종목 근거와 공통 변수를 함께 받으려면 아래 조회 명령에 `--signals`를 추가한다. 로컬 보유분 조회는 `python3 -m private_accounts portfolio-review real_estate`를 사용한다.
+
 | 업무 | 호출 경로 | 구현 |
 | --- | --- | --- |
 | 부동산 후보 평가·배분 | 투자 CLI의 `--universe real_estate` → `run_real_estate_pipeline()` | [부동산 스크리너](screeners/real_estate_screener.py) |

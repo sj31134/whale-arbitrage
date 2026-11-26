@@ -1,5 +1,9 @@
 # 고래 추적
 
+보유 코인과 관찰 후보에서 평소와 다른 대형 이동을 찾는다. 체인 거래·주소 라벨·내부 이체 가능성을 대조해 코인 담당에게 해석과 반증 조건을 전달한다. [공통 투자 지침과 정보 범주](../INVESTMENT_MANDATE.md)
+
+[10개 정보 애널리스트](../../data/analysts/README.md)의 종목 근거와 공통 변수를 함께 받으려면 아래 조회 명령에 `--signals`를 추가한다. 로컬 보유분 조회는 `python3 -m private_accounts portfolio-review whale`를 사용한다.
+
 어떤 지갑이 어느 체인에서 얼마를 보냈는지 추적한다. 이 분야는 멀티체인 수집기와 지갑 라벨링 스크립트로 구현되어 있다.
 
 - [체인별 거래 조회](chain/multi_chain_collector.py)

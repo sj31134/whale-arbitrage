@@ -1,7 +1,12 @@
-# 분야별 파일
+# 투자 에이전트
+
+[투자 운영 기준](INVESTMENT_MANDATE.md)에서 분야별 보유·후보 목표, 공통 정보 범주, 판단을 바꿀 조건을 확인할 수 있다. 직접 트레이딩은 보류 중이다.
+
+## 분야별 파일
 
 | 분야 | 먼저 볼 폴더 |
 | --- | --- |
+| [투자 매니저](manager/) | [선택 분야 보고서와 종합](../private_accounts/README.md#투자-매니저와-분야별-분석실) · [분야별 데이터 배정](research_chat.py) |
 | [고래](whale/) | [체인 수집기](whale/chain/), [지갑 수집](whale/collectors/), [라벨링](whale/labeling/) |
 | [코인](crypto/) | [시세 수집](crypto/collectors/), [코인 스크리너](crypto/screeners/), [운영 문서](crypto/docs/) |
 | [부동산](real_estate/) | [부동산·경매 분석 코드](real_estate/subagent/), [경매 데이터](real_estate/data/court_auction/), [메모](real_estate/memos/) |
