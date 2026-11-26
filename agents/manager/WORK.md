@@ -1,6 +1,6 @@
 # Mac 투자 작업 접수와 인계
 
-세 도구 중 어느 대화에서든 다음 문장을 붙여 넣을 수 있다.
+Codex·Claude·Cowork·Antigravity 네 도구 중 어느 대화에서든 다음 문장을 붙여 넣을 수 있다.
 
 > 계좌 최신성 감사를 접수해. Mac 기본 작업 트리에서 작업지시서를 발급하고 이 세션이 선점한 뒤 진행해.
 >
@@ -35,7 +35,7 @@
 | 공개 수집기 · 원천별 마지막 성공 보존 | research-refresh, price-history의 공개 수집 단계 | 카탈로그·공개 상장목록 | .local/analyst_observations.json·public_quotes.sqlite3 등. 계좌 입력 없이 갱신 | 범주·시세 담당 |
 | 로컬 평가·연구 엔진 · 대조와 검증 | live_valuation.mark_account, price_history.snapshots, quant_page.experiment, 투자 CLI | 계좌와 시세의 로컬 조인·원천별 일봉·연구 데이터 | account_marks.sqlite3, SMA 캐시, 투자 CLI 메모 | 계좌 ①·주식 ②·매니저 |
 | 거래 봇 · 보류 | trading_bot/core/bot_engine.py의 TradingBotEngine.start, execution/order_executor.py | 보류 구현과 가짜 요청 시험 | 허용 범위는 코드·차단 시험 확인 | 사용자 |
-| Codex·Claude·Cowork · 실행 세션 | work register / ticket / claim / status / handoff / verify | 공개 지시서·기본 Mac의 로컬 원장 | 원자적 선점·상태·인계·검증 기록. 사용자가 지시서를 전달 | 다음 세션 또는 사용자 |
+| Codex·Claude·Cowork·Antigravity · 실행 세션 | work register / ticket / claim / status / handoff / verify | 공개 지시서·기본 Mac의 로컬 원장 | 원자적 선점·상태·인계·검증 기록. 사용자가 지시서를 전달 | 다음 세션 또는 사용자 |
 
 범주 1~9의 자동 원천은 획득 시각과 관측 기준일을 구별해 로컬 캐시에 기록한다. 수집 실패 시 마지막 성공값과 실패 상태를 확인한다. 범주 10과 보유 목록 대조는 Mac 안에서만 처리한다. 관리자가 보는 로컬 상세 상태에도 세션 ID 등이 있으므로 도구 사이에는 **ticket 출력만** 전달한다.
 
@@ -130,3 +130,5 @@ Codex 세션은 10:08 KST 브리핑 완료 뒤 중단됐고 21:02 KST에 Claude 
 **실행 환경.** Codex 인계 기록에 따르면 Mac 셸의 기본 Python에는 `openpyxl`·`pyupbit`가 없어 CLI와 회귀시험을 `/usr/bin/python3`로 실행했다. 연결 폴더로 접속한 원격 세션에서는 세 가지를 먼저 확인한다. `work` 명령은 `git worktree list --porcelain -z`를 쓰므로 git 2.36 이상이 필요하다. 원장 SQLite는 기록할 때 저널 파일을 지우므로 폴더의 삭제 권한이 있어야 한다. 계좌 동기화, 키체인, 로컬 대시보드 접속은 Mac 자체에서만 실행할 수 있다.
 
 22:33 KST에 여섯 단위를 `main`에 커밋하고 앞선 미푸시 2건과 함께 `origin/main`에 반영했다(`aebc936`). 커밋 도중 연결 폴더의 `.git/index`가 갱신 직후 빈 것으로 읽혀 다섯 커밋의 트리가 잘못 만들어졌다. 푸시 전에 발견해 저장소 밖 임시 인덱스(`GIT_INDEX_FILE`)로 같은 단위를 다시 만들었고, 최종 트리가 작업 트리와 일치함을 확인한 뒤 푸시했다. 연결 폴더에서 커밋할 때는 임시 인덱스에서 트리를 만들고 커밋마다 트리의 파일 수를 확인한다. 상태 조회에는 `GIT_OPTIONAL_LOCKS=0`을 붙여 인덱스를 다시 쓰지 않게 한다.
+
+22:50 KST에 원장의 수락 도구에 Antigravity를 추가했다. `work claim --tool Antigravity`와 `work handoff --to Antigravity`를 쓸 수 있고, 인계 대상이 아닌 도구의 선점은 전과 같이 거부된다. 기존 24건의 기록은 바뀌지 않는다.

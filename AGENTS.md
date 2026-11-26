@@ -6,7 +6,7 @@
 
 다섯 분야의 보유·후보 목표, 가설을 재검토할 조건과 공통 정보 10개 범주는 [투자 운영 기준](agents/INVESTMENT_MANDATE.md)을 따른다. 기준시각·근거 원문·영향 경로·반증 조건을 한 건씩 남긴다. 포트폴리오와의 대조는 로컬에서 수행한다.
 
-투자 작업 지시는 Codex·Claude·Cowork의 [공통 작업 접수](agents/manager/WORK.md)로 받는다. 요청 범위에 맞는 `agents/<담당>/README.md`, [투자 운영 기준](agents/INVESTMENT_MANDATE.md), 해당 연구 지침을 읽고 관측 원문과 기준시각을 확인한다. 공개 자료 확보와 개인 계좌 대조는 분리하고 개인 데이터는 로컬 코드 안에서 처리한다. 개인 보유 행이나 금액을 Codex 입력·명령 출력에 싣지 않는다.
+투자 작업 지시는 Codex·Claude·Cowork·Antigravity의 [공통 작업 접수](agents/manager/WORK.md)로 받는다. 요청 범위에 맞는 `agents/<담당>/README.md`, [투자 운영 기준](agents/INVESTMENT_MANDATE.md), 해당 연구 지침을 읽고 관측 원문과 기준시각을 확인한다. 공개 자료 확보와 개인 계좌 대조는 분리하고 개인 데이터는 로컬 코드 안에서 처리한다. 개인 보유 행이나 금액을 Codex 입력·명령 출력에 싣지 않는다.
 
 결과는 `python3 -m private_accounts publish-report <담당>`의 표준 입력으로 게시한다. [투자 매니저](agents/manager/README.md)는 요청에 참여한 분야의 게시 결과 ID를 인용해 합의·충돌·판단 보류 사유를 종합한다. 대시보드는 저장한 보고서, 근거, 계좌와 수집 현황을 표시한다. 새 분석은 로컬에서 작업을 선점한 세션이 실행한다. [보고서 입력 형식](private_accounts/README.md#분석-결과-게시)
 

@@ -262,3 +262,20 @@ def test_incomplete_worktree_and_private_text(project):
         run(project, "--checkout", str(second), "ticket", t["id"])
     with pytest.raises(ValueError):
         add(project, "계좌 최신성 감사", "--after", "work-unknown")
+
+
+def test_antigravity_claims_and_receives_handoff(project):
+    key = add(project, "계좌 최신성 감사")["id"]
+    first, second = (run(project, "session") for _ in range(2))
+    assert "Codex|Claude|Cowork|Antigravity" in run(project, "ticket", key)["선점명령"]
+    run(project, "claim", key, "--session", first, "--tool", "Codex")
+    assert (
+        run(project, "handoff", key, "--session", first, "--to", "Antigravity")["인계대상"]
+        == "Antigravity"
+    )
+    with pytest.raises(ValueError):
+        run(project, "claim", key, "--session", second, "--tool", "Claude")
+    claimed = run(project, "claim", key, "--session", second, "--tool", "Antigravity")
+    assert claimed["로컬수락도구"] == "Antigravity"
+    with pytest.raises(SystemExit):
+        run(project, "claim", key, "--session", second, "--tool", "Unknown")

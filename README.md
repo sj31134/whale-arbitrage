@@ -2,7 +2,7 @@
 
 [로컬 투자 관리 화면](private_accounts/README.md) · [10개 정보 애널리스트와 종목 연결](data/analysts/README.md)
 
-투자 분석은 Codex·Claude·Cowork의 [공통 작업 접수](agents/manager/WORK.md)로 지시한다. Mac에서는 `python3 -m private_accounts dashboard --open`으로 분야별 결과, 매니저 종합, 자료 기준시각과 계좌 현황을 확인한다.
+투자 분석은 Codex·Claude·Cowork·Antigravity의 [공통 작업 접수](agents/manager/WORK.md)로 지시한다. Mac에서는 `python3 -m private_accounts dashboard --open`으로 분야별 결과, 매니저 종합, 자료 기준시각과 계좌 현황을 확인한다.
 
 암호화폐 고래 추적·차익거래·Risk AI 웹 플랫폼, 업비트 자동매매 봇, 기관급 멀티에셋 투자 에이전트(`branch/investor_agent`), RWA 투명성 연구(`branch/RWATransparency`)를 목적별 폴더로 체계화한 통합 저장소입니다.
 
@@ -102,4 +102,4 @@ python3 -m pytest -q branch/investor_agent/tests
 python3 -m pytest -q trading_bot/tests
 ```
 
-2026-11-26 기준 통과 건수는 순서대로 133건, 28건, 14건이며 경로 검사는 812개 파일이 일치했다. `data/project.db`가 없는 체크아웃에서는 `tests`의 통합 시험 2건을 건너뛴다. 커밋 전 검사 전체는 [운영 지침](AGENTS.md#변경-및-검증-하네스)에 있다.
+2026-11-26 기준 통과 건수는 순서대로 134건, 28건, 14건이며 경로 검사는 812개 파일이 일치했다. `data/project.db`가 없는 체크아웃에서는 `tests`의 통합 시험 2건을 건너뛴다. 커밋 전 검사 전체는 [운영 지침](AGENTS.md#변경-및-검증-하네스)에 있다.

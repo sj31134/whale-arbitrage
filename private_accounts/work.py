@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 from . import local_sources, reports, store
 
-TOOLS = ("Codex", "Claude", "Cowork")
+TOOLS = ("Codex", "Claude", "Cowork", "Antigravity")
 COMMON = (
     "private_accounts/__main__.py",
     "private_accounts/view.py",
@@ -283,7 +283,7 @@ def packet(db, row, primary):
         검증=checks,
         보고대상="투자 매니저 → 사용자",
         상태=row["state"],
-        선점명령=f"python3 -m private_accounts work claim {row['id']} --tool <Codex|Claude|Cowork> --session <로컬 세션 ID>",
+        선점명령=f"python3 -m private_accounts work claim {row['id']} --tool <{'|'.join(TOOLS)}> --session <로컬 세션 ID>",
         로컬수락도구=row["tool"] if row["state"] == "running" else None,
         인계대상=row["tool"] if row["state"] == "handoff" else None,
         최근인계사유=last_note[0] if last_note else None,
