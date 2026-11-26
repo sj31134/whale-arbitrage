@@ -155,6 +155,7 @@ def test_private_dashboard_render_and_cache(tmp_path):
         html = quant_page.render(directory, pkg, "/test", {"period": n}, "").decode()
         assert html.count('aria-current="true"') == 1
         assert html.count("/quant?position=") == 116 and "가격과 모의 체결" in html
+        assert "초보자용 퀀트 화면 읽는 법" in html
         assert n + "일선 · 최종 미사용 구간" in html
     (cache,) = (pkg / ".local").glob("quant-*.json")
     assert cache.stat().st_mode & 0o077 == 0

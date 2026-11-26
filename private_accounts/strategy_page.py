@@ -4,8 +4,18 @@ from datetime import datetime, timezone
 from html import escape
 import sqlite3
 
+from math import sqrt
+
 from . import chat_page, quant, strategy_registry as registry
-from .strategy_catalog import AQR, CATALOG, SOURCE_LABELS, WINTON
+from .strategy_catalog import (
+    AQR,
+    CATALOG,
+    HISTORICAL_BACKTESTS,
+    REGIME_PLAYBOOK,
+    SOURCE_LABELS,
+    STRATEGY_GUIDES,
+    WINTON,
+)
 
 
 def pct(n, suffix="%"):
@@ -45,8 +55,24 @@ def selected_panel(package, key):
         market = "KR" if key[0] == "KRX" else "US"
         lines = [
             head,
-            f'<p>{escape(meta["days"][market])} 마감 · 최근 63거래일 · 같은 종목 단순 보유 대비</p><ul>',
+            f'<p>{escape(meta["days"][market])} 마감 · 최근 63거래일 · 같은 종목 단순 보유 대비</p>',
         ]
+        if "bars" in selected and len(selected["bars"]) >= 60:
+            closes = [b["close"] for b in selected["bars"]]
+            vol = sqrt(registry.realized_variance(closes)) * 100
+            sym_w = registry.target("variance-cap", closes) * 100
+            down_w = registry.target("downside-cap", closes) * 100
+            sma60 = sum(closes[-60:]) / 60
+            above = closes[-1] >= sma60
+            lines.append(
+                '<div class="kpi-strip">'
+                f'<div class="kpi-box info"><small>21일 연환산 변동성</small><strong>{vol:.1f}%</strong></div>'
+                f'<div class="kpi-box warn"><small>1단계 대칭 변동성캡 권장 비중</small><strong>{sym_w:.0f}%</strong></div>'
+                f'<div class="kpi-box pass"><small>2단계 하방 변동성캡 권장 비중</small><strong>{down_w:.0f}%</strong></div>'
+                f'<div class="kpi-box {"pass" if above else "warn"}"><small>60일선 추세 위치</small>'
+                f'<strong>{"60일선 위" if above else "60일선 아래"}</strong></div></div>'
+            )
+        lines.append("<ul>")
         with registry.database(package) as db:
             for name in registry.PRICE_IDS:
                 reason = registry.hold_reason(selected, name)
@@ -80,6 +106,64 @@ def selected_panel(package, key):
         return head + "<p>공개 원천 또는 독립 종가 대조를 기다립니다.</p></section>"
 
 
+def playbook_section(base):
+    cards = []
+    for idx, item in enumerate(REGIME_PLAYBOOK, 1):
+        cards.append(
+            f'<article class="playbook-card phase{idx}">'
+            f'<span class="{"badge-warn" if idx == 1 else "badge-pass"}">{escape(item["phase"])}</span>'
+            f'<h3>{escape(item["action"])}</h3>'
+            f'<small>적용 조건 · {escape(item["condition"])}</small>'
+            f'<p>{escape(item["detail"])}</p></article>'
+        )
+    return (
+        '<div class="guide-banner"><h2>초보자용 전략 가이드 · 언제 현금을 쥐고 언제 집중하나요?</h2>'
+        '<p>적은 시드로 자산을 키우려면 <b>검증된 소수 종목 집중</b>이 필요하지만, 현금 버퍼 없이 폭락장을 맞으면 '
+        '반토막(-55%~-74%)으로 복리가 깨집니다. 시장 온도에 따라 아래 두 단계로 나누어 운용하세요.</p>'
+        f'<div class="chips"><a class="chip" href="{escape(base)}/research">가설 연구장에서 집중 후보 고르기</a>'
+        f'<a class="chip" href="{escape(base)}/quant">내 보유 종목 권장 비중 보기</a>'
+        '<a class="chip" href="#historical-backtests">30년 4대 위기 백테스트 바로가기</a></div></div>'
+        '<section><h2>2단계 시장 레짐 운용 원칙</h2><div class="playbook-grid">'
+        + "".join(cards)
+        + "</div></section>"
+    )
+
+
+def historical_section():
+    cards = []
+    for era in HISTORICAL_BACKTESTS["eras"]:
+        peak = max(abs(r[1]) for r in era["rows"]) or 1.0
+        bars = []
+        for name, ret, mdd, note in era["rows"]:
+            width = min(100.0, max(3.0, 100.0 * abs(ret) / peak))
+            cls = "neg" if ret < 0 else ("best" if "하방변동성" in name or ("대칭 변동성" in name and ret > 20) else "pos")
+            bars.append(
+                f'<div class="era-line"><span><b>{escape(name)}</b><br><small>{escape(note)}</small></span>'
+                f'<div class="meter"><i class="{cls}" style="width:{width:.0f}%"></i></div>'
+                f'<span><b>{ret:+.1f}%</b> <small>(낙폭 {mdd:.1f}%)</small></span></div>'
+            )
+        cards.append(
+            f'<article class="era-card"><span class="badge-info">{escape(era["period"])}</span>'
+            f'<h3>{escape(era["title"])}</h3><small>{escape(era["shock"])}</small>'
+            f'<div class="era-bars">{"".join(bars)}</div>'
+            f'<p class="era-lesson"><b>핵심 교훈:</b> {escape(era["lesson"])}</p></article>'
+        )
+    entries = "".join(
+        f"<tr><td><b>{escape(w)}</b></td><td>{escape(s5)}</td><td><b>{escape(s6)}</b></td><td>{escape(note)}</td></tr>"
+        for w, s5, s6, note in HISTORICAL_BACKTESTS["crash_entries"]
+    )
+    return (
+        '<section id="historical-backtests"><h2>4대 매크로 위기 백테스트 비교 (1997~2026)</h2>'
+        '<p>막대 길이는 각 위기 구간의 누적 수익률 크기이며, 괄호 안은 계좌가 고점 대비 가장 크게 밀린 최대낙폭(MDD)입니다.</p>'
+        f'<div class="era-grid">{"".join(cards)}</div>'
+        '<details open><summary>폭락 한복판 진입 시점별 12~24개월 실전 비교 (-10% 칼손절 vs 하방변동성 캡)</summary>'
+        '<div class="strategy-scroll"><table><thead><tr><th>진입 시점 · 보유 기간</th>'
+        '<th>-10% 가격 칼손절 집중</th><th>하방변동성 캡 + 코어 집중</th><th>초보자 해석</th></tr></thead>'
+        f'<tbody>{entries}</tbody></table></div></details>'
+        f'<small>{escape(HISTORICAL_BACKTESTS["basis"])}</small></section>'
+    )
+
+
 def render(package, base, csrf, css):
     now = datetime.now(timezone.utc).isoformat()
     html = [
@@ -93,6 +177,7 @@ def render(package, base, csrf, css):
         '<header class="strategy-row"><h1>전략 관리</h1>',
         form(base, csrf, "strategy-run", {}, "공개 일봉으로 재계산"),
         "</header>",
+        playbook_section(base),
     ]
     with registry.database(package) as db:
         refresh = db.execute(
@@ -113,7 +198,7 @@ def render(package, base, csrf, css):
             "<section><h2>최근 63거래일 연구 결과</h2><p>시장당 32개 공개 종목 표본. 종목별 비용 차감 수익률과 최대낙폭의 중앙값입니다. 초과수익은 같은 종목을 같은 기간 보유했을 때와 비교했습니다.</p>"
         )
         html.append(
-            '<div class="strategy-scroll"><table><thead><tr><th>시장 · 마감</th><th>규칙</th><th>계산 / 표본</th><th>순수익</th><th>초과수익</th><th>비용 2배 초과</th><th>최대낙폭</th></tr></thead><tbody>'
+            '<div class="strategy-scroll"><table><thead><tr><th>시장 · 마감</th><th>규칙</th><th>용도</th><th>계산 / 표본</th><th>순수익</th><th>초과수익</th><th>비용 2배 초과</th><th>최대낙폭</th></tr></thead><tbody>'
         )
         history = {k: registry.summary(db, k) for k in registry.PRICE_IDS}
         for market in ("KR", "US"):
@@ -130,27 +215,31 @@ def render(package, base, csrf, css):
                     continue
                 row = result["markets"][market]
                 metrics = row["summary"]
+                role_label = STRATEGY_GUIDES.get(key, ("가격 규칙", ""))[0]
                 cells = [
-                    market + " · " + result["days"][market],
-                    CATALOG[key]["title"],
-                    f'{row["n"]} / {row["sampled"]}',
+                    escape(market + " · " + result["days"][market]),
+                    "<b>" + escape(CATALOG[key]["title"]) + "</b>",
+                    f'<span class="badge-info">{escape(role_label)}</span>',
+                    escape(f'{row["n"]} / {row["sampled"]}'),
                 ]
-                cells += [
-                    (
-                        pct(metrics[k], "%p" if k in ("excess", "stress") else "%")
-                        if metrics
-                        else "보류"
-                    )
-                    for k in ("net", "excess", "stress", "dd")
-                ]
+                for k in ("net", "excess", "stress", "dd"):
+                    if not metrics:
+                        cells.append("보류")
+                    else:
+                        txt = escape(pct(metrics[k], "%p" if k in ("excess", "stress") else "%"))
+                        if k == "excess":
+                            cls = "badge-pass" if metrics[k] >= 0 else "badge-warn"
+                            txt = f'<span class="{cls}">{txt}</span>'
+                        cells.append(txt)
                 html.append(
                     "<tr>"
-                    + "".join("<td>" + escape(c) + "</td>" for c in cells)
+                    + "".join("<td>" + c + "</td>" for c in cells)
                     + "</tr>"
                 )
         html.append(
             "</tbody></table></div><small>현지통화 가격 기준 · 배당·현금이자·환전 제외 · 다음 시가 체결 가정 · 시장 간 합산 없음</small></section>"
         )
+        html.append(historical_section())
         html.append(
             "<details><summary>운용사가 공표한 펀드 표본 성과</summary>"
             "<p>2026년 10월 30일 미국 달러 총수익률. AQR AQMIX는 연초 이후 +14.52%, 10월 −3.69%, "
@@ -169,11 +258,16 @@ def render(package, base, csrf, css):
                     continue
                 state = registry.current_state(db, key)
                 title = entry["title"]
+                role_label, easy_desc = STRATEGY_GUIDES.get(key, ("", ""))
+                badge = f' <span class="badge-muted">{escape(role_label)}</span>' if role_label else ""
                 html.append(
                     f'<details><summary><strong>{escape(title)}</strong> · {escape(entry["version"])} · '
                     + ("연결됨" if kind == "existing" else state)
+                    + badge
                     + "</summary>"
                 )
+                if easy_desc:
+                    html.append(f"<p><b>쉬운 설명:</b> {escape(easy_desc)}</p>")
                 html.extend(
                     "<p>" + escape(entry[k]) + "</p>"
                     for k in ("rule", "downside", "revisit")

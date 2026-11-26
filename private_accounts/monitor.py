@@ -8,7 +8,16 @@ from urllib.parse import urlencode, urlsplit
 
 from agents import intelligence as intel
 from agents.portfolio import CASH_NAMES
-from . import history_panel, account_performance, chat_page, daily_review, live_panel, live_valuation, store
+from . import (
+    account_performance,
+    chat_page,
+    daily_review,
+    history_panel,
+    live_panel,
+    live_valuation,
+    research_book,
+    store,
+)
 
 CSS = Path(__file__).with_name("monitor.css").read_text()
 ROLES = {
@@ -80,6 +89,52 @@ def totals(accounts):
         )
         for c in sorted(values.keys() | incomplete)
     ]
+
+
+def concentration_panel(positions, package, route):
+    ideas = [r for r in research_book.entries(package) if not r["result"]] if package else []
+    qualifying = sum(research_book.metrics(r["a"])["qualifies"] for r in ideas)
+    buckets = {}
+    for p in positions:
+        if p["weight_pct"] is None:
+            continue
+        key = (p["provider"], p["account"], p["currency"])
+        b = buckets.setdefault(key, dict(cash=Decimal(0), weights=[]))
+        w = Decimal(p["weight_pct"])
+        if p["role"] == "cash" or p["symbol"].upper() in CASH_NAMES:
+            b["cash"] += w
+        else:
+            b["weights"].append(w)
+    out = [
+        '<section id="concentration-guide" class="guide-banner">'
+        "<h2>소수 집중 · 현금 버퍼 실전 점검</h2>"
+        "<p>하락·고변동장(1단계)에서는 계좌별 <b>현금 버퍼 35% 이상</b>을 확보해 바닥권 손절(휩소)을 막고, "
+        "주식 비중은 <b>가설 3관문을 통과한 소수 핵심 종목</b>으로 압축합니다.</p>"
+        f'<div class="chips"><a class="chip" href="{e(route)}/research">'
+        f"가설 연구장 · 집중 후보 {qualifying}건 / 추적 {len(ideas)}건</a>"
+        f'<a class="chip" href="{e(route)}/strategies#historical-backtests">4대 위기 백테스트 비교</a>'
+        f'<a class="chip" href="{e(route)}/quant">종목별 권장 비중·차트</a></div>'
+    ]
+    if buckets:
+        out.append(
+            '<div class="comparison"><table><thead><tr><th>계좌 · 통화</th><th>보유 종목 수</th>'
+            "<th>상위 2종목 집중도</th><th>현재 현금 비중</th><th>1단계 현금 버퍼(≥35%) 점검</th></tr></thead><tbody>"
+        )
+        for (provider, alias, currency), b in sorted(buckets.items()):
+            top2 = sum(sorted(b["weights"], reverse=True)[:2], Decimal(0))
+            cash = b["cash"]
+            ok = cash >= Decimal(35)
+            badge = (
+                '<span class="badge-pass">버퍼 확보</span>'
+                if ok
+                else '<span class="badge-warn">비중 미달 종목 정리로 현금 보강 권장</span>'
+            )
+            out.append(
+                f"<tr><td>{e(store.PROVIDERS[provider])} · {e(alias)} · {e(currency)}</td>"
+                f'<td>{len(b["weights"])}종목</td><td>{top2:.1f}%</td><td><b>{cash:.1f}%</b></td><td>{badge}</td></tr>'
+            )
+        out.append("</tbody></table></div>")
+    return "".join(out) + "</section>"
 
 
 def stress_panel(positions, route, scenario):
@@ -345,6 +400,7 @@ def render(directory, package, route, csrf, query):
         metric("보유 행 · 계좌별", len(positions)),
         metric("정보가 있는 범주", f'{sum(bool(c["observations"]) for c in cats.values())} / {len(cats)}'),
         "</div></section>",
+        concentration_panel(positions, package, route),
         live_panel.panel(directory, package, book, accounts, detail_base=route),
         history_panel.position_history(package, accounts, route, query.get("position"),query.get("frame","day")),
     ]

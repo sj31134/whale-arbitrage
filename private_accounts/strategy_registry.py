@@ -202,18 +202,29 @@ def evidence(db, key, cutoff):
     return dict(records=records, items=matched)
 
 
+def realized_variance(closes):
+    recent = closes[-22:]
+    return 252 * sum((b / a - 1) ** 2 for a, b in zip(recent, recent[1:])) / 21
+
+
+def downside_variance(closes):
+    recent = closes[-22:]
+    return 252 * sum(min(0.0, b / a - 1) ** 2 for a, b in zip(recent, recent[1:])) / 21
+
+
 def target(key, closes):
     if key == "hold":
         return 1.0
     if key in ("trend-252", "trend-vote"):
         windows = (252,) if key == "trend-252" else (63, 126, 252)
         return sum(closes[-1] > closes[-1 - n] for n in windows) / len(windows)
-    if key != "variance-cap":
-        raise ValueError("가격 규칙을 확인하세요.")
-    # A fixed 21-session approximation to the previous month's realized variance.
-    recent = closes[-22:]
-    var = 252 * sum((b / a - 1) ** 2 for a, b in zip(recent, recent[1:])) / 21
-    return min(1.0, 0.15**2 / var) if var else 1.0
+    if key == "variance-cap":
+        var = realized_variance(closes)
+        return min(1.0, 0.15**2 / var) if var else 1.0
+    if key == "downside-cap":
+        var = downside_variance(closes)
+        return min(1.0, 0.15**2 / var) if var else 1.0
+    raise ValueError("가격 규칙을 확인하세요.")
 
 
 def simulate(bars, key, fee, scale):
@@ -324,7 +335,7 @@ def read_panel(package, requested=None, frozen=None):
 def hold_reason(item, key):
     if "reason" in item:
         return item["reason"]
-    needed = (22 if key == "variance-cap" else 253) + WINDOW
+    needed = (22 if key in ("variance-cap", "downside-cap") else 253) + WINDOW
     bars = item["bars"]
     if len(bars) < needed or any(b["open"] is None for b in bars[-WINDOW:]):
         return "연속 시가·종가 부족"

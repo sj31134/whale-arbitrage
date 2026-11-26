@@ -64,6 +64,7 @@ def test_forward_marks_archive_and_idempotence(journal):
     assert book.performance(row) == (Decimal("9.7"), Decimal("4.0"), Decimal("5.7"))
     rendered = page.render(package, "/test", "test", "").decode()
     assert "sample &lt;A&gt;" in rendered and "+5.70%p" in rendered
+    assert "초보자용 가설 연구장 활용법" in rendered and "시나리오 가격 범위" in rendered
     backup = archive.snapshot(package)
     recovered = archive.recover(package, backup)
     assert book.entries(recovered) == [row] and reports.read(recovered) == reports.read(package)
@@ -110,6 +111,8 @@ def test_stress_does_not_duplicate_overlapping_roles():
     html = monitor.stress_panel(rows, "/test", "severe")
     assert "90.00%" in html and "-15.00%p" in html and "1행" in html
     assert "산정 보류" in monitor.stress_panel([dict(rows[0], weight_pct=None)], "/test", "severe")
+    conc = monitor.concentration_panel(rows, None, "/test")
+    assert "소수 집중 · 현금 버퍼 실전 점검" in conc and "40.0%" in conc and "버퍼 확보" in conc
 
 
 

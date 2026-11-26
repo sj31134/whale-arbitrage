@@ -109,7 +109,13 @@ def report(base, pid, n, bars, r, key, digest):
     pick = r["candidate"]
     period = n if n in quant.PERIODS else pick or 20
     scores = r["scores"]
-    out = ["<section><h2>" + ("선정" if r["selected"] else "선정 보류") + "</h2>"]
+    verdict_note = (
+        '<p><span class="badge-pass">실전 검증 통과</span> 과거 학습과 최근 63일 미사용 구간·거래비용 2배 검증을 모두 통과했습니다.</p>'
+        if r["selected"]
+        else '<p><span class="badge-warn">무리한 차트 단타 주의</span> 이동평균선 매매가 단순 보유보다 확실히 낫다는 증거가 부족합니다. '
+        "잦은 손절 대신 위의 <b>변동성 캡 권장 비중(현금 버퍼)</b>과 <b>가설 연구장 내재가치</b>를 기준으로 운용하세요.</p>"
+    )
+    out = ["<section><h2>" + ("선정" if r["selected"] else "선정 보류") + "</h2>", verdict_note]
     if r.get("history_warnings"):
         out.append(
             f"<p>학습 이력 중 {r['excluded']}봉 제외 · {escape(' · '.join(r['history_warnings']))}. 단절 뒤 연속 구간에서 워밍업을 다시 시작합니다.</p>"
@@ -361,6 +367,15 @@ def render(directory, package, base, query, css):
         ".heat{display:grid;grid-template-columns:repeat(auto-fit,minmax(66px,1fr));gap:4px}.heat a{padding:6px;color:#132738;text-align:center}.heat small,svg{display:block}.heat [aria-current=true]{outline:2px solid #173750}svg{width:100%}section{overflow:auto}</style>",
         chat_page.navigation(base, "quant"),
         "<main><h1>퀀트 연구</h1>",
+        '<div class="guide-banner"><h2>초보자용 퀀트 화면 읽는 법</h2>'
+        '<div class="step-flow">'
+        '<div class="step-box"><b><span class="step-num">1</span>권장 비중 먼저 확인</b>'
+        '<small>종목을 고르면 21일 변동성에 맞춘 1단계(방어)·2단계(회복) 권장 주식 비중과 60일선 위치가 표시됩니다.</small></div>'
+        '<div class="step-box"><b><span class="step-num">2</span>선정 보류는 정상 신호</b>'
+        '<small>116개 이동평균선 중 최근 63일 실전(홀드아웃)과 수수료 검증을 못 넘으면 잦은 손절을 막기 위해 선정 보류가 뜹니다.</small></div>'
+        '<div class="step-box"><b><span class="step-num">3</span>파랑·주황 지도와 체결점</b>'
+        '<small>파란 칸은 학습 이익, 주황 칸은 손실이며 차트의 초록점은 매수·빨간점은 매도 모의 체결 지점입니다.</small></div>'
+        "</div></div>",
     ]
     pid = query.get("position", next(iter(choices), None))
     out.append('<form><label>보유 종목 <select name="position">')

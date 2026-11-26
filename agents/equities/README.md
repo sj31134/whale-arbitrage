@@ -29,12 +29,13 @@
 
 ## 공개 전략 관리
 
-인증된 대시보드 **전략 관리**에서 규칙, 버전, 논문·공시, 계산 표본, 보류 사유, 비용 두 배 결과와 실행 이력을 확인한다. 가격 규칙의 일시정지는 다음 실험부터 적용한다. 공시 관찰을 일시정지하면 종목별 대조에서 제외하며 원문 기록은 조회할 수 있다. **퀀트 연구**에서 선택한 종목과의 대조는 Mac 안에서 처리한다. [조사 근거와 최초 실험](memos/2026-11-24-strategy-evidence.md)
+인증된 대시보드 **전략 관리**에서 규칙, 버전, 논문·공시, 계산 표본, 보류 사유, 비용 두 배 결과와 실행 이력을 확인한다. 가격 규칙은 `trend-252`(12개월 추세), `trend-vote`(3·6·12개월 추세 합의), `variance-cap`(대칭 변동성 노출 축소 · 1단계 방어), `downside-cap`(하방 변동성 노출 축소 · 2단계 회복·집중) 네 가지를 운영하며, 상단에 2단계 시장 레짐 가이드와 1997~2026년 4대 매크로 위기(`1997~1999`, `2006~2008`, `2017~2019`, `2023~2026`) 실증 백테스트 비교 막대를 함께 표시한다. 가격 규칙의 일시정지는 다음 실험부터 적용한다. 공시 관찰을 일시정지하면 종목별 대조에서 제외하며 원문 기록은 조회할 수 있다. **퀀트 연구**에서 선택한 종목과의 대조(21일 실현변동성, 대칭·하방 변동성캡 권장 비중, 60일선 추세 위치 포함)는 Mac 안에서 처리한다. [조사 근거와 최초 실험](memos/2026-11-24-strategy-evidence.md)
 
 ```sh
 python3 -m private_accounts strategies list
 python3 -m private_accounts strategies run
 python3 -m private_accounts strategies history variance-cap
+python3 -m private_accounts strategies history downside-cap
 python3 -m private_accounts strategies evidence berkshire --as-of 2026-11-16T16:00:03-05:00
 ```
 

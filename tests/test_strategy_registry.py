@@ -145,8 +145,15 @@ def test_next_open_costs_and_strategy_warmup():
     assert reg.simulate(bars, "hold", fee, 1)["net"] == pytest.approx(1 / 1.01 - 1)
     assert reg.simulate(bars, "hold", fee, 2)["net"] == pytest.approx(1 / 1.02 - 1)
     assert reg.hold_reason({"bars": bars[-85:]}, "variance-cap") == ""
+    assert reg.hold_reason({"bars": bars[-85:]}, "downside-cap") == ""
     assert reg.hold_reason({"bars": bars[-85:]}, "trend-252")
-    assert 0.0 < reg.target("variance-cap", [100, 200] * 11) < 1
+    assert reg.target("downside-cap", [100 + i for i in range(22)]) == 1.0
+    assert (
+        0.0
+        < reg.target("variance-cap", [100, 200] * 11)
+        < reg.target("downside-cap", [100, 200] * 11)
+        < 1
+    )
 
 
 def test_run_persistence_pause_missing_inputs_and_ui(package):
@@ -154,13 +161,19 @@ def test_run_persistence_pause_missing_inputs_and_ui(package):
     first = reg.calculate(package)
     assert reg.calculate(package) == first
     with reg.database(package) as db:
-        assert db.execute("select count(*) from experiment").fetchone()[0] == 3
+        assert db.execute("select count(*) from experiment").fetchone()[0] == 4
         assert reg.summary(db, "trend-252")[0]["result"]["markets"]["US"]["n"] == 1
         reg.state(db, "trend-252", "일시정지")
-    assert set(reg.calculate(package)) == {"trend-vote", "variance-cap"}
-    assert "연구 일시정지" in page.selected_panel(package, key)
+    assert set(reg.calculate(package)) == {
+        "trend-vote",
+        "variance-cap",
+        "downside-cap",
+    }
+    selected = page.selected_panel(package, key)
+    assert "연구 일시정지" in selected and "2단계 하방 변동성캡 권장 비중" in selected
     html = page.render(package, "/unit", "token", "").decode()
     assert "전략 관리" in html and "연구 재개" in html and "기존 5~120일" in html
+    assert "하방 변동성에 따른 노출 축소" in html and "4대 매크로 위기 백테스트 비교" in html
     next((package / ".local/equity_screens").glob("*-validation.sqlite3")).unlink()
     assert reg.refresh(package) == {}
     with reg.database(package) as db:
@@ -182,7 +195,7 @@ def test_frozen_member_survives_missing_classification(package):
         market = reg.summary(db, "trend-252")[0]["result"]["markets"]["US"]
         assert market["n"] == 0 and market["sampled"] == 1
         assert "고정 표본" in next(iter(market["held"]))
-        assert db.execute("SELECT count(*) FROM experiment").fetchone()[0] == 6
+        assert db.execute("SELECT count(*) FROM experiment").fetchone()[0] == 8
 
 
 def test_authenticated_dashboard_state(package):
