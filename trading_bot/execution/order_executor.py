@@ -8,6 +8,8 @@ import time
 from typing import Dict, Optional
 import logging
 
+from trading_bot import HOLD_MESSAGE, LIVE_TRADING_ON_HOLD
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,6 +82,8 @@ class OrderExecutor:
                 'error': str  # 에러 메시지 (실패 시)
             }
         """
+        if LIVE_TRADING_ON_HOLD:
+            return {'success': False, 'error': HOLD_MESSAGE}
         if not self.upbit:
             return {
                 'success': False,
@@ -159,6 +163,8 @@ class OrderExecutor:
                 'error': str  # 에러 메시지 (실패 시)
             }
         """
+        if LIVE_TRADING_ON_HOLD:
+            return {'success': False, 'error': HOLD_MESSAGE}
         if not self.upbit:
             return {
                 'success': False,
@@ -276,6 +282,9 @@ class OrderExecutor:
         Returns:
             취소 성공 여부
         """
+        if LIVE_TRADING_ON_HOLD:
+            logger.warning(HOLD_MESSAGE)
+            return False
         if not self.upbit:
             logger.warning("업비트 API가 초기화되지 않았습니다.")
             return False

@@ -5,3 +5,6 @@
 
 __version__ = "1.0.0"
 
+# Direct trading can resume only after an explicit change to project policy.
+LIVE_TRADING_ON_HOLD = True
+HOLD_MESSAGE = "직접 거래 보류 중입니다. 계좌 조회와 투자 분석만 사용하세요."

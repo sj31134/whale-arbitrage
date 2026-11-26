@@ -13,6 +13,7 @@ from trading_bot.collectors.data_collector import DataCollector
 from trading_bot.collectors.market_data import MarketDataCollector
 from trading_bot.strategies.data_driven_strategy import DataDrivenStrategy
 from trading_bot.strategies.premium_filter import PremiumFilter
+from trading_bot import HOLD_MESSAGE, LIVE_TRADING_ON_HOLD
 from trading_bot.execution.order_executor import OrderExecutor
 from trading_bot.execution.balance_manager import BalanceManager
 from trading_bot.core.position_manager import PositionManager
@@ -82,6 +83,9 @@ class TradingBotEngine:
         Returns:
             시작 성공 여부
         """
+        if LIVE_TRADING_ON_HOLD:
+            logger.warning(HOLD_MESSAGE)
+            return False
         if self.is_running:
             logger.warning("봇이 이미 실행 중입니다.")
             return False

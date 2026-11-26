@@ -12,6 +12,13 @@ sys.path.insert(0, str(ROOT))
 
 def render_page():
     """페이지 렌더링 (기존 페이지와 동일한 인터페이스)"""
+    from trading_bot import LIVE_TRADING_ON_HOLD
+    if LIVE_TRADING_ON_HOLD:
+        import streamlit as st
+        from trading_bot.ui import show_hold
+        show_hold(st)
+        return
+
     try:
         # 필수 패키지 확인
         try:

@@ -15,6 +15,8 @@ sys.path.insert(0, str(ROOT))
 
 from trading_bot.config.settings_manager import SettingsManager
 from trading_bot.core.bot_engine import TradingBotEngine
+from trading_bot import LIVE_TRADING_ON_HOLD
+from trading_bot.ui import show_hold
 from trading_bot.utils.validators import (
     validate_api_key, validate_number, validate_required, validate_coin_symbol
 )
@@ -26,6 +28,10 @@ logger = setup_logger("trading_bot_ui")
 
 def render():
     """UI 렌더링"""
+    if LIVE_TRADING_ON_HOLD:
+        show_hold(st)
+        return
+
     st.header("🤖 자동매매 봇")
     st.markdown("기존 프로젝트의 분석 결과를 활용한 데이터 기반 자동매매 시스템")
     

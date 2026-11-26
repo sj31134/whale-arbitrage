@@ -22,7 +22,7 @@ class TestIntegration(unittest.TestCase):
         """테스트 설정"""
         self.settings = {
             'api': {
-                'upbit_access_key': 'test_key',
+                'upbit_access_key': 'fixture_access_key',
                 'upbit_secret_key': 'test_secret'
             },
             'telegram': {
