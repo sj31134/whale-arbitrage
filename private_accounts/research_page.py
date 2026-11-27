@@ -315,10 +315,23 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
         mi = idea_obj["m"]
         return mi["expected"] >= Decimal("20") and mi["margin"] >= Decimal("15")
 
+    def _is_trend_hold(idea_obj, tech_obj):
+        """US 11/27 Post-Mortem Patch (Mistake #3): Never dump 20D/60D bull-aligned winners into Priority Trim solely due to backward-looking safety-margin compression."""
+        if not idea_obj or idea_obj["m"]["qualifies"] or _is_semicore(idea_obj) or not tech_obj:
+            return False
+        ma60 = tech_obj.get("ma60")
+        rsi_v = tech_obj.get("rsi")
+        return bool(
+            ma60
+            and tech_obj["cur"] >= tech_obj["ma20"]
+            and tech_obj["cur"] >= ma60
+            and (rsi_v is None or rsi_v < 78.0)
+        )
+
     def sort_key(h):
         if h["idea"] and h["idea"]["m"]["qualifies"]:
             tier = 0
-        elif _is_semicore(h["idea"]):
+        elif _is_semicore(h["idea"]) or _is_trend_hold(h["idea"], h["tech"]):
             tier = 1
         elif h["idea"] and not h["idea"]["m"]["qualifies"]:
             tier = 2
@@ -398,6 +411,17 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                 f"수급 유입 시 강한 반등 탄력이 나오므로 2순위 약세주보다 뒤로 미루고, {res_note} 도달 시에만 일부 현금화·실적 목표가 재산정을 진행하세요."
                 + rwa_tip
             )
+        elif _is_trend_hold(idea, tech):
+            counts["semicore"] += 1
+            badge = '<span class="badge-pass">추세 보유 · 20일선 트레일링</span>' + extra_badges
+            m_info, a_info = idea["m"], idea["a"]
+            guide = (
+                f"<b>달리는 정배열 승자 조기 매도 금지(11/27 미국장 오답노트 보정).</b> "
+                f"과거 가격 기준 안전마진({m_info['margin']:.1f}%)은 주가 상승으로 낮아졌으나, 현재 <b>20일선({_fmt_num(tech['ma20'], ccy)})과 "
+                f"60일선({_fmt_num(tech['ma60'], ccy)}) 위 정배열 상승 추세</b>를 유지 중인 강세 보유주입니다. "
+                "성급히 2순위 현금화 대상으로 팔지 말고 20일선 종가 이탈 전까지 추세 수익을 끝까지 보유하세요."
+                + rwa_tip
+            )
         elif idea and not idea["m"]["qualifies"]:
             counts["trim"] += 1
             if ccy == "KRW" and h["val"] is not None:
@@ -412,7 +436,7 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                 if sheltered else ""
             )
             timing_rule = (
-                "개장 첫 30분(23:30~00:00 KST) 스프레드 확대 구간은 피하되, 장중 반등 구간(00:30~02:50 KST)에 지정가 분할 매도해 달러 현금 버퍼와 미국 1순위 대장주 교체 재원으로 바꾸세요."
+                "신규 추격 매수·패닉 손절은 개장 첫 30분 금지하되, <b>보유 비핵심주의 목표 지정가 매도(전일비 +1.5%↑ 갭업 Limit Ask)는 시초 갭업 유동성에 선제 게시</b>하거나 장 중반(00:30~02:00 KST) 반등 구간에 분할 매도해 달러 현금 버퍼로 바꾸세요(11/27 미국장 오답노트 반영)."
                 if ccy == "USD"
                 else "장 초반(09:00~09:30) 흔들기는 피하되, 반등일 오후장 또는 외인 수급 가속 시 <b>15:10~15:20 마감 동시호가</b>에 우선 매도해 현금 35%와 1순위 대장주 자금으로 바꾸세요."
             )
@@ -513,16 +537,18 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
             )
         rebalance_html = f'<div class="rebalance-bar">{reb_main}</div>'
 
-    # US Evening Session Readiness Banner (live 24/7 xStocks lead indicators + USD cash check)
+    # US Evening Session Readiness Banner (live 24/7 xStocks lead indicators + single-stock token noise filter)
     us_b = ccy_totals.get("USD")
     x_rows = {r["symbol"].upper(): r for r in qb.rows_by_venue.get("KRAKEN_X", ())}
     lead_parts = []
+    gap_map = {}
     for x_sym, base_sym, lbl in (("SPYX", "SPY", "S&P500 선행(SPYx)"), ("QQQX", "QQQ", "나스닥100 선행(QQQx)"), ("NVDAX", "NVDA", "엔비디아 선행(NVDAx)")):
         xr = x_rows.get(x_sym)
         br = qb.match("kis", base_sym, "USD", (f"stock:US:{base_sym}",))
         if xr and br and Decimal(br["price"]) > 0:
             xp, bp = Decimal(xr["price"]), Decimal(br["price"])
             gap = (xp / bp - 1) * 100
+            gap_map[x_sym] = gap
             lead_parts.append(f"{lbl} <b>${xp:,.2f}</b> ({gap:+.2f}%)")
     if us_b or lead_parts:
         today_kst = datetime.now(intel.KST).date().isoformat()
@@ -536,18 +562,25 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
         if us_b and us_b["val"] > 0:
             u_pct = us_b["cash"] / us_b["val"] * 100
             usd_cash_txt = f" · 내 달러(USD) 현금 <b>${_fmt_num(us_b['cash'], 'USD')} ({u_pct:.1f}% · SGOV 4.5% 파킹 기준)</b>"
-        lead_line = ("24시간 토큰주가 직전 종가 대비 · " + " · ".join(lead_parts)) if lead_parts else "개장 전 선물·반도체(SOXX·NVDA) 호가 점검"
+        idx_gap = max(abs(gap_map.get("SPYX", Decimal(0))), abs(gap_map.get("QQQX", Decimal(0))))
+        nvda_gap = abs(gap_map.get("NVDAX", Decimal(0)))
+        token_noise_warn = (
+            ' <span class="badge-warn">개별토큰 과열착시 주의 (지수괴리 대비 과장 · 시가 음봉 경계)</span>'
+            if nvda_gap >= Decimal("2.5") and nvda_gap > idx_gap * Decimal("1.35")
+            else ""
+        )
+        lead_line = (("24시간 토큰주가 직전 종가 대비 · " + " · ".join(lead_parts) + token_noise_warn) if lead_parts else "개장 전 선물·반도체(SOXX·NVDA) 호가 점검")
         exec_slot = (
             "장 중반 호가 안정 구간(<b>00:30~02:00 KST</b>, 마감 직전 얇은 MOC 슬리피지 회피)"
             if is_short_us
-            else "마감 20분 전(05:40 KST)"
+            else "장 중반 또는 마감 20분 전(05:40 KST)"
         )
         rebalance_html += (
             '<div class="networth-banner">'
             f'<div><b>저녁 미국장 실전 준비 ({session_tag}):</b> {lead_line}{usd_cash_txt}</div>'
-            '<small>① <b>23:30~00:00 시초 갭업 추격·투매 금지</b> → '
-            f'② <b>{exec_slot}</b>에 안전마진 미달 약세주 지정가 달러 현금화 → '
-            f'③ 확보된 달러 현금 범위 내에서(원화 매도분은 T+2 결제·환전 시차 유의) <a href="{e(base)}/discover?market=US">미국 S급 대장주</a> 교체</small></div>'
+            '<small>① <b>신규 매수·손절은 23:30~00:00 금지</b>(단, 2순위 비핵심주의 +1.5%↑ 갭업 지정가 매도는 시초 게시 유리) → '
+            f'② <b>{exec_slot}</b> 지정가 대응 및 VIX 급락일 방어주 대신 반도체·AI 병목 대장주 우선 → '
+            f'③ <a href="{e(base)}/strategies#mistake-notes"><b>11/27 미국장 오답노트</b></a> 확인</small></div>'
         )
 
     return (
@@ -590,6 +623,7 @@ def manager_panel(package, base):
             f' · 평가일 도래 {due}건 · 추적 중 {len(pending)}건 (3관문 집중 후보 {qualifying}건) · 평가 완료 {len(ideas)-len(pending)}건</p>'
             f'<div class="chips"><a class="chip" href="{e(base)}/discover">신규 대장주 발굴 (6대 변수)</a>'
             f'<a class="chip" href="{e(base)}/contrarian">역발상·1종목 비대칭 설계</a>'
+            f'<a class="chip" href="{e(base)}/strategies#mistake-notes">실전 투자 오답노트</a>'
             f'<a class="chip" href="{e(base)}/research">1. 시나리오·3관문 점검</a>'
             f'<a class="chip" href="{e(base)}/strategies">2. 4대 위기 백테스트·레짐 규칙</a>'
             f'<a class="chip" href="{e(base)}/quant">3. 종목별 변동성·차트 검증</a>'

@@ -175,6 +175,7 @@ def test_run_persistence_pause_missing_inputs_and_ui(package):
     assert "전략 관리" in html and "연구 재개" in html and "기존 5~120일" in html
     assert "하방 변동성에 따른 노출 축소" in html and "4대 매크로 위기 백테스트 비교" in html
     assert "통합 자본배분 3단 바구니" in html and "IPS · 상관 팩터 · 수탁 한도" in html
+    assert "미국장 사전 시나리오 vs 마감 추세 복기" in html and "누적 투자 오답노트" in html
     assert "실전 시나리오 대조 복기" in html and "타당 · 유지" in html and "오류 · 보정" in html
     next((package / ".local/equity_screens").glob("*-validation.sqlite3")).unlink()
     assert reg.refresh(package) == {}
@@ -235,6 +236,22 @@ def test_authenticated_dashboard_state(package):
             resp.read()
         with reg.database(package) as db:
             assert reg.current_state(db, "trend-252") == "일시정지"
+        # Verify interactive mistake-note POST & rendering
+        mn_body = urlencode(dict(
+            csrf=token,
+            market="US·RWA",
+            category="개별토큰 과열 착시",
+            mistake="프리마켓 NVDAx +3.99%를 본주 급등 신호로 과신",
+            why_wrong="휴장 중 선물 헤지 부재로 리테일 매수에 과장됨",
+            system_patch="지수 토큰 괴리 대비 1.35배 초과 시 시가 음봉 경보 표시",
+        ))
+        client.request("POST", base.path + "/desk/manager/mistake-note", mn_body, common)
+        mn_resp = client.getresponse()
+        assert mn_resp.status == 303 and mn_resp.getheader("Location").endswith("/strategies?done=mistake#mistake-notes")
+        mn_resp.read()
+        client.request("GET", base.path + "/strategies?done=mistake")
+        page_after = client.getresponse().read().decode()
+        assert "새 실전 오답노트 항목을 저장" in page_after and "USR-" in page_after
     finally:
         client.close()
         server.shutdown()

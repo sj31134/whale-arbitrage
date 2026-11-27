@@ -331,3 +331,16 @@ def test_six_persona_institutional_factor_custody_and_combined_stress():
     ]
     comb = monitor.stress_panel(pos, "/test", "combined")
     assert "복합 위기" in comb and "-31.50%p" in comb and "-5.00%p" in comb
+
+    # Verify US 11/27 Mistake #1 (single-stock token overheat alert) & Mistake #3 (20/60D bull trend-hold upgrade)
+    qb_noise = monitor.live_valuation.QuoteBook(rows=[
+        dict(venue="fx", symbol="USD/KRW", currency="KRW", price="1336", at=stamp, seen=stamp),
+        dict(venue="AMEX", symbol="SPY", currency="USD", price="716.70", at=stamp, seen=stamp),
+        dict(venue="NASDAQ", symbol="QQQ", currency="USD", price="633.93", at=stamp, seen=stamp),
+        dict(venue="NASDAQ", symbol="NVDA", currency="USD", price="149.30", at=stamp, seen=stamp),
+        dict(venue="KRAKEN_X", symbol="SPYX", currency="USD", price="728.62", at=stamp, seen=stamp),
+        dict(venue="KRAKEN_X", symbol="QQQX", currency="USD", price="649.50", at=stamp, seen=stamp),
+        dict(venue="KRAKEN_X", symbol="NVDAX", currency="USD", price="155.26", at=stamp, seen=stamp),
+    ])
+    cockpit_noise = page.action_cockpit(None, None, "/test", quote_book=qb_noise, accounts=accs)
+    assert "개별토큰 과열착시 주의" in cockpit_noise

@@ -87,7 +87,7 @@ def server(directory, port=8765, package=None, *, identity_key=None):
     posts = {path + "/variable": (desk, "variable") for path, desk in desks.items() if desk != "manager"}
     posts.update({path + "/feedback": (desk, "feedback") for path, desk in desks.items()})
     posts[route + "/desk/manager/feedback-state"] = ("manager", "feedback-state")
-    for action in ("strategy-run","strategy-state","discover-run","discover-sns","contrarian-run","contrarian-plan"):
+    for action in ("strategy-run","strategy-state","discover-run","discover-sns","contrarian-run","contrarian-plan","mistake-note"):
         posts[route + "/desk/manager/" + action] = ("manager",action)
     journal_actions = ("idea", "start", "assess", "snapshot", "recover", "market-note")
     for action in journal_actions:
@@ -201,7 +201,7 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                                             query.get("all") == "1", query.get("feedback") == "1",
                                             query.get("legacy") == "1", query.get("screen","all"),query.get("position"),query.get("frame","day"))
                 elif strategies:
-                    data = strategy_page.render(package,route,csrf,monitor.CSS)
+                    data = strategy_page.render(package,route,csrf,monitor.CSS,query=query)
                 elif discover:
                     data = discovery_page.render(directory, package, route, csrf, query, monitor.CSS)
                 elif contrarian_rt:
@@ -275,6 +275,8 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                             contrarian.refresh(package)
                         elif action == "contrarian-plan":
                             contrarian.save_playbook(package, fields)
+                        elif action == "mistake-note":
+                            strategy_page.save_mistake_note(package, fields)
                         elif action == "strategy-state":
                             with strategy_registry.database(package) as db:
                                 strategy_registry.state(db,fields["strategy"],fields["state"])
@@ -326,6 +328,8 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                     target = route + "/contrarian?done=refreshed"
                 if action == "contrarian-plan":
                     target = route + "/contrarian?done=saved#my-playbooks"
+                if action == "mistake-note":
+                    target = route + "/strategies?done=mistake#mistake-notes"
                 if action == "reconcile":
                     target = route + "/portfolio#performance"
                 if action in journal_actions:

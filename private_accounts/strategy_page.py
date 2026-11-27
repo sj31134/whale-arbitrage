@@ -1,11 +1,13 @@
 """Authenticated research controls and locally evaluated instrument comparisons."""
 
 from datetime import datetime, timezone
+import hashlib
 from html import escape
 import sqlite3
 
 from math import sqrt
 
+from agents import intelligence as intel
 from . import chat_page, quant, strategy_registry as registry
 from .strategy_catalog import (
     AQR,
@@ -13,11 +15,52 @@ from .strategy_catalog import (
     CATALOG,
     HISTORICAL_BACKTESTS,
     INTRADAY_POSTMORTEM,
+    MISTAKE_NOTEBOOK,
     REGIME_PLAYBOOK,
     SOURCE_LABELS,
     STRATEGY_GUIDES,
+    US_SESSION_POSTMORTEM,
     WINTON,
 )
+
+MISTAKE_FILE = "mistake_notes.json"
+
+
+def save_mistake_note(package, fields):
+    market = str(fields.get("market", "US")).strip().upper()[:12]
+    category = str(fields.get("category", "")).strip()
+    mistake = str(fields.get("mistake", "")).strip()
+    why_wrong = str(fields.get("why_wrong", "")).strip()
+    system_patch = str(fields.get("system_patch", "")).strip()
+    if market not in ("KRX", "US", "US·RWA", "CRYPTO", "ALL"):
+        raise ValueError("시장 구분을 선택하세요.")
+    if not (0 < len(category) <= 60 and 0 < len(mistake) <= 260 and 0 < len(why_wrong) <= 320 and 0 < len(system_patch) <= 260):
+        raise ValueError("오류 분류·틀린 예측·원인 분석·보완 규칙을 모두 입력하세요.")
+    stamp = datetime.now(intel.KST).isoformat(timespec="seconds")
+    nid = "USR-" + hashlib.sha256(f"{market}:{mistake}:{system_patch}".encode()).hexdigest()[:8].upper()
+    rec = dict(
+        id=nid,
+        created=stamp,
+        market=market,
+        category=category,
+        mistake=mistake,
+        why_wrong=why_wrong,
+        system_patch=system_patch,
+    )
+
+    def _upsert(old):
+        items = [r for r in old.get("items", []) if r.get("id") != nid]
+        items.insert(0, rec)
+        return dict(updated=stamp, items=items[:100])
+
+    intel.update_json(package, MISTAKE_FILE, {}, _upsert)
+    return rec
+
+
+def user_mistake_notes(package):
+    if package is None:
+        return []
+    return intel.private_json(package, MISTAKE_FILE, {}).get("items", [])
 
 
 def pct(n, suffix="%"):
@@ -108,7 +151,7 @@ def selected_panel(package, key):
         return head + "<p>공개 원천 또는 독립 종가 대조를 기다립니다.</p></section>"
 
 
-def playbook_section(base):
+def playbook_section(base, package=None, csrf="", done=None):
     cards = []
     for idx, item in enumerate(REGIME_PLAYBOOK, 1):
         cards.append(
@@ -118,18 +161,28 @@ def playbook_section(base):
             f'<small>적용 조건 · {escape(item["condition"])}</small>'
             f'<p>{escape(item["detail"])}</p></article>'
         )
+    done_banner = (
+        '<p role="status" class="badge-pass">새 실전 오답노트 항목을 저장하고 재발 방지 목록에 반영했습니다.</p>'
+        if done == "mistake"
+        else ""
+    )
     return (
-        '<div class="guide-banner"><h2>초보자용 전략 가이드 · 언제 현금을 쥐고 언제 집중하나요?</h2>'
+        done_banner
+        + '<div class="guide-banner"><h2>초보자용 전략 가이드 · 언제 현금을 쥐고 언제 집중하나요?</h2>'
         '<p>적은 시드로 자산을 키우려면 <b>검증된 소수 종목 집중</b>이 필요하지만, 현금 버퍼 없이 폭락장을 맞으면 '
         '반토막(-55%~-74%)으로 복리가 깨집니다. 시장 온도에 따라 아래 두 단계로 나누어 운용하세요.</p>'
         f'<div class="chips"><a class="chip" href="{escape(base)}/research">가설 연구장에서 집중 후보 고르기</a>'
         f'<a class="chip" href="{escape(base)}/quant">내 보유 종목 권장 비중 보기</a>'
-        '<a class="chip" href="#postmortem-review">11/27 실전 장전 vs 마감 복기</a>'
+        '<a class="chip" href="#us-postmortem-review">11/27 미국장 사전 vs 마감 복기</a>'
+        '<a class="chip" href="#mistake-notes">실전 투자 오답노트 원장</a>'
+        '<a class="chip" href="#postmortem-review">11/27 한국장 복기</a>'
         '<a class="chip" href="#historical-backtests">30년 4대 위기 백테스트 바로가기</a></div></div>'
         '<section><h2>2단계 시장 레짐 운용 원칙 (실전 복기 반영)</h2><div class="playbook-grid">'
         + "".join(cards)
         + "</div></section>"
         + charter_section(base)
+        + us_postmortem_section()
+        + mistake_note_section(package, base, csrf)
         + postmortem_section()
     )
 
@@ -163,6 +216,63 @@ def charter_section(base):
         '<details><summary>6대 투자자·기관 페르소나별 시스템 활용 가이드 요약</summary>'
         '<div class="strategy-scroll"><table><thead><tr><th>투자자 유형</th><th>핵심 점검 메뉴 및 자본배분·실행 규칙</th></tr></thead>'
         f'<tbody>{p_rows}</tbody></table></div></details></section>'
+    )
+
+
+def us_postmortem_section():
+    pm = US_SESSION_POSTMORTEM
+    ok_rows = "".join(
+        f'<tr><td><span class="badge-pass">적중 · 확정</span> <b>{escape(item)}</b></td>'
+        f"<td>{escape(obs)}</td><td><b>{escape(rule)}</b></td></tr>"
+        for item, obs, rule in pm["validated"]
+    )
+    fix_rows = "".join(
+        f'<tr><td><span class="badge-warn">오답 · 보정</span> <b>{escape(item)}</b></td>'
+        f"<td>{escape(obs)}</td><td><b>{escape(rule)}</b></td></tr>"
+        for item, obs, rule in pm["corrected"]
+    )
+    return (
+        f'<section id="us-postmortem-review"><h2>미국장 사전 시나리오 vs 마감 추세 복기 ({escape(pm["date"])})</h2>'
+        f'<p><small>실측 기준 · {escape(pm["benchmark_summary"])}</small></p>'
+        '<div class="strategy-scroll"><table><thead><tr>'
+        '<th>개장 전 분석 근거·전략</th><th>실제 미국장 장중·종가 검증 및 정오답 이유(Why)</th><th>시스템·전략 보정 결과</th>'
+        f'</tr></thead><tbody>{ok_rows}{fix_rows}</tbody></table></div></section>'
+    )
+
+
+def mistake_note_section(package, base, csrf):
+    custom = user_mistake_notes(package)
+    all_notes = list(custom) + list(MISTAKE_NOTEBOOK)
+    rows = "".join(
+        f'<tr><td><code>{escape(n["id"])}</code><br><span class="badge-info">{escape(n["market"])}</span></td>'
+        f'<td><b>{escape(n["category"])}</b><br><small>{escape(n.get("created", "2026-11-28")[:10])}</small></td>'
+        f"<td>{escape(n['mistake'])}</td>"
+        f"<td>{escape(n['why_wrong'])}</td>"
+        f'<td><span class="badge-pass">시스템 반영</span> <b>{escape(n["system_patch"])}</b></td></tr>'
+        for n in all_notes
+    )
+    form_html = ""
+    if csrf:
+        form_html = (
+            '<details><summary>새 실전 오답노트 직접 기록·누적하기 (틀린 예측 → 원인 → 재발방지 규칙)</summary>'
+            f'<form class="research-form" method="post" action="{escape(base)}/desk/manager/mistake-note">'
+            f'<input type="hidden" name="csrf" value="{escape(csrf)}">'
+            '<label>대상 시장<select name="market"><option value="US">미국 주식 (US)</option>'
+            '<option value="US·RWA">미국·RWA 토큰 (US·RWA)</option><option value="KRX">한국 주식 (KRX)</option>'
+            '<option value="CRYPTO">코인 (CRYPTO)</option><option value="ALL">전 자산 공통 (ALL)</option></select></label>'
+            '<label>오답 유형 분류<input name="category" required maxlength="60" placeholder="예: 개별토큰 선행지표 과신 / 조기 매도"></label>'
+            '<label>① 무엇을 잘못 예측·실행했나 (틀린 가정·행동)<textarea name="mistake" rows="2" required maxlength="260" placeholder="예: 프리마켓 개별토큰 +4%만 보고 본주 강세를 확신함"></textarea></label>'
+            '<label>② 왜 틀렸나 (시장 미시구조·금리·수급 근본 원인)<textarea name="why_wrong" rows="2" required maxlength="320" placeholder="예: 휴장 중 선물 헤지 부재로 소액 리테일 매수에 과장됐고 개장 후 금리 반등에 차익실현 출회"></textarea></label>'
+            '<label>③ 다음부터 적용할 재발 방지 시스템 규칙<textarea name="system_patch" rows="2" required maxlength="260" placeholder="예: 지수 토큰(SPYx·QQQx)과 개별 토큰 괴리가 1.35배 벌어지면 추격 금지"></textarea></label>'
+            '<button>오답노트 영구 기록</button></form></details>'
+        )
+    return (
+        '<section id="mistake-notes"><h2>누적 투자 오답노트 &amp; 재발 방지 규칙 원장 (한국장 + 미국·RWA장 통합)</h2>'
+        '<p>단순히 수익 결과만 보는 것이 아니라, <b>개장 전 세운 가설 중 무엇이 왜 틀렸는지(근본 메커니즘)</b>를 해부하여 '
+        '같은 실수가 반복되지 않도록 대시보드 판정 코드와 매매 헌장에 영구 각인한 오답노트입니다.</p>'
+        f'<div class="strategy-scroll"><table><thead><tr>'
+        '<th>코드 · 시장</th><th>오답 유형</th><th>무엇이 틀렸나 (사전 오류)</th><th>왜 틀렸나 (근본 원인 규명)</th><th>재발 방지 시스템·전략 보정</th>'
+        f'</tr></thead><tbody>{rows}</tbody></table></div>{form_html}</section>'
     )
 
 
@@ -224,8 +334,9 @@ def historical_section():
     )
 
 
-def render(package, base, csrf, css):
+def render(package, base, csrf, css, query=None):
     now = datetime.now(timezone.utc).isoformat()
+    q = query or {}
     html = [
         '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
         '<meta name="referrer" content="no-referrer"><title>전략 관리</title><style>',
@@ -239,7 +350,7 @@ def render(package, base, csrf, css):
         '<div class="strategy-row"><h1>전략 관리</h1>',
         form(base, csrf, "strategy-run", {}, "공개 일봉으로 재계산"),
         "</div>",
-        playbook_section(base),
+        playbook_section(base, package=package, csrf=csrf, done=q.get("done")),
     ]
     with registry.database(package) as db:
         refresh = db.execute(
