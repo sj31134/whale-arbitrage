@@ -1,4 +1,5 @@
 """Public quote cache and strictly local mark-to-market calculations."""
+import difflib
 import os
 import sqlite3
 from contextlib import closing, contextmanager
@@ -131,7 +132,9 @@ class QuoteBook:
         self.sources = {r["feed"]: dict(r) for r in sources}
         self.index = {}
         self.compact_names = {}
+        self.rows_by_venue = {}
         self.fx = None
+        self.usdt_usd = None
         self.latest_market_at = {}
         latest = {}
         versions = {}
@@ -149,8 +152,11 @@ class QuoteBook:
             if row["venue"] == "fx":
                 if (row["symbol"], row["currency"]) == ("USD/KRW", "KRW"):
                     self.fx = row
+                elif (row["symbol"], row["currency"]) == ("USDT/USD", "USD"):
+                    self.usdt_usd = row
                 continue
             venue = row["venue"]
+            self.rows_by_venue.setdefault(venue, []).append(row)
             if venue in ("KRX", *market_prices.AMERICA):
                 when = datetime.fromisoformat(row["at"])
                 self.latest_market_at[venue] = max(when, self.latest_market_at.get(venue, when))
@@ -158,6 +164,13 @@ class QuoteBook:
                 self.index.setdefault(key, []).append(row)
             for key in {normalize(row[k]).replace(" ","") for k in ("name","english") if row.get(k)}:
                 self.compact_names.setdefault(key,[]).append(row)
+
+    def rate_for(self, target_ccy, quote_ccy):
+        if (target_ccy, quote_ccy) == ("KRW", "USD"):
+            return self.fx, "fx"
+        if (target_ccy, quote_ccy) == ("USD", "USDT"):
+            return self.usdt_usd, "usdt_usd"
+        return None, None
 
     def match(self, provider, symbol, currency, tags=()):
         if "invalid:workbook" in tags:
@@ -183,8 +196,43 @@ class QuoteBook:
         if prefix:
             venues &= {"KRX"} if prefix == "kr-" else set(market_prices.AMERICA)
         eligible = [r for r in rows if r["venue"] in venues and
-                    (r["currency"] == currency or (currency, r["currency"]) == ("KRW", "USD"))]
+                    (r["currency"] == currency or (currency, r["currency"]) == ("KRW", "USD")
+                     or (r["venue"] == "binance" and (currency, r["currency"]) == ("USD", "USDT")))]
         return eligible[0] if len(eligible) == 1 else None
+
+
+def suggest_identifiers(book, provider, symbol, currency):
+    """Return read-only candidate stock:KR / stock:US tags for unmatched broker rows."""
+    if book is None or provider in store.CRYPTO or symbol.upper() == currency:
+        return []
+    target = normalize(symbol).replace(" ", "")
+    if len(target) < 2:
+        return []
+    venues = ("KRX", *market_prices.AMERICA)
+    scored = []
+    for venue in venues:
+        prefix = "stock:KR:" if venue == "KRX" else "stock:US:"
+        for r in book.rows_by_venue.get(venue, ()):
+            if not (r["currency"] == currency or (currency, r["currency"]) == ("KRW", "USD")):
+                continue
+            for label in (r.get("name") or "", r.get("english") or ""):
+                cand = normalize(label).replace(" ", "")
+                if not cand:
+                    continue
+                ratio = difflib.SequenceMatcher(None, target, cand).ratio()
+                if ratio >= 0.86:
+                    scored.append((ratio, prefix + r["symbol"], r.get("name") or r["symbol"]))
+                    break
+    scored.sort(key=lambda x: (-x[0], x[1]))
+    seen = set()
+    out = []
+    for _, tag, label in scored:
+        if tag not in seen:
+            seen.add(tag)
+            out.append((tag, label))
+        if len(out) == 3:
+            break
+    return out
 
 
 def read(package):
@@ -225,8 +273,20 @@ def mark_account(book, provider, rows, pnl, balance_at, account=None, identifier
             value, gain = baseline, pnl.get((symbol, currency))
             cost = baseline - gain if baseline is not None and gain is not None else None
             state, price, at, fx_at = "시세 미연결", None, None, None
+            fx_row, fx_feed = None, None
             if symbol.upper() == currency:
                 state = "통화 잔액"
+            elif provider == "binance" and (symbol.upper(), currency) == ("USDT", "USD"):
+                fx_row, fx_feed = book.rate_for("USD", "USDT")
+                if fx_row and datetime.fromisoformat(fx_row["at"]) >= datetime.fromisoformat(balance_at):
+                    at = fx_row["at"]
+                    fx_at = fx_row["at"]
+                    price = Decimal(fx_row["price"])
+                    value = qty * price
+                    gain = value - cost if cost is not None else None
+                    state = "통화 잔액 · USDT/USD 환산"
+                else:
+                    state = "환율 미확인"
             elif quote:
                 at = quote["at"]
                 price = Decimal(quote["price"])
@@ -234,10 +294,10 @@ def mark_account(book, provider, rows, pnl, balance_at, account=None, identifier
                 if datetime.fromisoformat(at) < datetime.fromisoformat(balance_at):
                     price, state = None, "원장보다 이전 시세"
                 elif quote["currency"] != currency:
-                    fx = book.fx
-                    if fx and abs(datetime.fromisoformat(at) - datetime.fromisoformat(fx["at"])) <= timedelta(days=4):
-                        price *= Decimal(fx["price"])
-                        fx_at = fx["at"]
+                    fx_row, fx_feed = book.rate_for(currency, quote["currency"])
+                    if fx_row and abs(datetime.fromisoformat(at) - datetime.fromisoformat(fx_row["at"])) <= timedelta(days=4):
+                        price *= Decimal(fx_row["price"])
+                        fx_at = fx_row["at"]
                     else:
                         price, state = None, "환율 미확인"
                 if price is not None:
@@ -264,16 +324,16 @@ def mark_account(book, provider, rows, pnl, balance_at, account=None, identifier
                         state += " · 저장값"
                     if fx_at and datetime.now(timezone.utc) - datetime.fromisoformat(fx_at) > timedelta(days=1):
                         state += " · 환율 최신 여부 미확인"
-                    if fx_at and book.fx.get("manual"):
+                    if fx_at and fx_row and fx_row.get("manual"):
                         state += " · 원문 확인 환율"
-                    elif fx_at and book.sources.get("fx", {}).get("status") != "수집 완료":
+                    elif fx_at and fx_feed and book.sources.get(fx_feed, {}).get("status") != "수집 완료":
                         state += " · 저장 환율"
             marked.append(dict(symbol=symbol, currency=currency, qty=store.fixed(qty), value=value, gain=gain,
                                rate=100*gain/cost if gain is not None and cost and cost > 0 else None,
                                change=value-baseline if price is not None and baseline is not None else None,
                                price=price, at=at, fx_at=fx_at, state=state,
                                seen=quote.get("seen") if quote else None,
-                               fx_seen=book.fx.get("seen") if fx_at else None,
+                               fx_seen=fx_row.get("seen") if fx_at and fx_row else None,
                                market_price=quote["price"] if quote else None, market_currency=quote["currency"] if quote else None,
                                direct_ids=tuple(t for t in direct if t.startswith(("stock:US:", "stock:KR:", "token:XT:"))),
                                instrument=(quote["venue"],quote["symbol"],quote["currency"]) if quote else None,

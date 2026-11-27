@@ -219,11 +219,18 @@ def form(route, csrf, action, label, fields="", position="", section="", extra="
     )
 
 
-def position_detail(p, categories, route, csrf):
+def position_detail(p, categories, route, csrf, quote_book=None):
     pid = p["id"]
 
     def save(action, button, fields, section):
         return form(route, csrf, action, button, fields, pid, section)
+
+    hint = ""
+    if quote_book is not None and quote_book.match(p["provider"], p["symbol"], p["currency"], p["tags"]) is None:
+        cands = live_valuation.suggest_identifiers(quote_book, p["provider"], p["symbol"], p["currency"])
+        if cands:
+            items = ", ".join(f"<code>{e(code)}</code> ({e(name)})" for code, name in cands)
+            hint = f'<p><span class="badge-warn">시세 미연결 후보</span> 상장 종목명과 철자가 다를 수 있습니다 · {items}</p>'
 
     controls = save(
         "role",
@@ -234,7 +241,7 @@ def position_detail(p, categories, route, csrf):
     controls += save(
         "tags",
         "연결어 저장",
-        f'<small>시세 연결 형식 · stock:KR:국내코드 / stock:US:미국티커 / token:XT:토큰티커. 기초주식 연결은 underlying:US:티커.</small><label>공개 티커·CIK·주제 (쉼표로 구분)<input name="tags" maxlength="500" value="{e(", ".join(p["tags"]))}"></label>',
+        hint + f'<small>시세 연결 형식 · stock:KR:국내코드 / stock:US:미국티커 / token:XT:토큰티커. 기초주식 연결은 underlying:US:티커.</small><label>공개 티커·CIK·주제 (쉼표로 구분)<input name="tags" maxlength="500" value="{e(", ".join(p["tags"]))}"></label>',
         "원천 식별자",
     )
     controls += save(
@@ -414,7 +421,7 @@ def render(directory, package, route, csrf, query):
     out.append(stress_panel(positions, route, query.get("stress")))
     out.append(account_performance.panel(package, route, csrf))
     if chosen:
-        out.append(position_detail(chosen, cats, route, csrf))
+        out.append(position_detail(chosen, cats, route, csrf, quote_book=book))
     out.append(
         '<section id="holdings" data-watch><h2>포트폴리오</h2><div class="chips">'
         + chip("모든 담당", dict(provider=provider), not active)

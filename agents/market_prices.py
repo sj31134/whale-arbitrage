@@ -20,7 +20,7 @@ AMERICA = ("NASDAQ", "NYSE", "AMEX")
 ETF_SAMPLE = ("069500", "102110", "360750", "133690")
 LABELS = {**{v: v for v in (*KOREA, *AMERICA)},
           **{s: "국내 ETF " + s for s in ETF_SAMPLE},
-          "kraken_x": "Kraken 토큰화 주식 USD", "etf": "국내 ETF 전체 순환", "upbit": "업비트 KRW", "binance": "바이낸스 USDT", "fx": "USD/KRW"}
+          "kraken_x": "Kraken 토큰화 주식 USD", "etf": "국내 ETF 전체 순환", "upbit": "업비트 KRW", "binance": "바이낸스 USDT", "fx": "USD/KRW", "usdt_usd": "USDT/USD"}
 INTERVAL = 30
 STREAMS = {"upbit_stream": "업비트 체결 스트림", "binance_stream": "바이낸스 시세 스트림"}
 STREAM_URLS = {"upbit_stream": "wss://api.upbit.com/websocket/v1",
@@ -51,6 +51,8 @@ def endpoint(feed, page=1):
         return "https://m.stock.naver.com/api/stock/" + feed + "/basic"
     elif feed == "fx":
         return "https://api.stock.naver.com/marketindex/exchange/FX_USDKRW"
+    elif feed == "usdt_usd":
+        return "https://api.kraken.com/0/public/Ticker?pair=USDTZUSD"
     elif feed == "upbit":
         return "https://api.upbit.com/v1/ticker/all?quote_currencies=KRW"
     elif feed == "binance":
@@ -73,7 +75,7 @@ def stamp(raw):
 def parse(feed, data):
     source = json.loads(data, parse_float=Decimal)
     pages = 1
-    if feed == "kraken_x":
+    if feed in ("kraken_x", "usdt_usd"):
         if source["error"]:
             raise ValueError("거래소 응답 오류")
         rows = [dict(r, pair=k) for k,r in source["result"].items()]
@@ -90,7 +92,12 @@ def parse(feed, data):
     result = []
     for row in rows:
         try:
-            if feed == "kraken_x":
+            if feed == "usdt_usd":
+                if row["pair"].upper() != "USDTZUSD" or feeds.num(str(row["v"][1])) <= 0:
+                    continue
+                symbol, venue, currency = "USDT/USD", "fx", "USD"
+                price, when = row["c"][0], datetime.now(timezone.utc).isoformat()
+            elif feed == "kraken_x":
                 pair = row["pair"].upper()
                 if not re.fullmatch(r"[A-Z0-9.]+XUSD",pair) or feeds.num(str(row["v"][1])) <= 0:
                     continue

@@ -219,3 +219,24 @@ def test_quote_quality_keeps_instrument_basis_and_market_dates():
     halted = live.QuoteBook([dict(row, session="HALT")])
     marked, = live.mark_account(halted, "kis", [("ALPHA", "USD", "1", "8")], {}, ledger)
     assert "거래 정지" in marked["state"]
+
+
+def test_binance_usdt_to_usd_conversion_and_identifier_suggestions():
+    now = datetime.now(timezone.utc)
+    stamp = now.isoformat()
+    ledger = (now - timedelta(days=1)).isoformat()
+    usdt_payload = json.dumps({"error": [], "result": {"USDTZUSD": {"c": ["0.998", "10"], "v": ["5", "100"]}}})
+    (fx_row,), _ = market_prices.parse("usdt_usd", usdt_payload)
+    assert fx_row["venue"] == "fx" and fx_row["symbol"] == "USDT/USD" and fx_row["price"] == "0.998"
+    coin = dict(venue="binance", symbol="ALPHA", currency="USDT", name="", english="",
+                price="10", at=stamp, seen=stamp, session="", delay="", feed="binance", page=1)
+    krx = dict(venue="KRX", symbol="138040", currency="KRW", name="메리츠금융지주", english="",
+               price="123000", at=stamp, seen=stamp, session="OPEN", delay="", feed="KOSPI", page=1)
+    no_fx_book = live.QuoteBook([coin, krx])
+    assert live.mark_account(no_fx_book, "binance", [("ALPHA", "USD", "2", "18")], {}, ledger)[0]["state"] == "환율 미확인"
+    book = live.QuoteBook([{**fx_row, "seen": stamp, "feed": "usdt_usd", "page": 1}, coin, krx],
+                          [dict(feed="binance", status="수집 완료"), dict(feed="usdt_usd", status="수집 완료")])
+    marked, = live.mark_account(book, "binance", [("ALPHA", "USD", "2", "18")], {("ALPHA", "USD"): Decimal("2")}, ledger)
+    assert marked["value"] == Decimal("19.96") and marked["gain"] == Decimal("3.96") and marked["state"] == "시세 반영"
+    cands = live.suggest_identifiers(book, "kis", "메리금융지주", "KRW")
+    assert cands == [("stock:KR:138040", "메리츠금융지주")]
