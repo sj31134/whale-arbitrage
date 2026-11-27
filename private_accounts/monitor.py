@@ -16,6 +16,7 @@ from . import (
     live_panel,
     live_valuation,
     research_book,
+    research_page,
     store,
 )
 
@@ -407,6 +408,7 @@ def render(directory, package, route, csrf, query):
         metric("보유 행 · 계좌별", len(positions)),
         metric("정보가 있는 범주", f'{sum(bool(c["observations"]) for c in cats.values())} / {len(cats)}'),
         "</div></section>",
+        research_page.action_cockpit(directory, package, route, quote_book=book, accounts=accounts),
         concentration_panel(positions, package, route),
         live_panel.panel(directory, package, book, accounts, detail_base=route),
         history_panel.position_history(package, accounts, route, query.get("position"),query.get("frame","day")),

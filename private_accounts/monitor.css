@@ -223,3 +223,17 @@ input[type="hidden"] {display:none!important}.history-top h2,.history-controls a
 .inline-meter>i{display:block;height:100%;border-radius:4px;background:#137a63}
 .inline-meter>i.neg{background:#c4493a}
 @media(max-width:650px){.era-line{grid-template-columns:1fr auto}.era-line .meter{grid-column:1/-1}}
+
+/* Top plain-Korean Action & Loss Post-Mortem Cockpit */
+.cockpit{background:#fff;border:2px solid #1b5e50;border-radius:16px;padding:clamp(16px,2.2vw,26px);margin:0 0 18px;box-shadow:0 4px 18px #102a250d}
+.cockpit-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.cockpit-head h2{font-size:clamp(1.25rem,2.4vw,1.6rem);color:#123b36}
+.cockpit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;margin-bottom:14px}
+.cockpit-box{background:#f7faf9;border:1px solid #cfe0d9;border-radius:12px;padding:14px 16px}
+.cockpit-box.alert{background:#fffaf3;border-color:#ebcfa8}
+.cockpit-box h3{font-size:1rem;margin-bottom:6px;color:#152d36}
+.cockpit-box ul{margin:6px 0 0;padding-left:1.15rem;font-size:.88rem;line-height:1.55;color:var(--ink)}
+.cockpit-box li+li{margin-top:4px}
+.cockpit-table td,.cockpit-table th{vertical-align:top;white-space:normal;min-width:95px}
+.cockpit-table td.num{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.cockpit-why{min-width:240px;max-width:420px;font-size:.85rem;line-height:1.45;color:var(--ink)}

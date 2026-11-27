@@ -6,7 +6,8 @@ import re
 from html import escape
 
 from agents import intelligence as intel
-from . import chat_page, reports, research_book as book
+from agents.portfolio import CASH_NAMES, normalize, portfolio_accounts
+from . import chat_page, live_valuation, price_history, reports, research_book as book, store
 
 e = escape
 
@@ -47,6 +48,294 @@ def feed_health(package):
             '<div class="comparison"><table><thead><tr><th>원천</th><th>최근 시도 상태</th>'
             '<th>시도 시각</th><th>마지막 자동 성공</th><th>자동 자료의 최근 관측</th>'
             '<th>수동 보완 시각·범위</th></tr></thead><tbody>' + "".join(rows) + "</tbody></table></div></details>")
+
+
+def _fmt_num(val, ccy=""):
+    if val is None:
+        return "—"
+    n = Decimal(val)
+    if ccy == "KRW" or abs(n) >= 100:
+        return f"{n:,.0f}"
+    return f"{n:,.2f}"
+
+
+def _tech_snapshot(db, key, cur_price=None):
+    if db is None or not key:
+        return None
+    rows, _ = price_history.series(db, key)
+    if len(rows) < 20:
+        return None
+    closes = [float(r["closing"]) for r in rows]
+    cur = float(cur_price) if cur_price is not None else closes[-1]
+    if cur <= 0:
+        return None
+    series = closes + ([cur] if cur_price is not None and abs(cur - closes[-1]) > 1e-9 else [])
+    ma20 = sum(series[-20:]) / 20
+    ma60 = sum(series[-60:]) / 60 if len(series) >= 60 else None
+    high60 = max(series[-60:]) if len(series) >= 60 else max(series)
+    diffs = [b - a for a, b in zip(series[-15:], series[-14:])] if len(series) >= 15 else []
+    rsi = None
+    if len(diffs) == 14:
+        up = sum(d for d in diffs if d > 0) / 14
+        dn = sum(-d for d in diffs if d < 0) / 14
+        rsi = 100.0 if dn == 0 else 100.0 - (100.0 / (1.0 + up / dn))
+    pct20 = (cur / ma20 - 1) * 100
+    pct60 = (cur / ma60 - 1) * 100 if ma60 else None
+    dd60 = (cur / high60 - 1) * 100
+    if ma60 and cur >= ma20 and cur >= ma60:
+        label = "상승 추세 안착 (20·60일선 위)"
+    elif cur >= ma20:
+        label = f"단기 반등 전환 (20일선 +{pct20:.1f}% 위)"
+    elif rsi is not None and rsi <= 33:
+        label = f"심한 과매도 (RSI {rsi:.0f} · 반등 대기)"
+    elif rsi is not None and rsi <= 50:
+        label = f"바닥 반등 시도 (RSI {rsi:.0f} · 20일선 {pct20:+.1f}%)"
+    else:
+        label = f"추세선 아래 (20일선 {pct20:+.1f}%)"
+    return dict(cur=cur, ma20=ma20, ma60=ma60, pct20=pct20, pct60=pct60, dd60=dd60, rsi=rsi, label=label)
+
+
+def action_cockpit(directory, package, base, quote_book=None, accounts=None):
+    """Plain-Korean loss post-mortem, market/technical verdict, and per-holding action table."""
+    if package is None and directory is None and accounts is None:
+        return ""
+    qb = quote_book if quote_book is not None else live_valuation.read(package)
+    accs = accounts if accounts is not None else portfolio_accounts(directory, package, include_pnl=True, quote_book=qb)
+    if not any(a.get("marks") for a in accs):
+        return ""
+
+    # Map registered active hypotheses by normalized name and 6-digit KRX/US symbol
+    idea_map = {}
+    for row in book.entries(package):
+        if row["result"]:
+            continue
+        a = row["a"]
+        m = book.metrics(a)
+        info = dict(a=a, m=m)
+        idea_map[normalize(a["asset"]).replace(" ", "")] = info
+        base_tok = normalize(a["asset"].split("·")[0].split("(")[0]).replace(" ", "")
+        if base_tok:
+            idea_map[base_tok] = info
+        code_hit = re.search(r"\b([0-9A-Z]{1,6})\b", a["asset"].upper())
+        if code_hit:
+            idea_map[code_hit.group(1)] = info
+        url_code = re.search(r"(?:code=|/stock/|symbol=)(\d{6})", a["price_source"])
+        if url_code:
+            idea_map[url_code.group(1)] = info
+
+    ccy_totals = {}
+    holdings = []
+    with live_valuation.connection(package) as db:
+        has_bars = bool(db and db.execute("SELECT 1 FROM sqlite_master WHERE name='price_bar'").fetchone())
+        kr_bench = _tech_snapshot(db if has_bars else None, ("KRX", "069500", "KRW"),
+                                  (qb.match("kis", "069500", "KRW", ("stock:KR:069500",)) or {}).get("price"))
+        us_bench = _tech_snapshot(db if has_bars else None, ("AMEX", "SPY", "USD"),
+                                  (qb.match("kis", "SPY", "USD", ("stock:US:SPY",)) or {}).get("price"))
+        for acc in accs:
+            prov, alias = acc["provider"], acc["account"]
+            for m in acc["marks"]:
+                ccy = m["currency"]
+                val = Decimal(m["value"]) if m["value"] is not None else None
+                gain = Decimal(m["gain"]) if m.get("gain") is not None else None
+                is_cash = m["symbol"].upper() in CASH_NAMES or m["state"].startswith("통화 잔액")
+                bucket = ccy_totals.setdefault(ccy, dict(val=Decimal(0), cash=Decimal(0), net_gain=Decimal(0),
+                                                         gross_loss=Decimal(0), losers=[], count=0))
+                if val is not None:
+                    bucket["val"] += val
+                    if is_cash:
+                        bucket["cash"] += val
+                if is_cash:
+                    continue
+                bucket["count"] += 1
+                if gain is not None:
+                    bucket["net_gain"] += gain
+                    if gain < 0:
+                        bucket["gross_loss"] += -gain
+                        bucket["losers"].append((gain, m["symbol"]))
+                inst = m.get("instrument")
+                hist_key = price_history.local_history_key(db if has_bars else None, prov, m) if has_bars else inst
+                tech = _tech_snapshot(db if has_bars else None, hist_key, m.get("market_price") or m.get("price"))
+                matched_idea = None
+                for k_try in (
+                    inst[1].upper() if inst else "",
+                    normalize(m["symbol"]).replace(" ", ""),
+                    m["symbol"].strip().upper(),
+                ):
+                    if k_try and k_try in idea_map:
+                        matched_idea = idea_map[k_try]
+                        break
+                qty = Decimal(m["qty"])
+                cost_unit = ((val - gain) / qty) if (val is not None and gain is not None and qty > 0) else None
+                holdings.append(dict(
+                    provider=prov, alias=alias, symbol=m["symbol"], ccy=ccy,
+                    price=m["price"], val=val, gain=gain, rate=m.get("rate"),
+                    weight=m.get("weight_pct"), breakeven=cost_unit,
+                    idea=matched_idea, tech=tech, inst=inst,
+                ))
+
+    if not holdings:
+        return ""
+
+    # Build Box 1: Plain-Korean Loss Root-Cause Post-Mortem
+    loss_bullets = []
+    for ccy, b in sorted(ccy_totals.items()):
+        if b["val"] <= 0:
+            continue
+        cash_pct = (b["cash"] / b["val"] * 100) if b["val"] > 0 else Decimal(0)
+        rec_pct = (max(-b["net_gain"], Decimal(0)) / b["val"] * 100) if b["val"] > 0 else Decimal(0)
+        top_losers = sorted(b["losers"], key=lambda x: x[0])[:3]
+        if top_losers and b["gross_loss"] > 0:
+            top_share = sum(-g for g, _ in top_losers) / b["gross_loss"] * 100
+            names = ", ".join(e(s) for _, s in top_losers)
+            loss_bullets.append(
+                f"<li><b>{e(ccy)} 계좌 현황:</b> 순평가손익 <b>{_fmt_num(b['net_gain'], ccy)} {e(ccy)}</b> "
+                f"(현재 자산에서 <b>+{rec_pct:.1f}%</b> 수익이 나야 원금 복구) · "
+                f"전체 손실의 <b>{top_share:.0f}%</b>가 <b>{names}</b>에서 발생했습니다.</li>"
+            )
+        else:
+            loss_bullets.append(
+                f"<li><b>{e(ccy)} 계좌 현황:</b> 보유 {b['count']}개 행 · 현금 비중 <b>{cash_pct:.1f}%</b></li>"
+            )
+    kr_cash_pct = (ccy_totals["KRW"]["cash"] / ccy_totals["KRW"]["val"] * 100) if ccy_totals.get("KRW", {}).get("val") else Decimal(0)
+    total_names = len({(h["ccy"], h["symbol"]) for h in holdings})
+    loss_bullets.append(
+        f"<li><b>왜 손실이 커졌나 (구조적 원인):</b> ① 현금 방어막 부족(원화 현금 <b>{kr_cash_pct:.1f}%</b> vs 권장 <b>35%</b>)으로 "
+        f"시장 급락을 그대로 맞았고, ② <b>{total_names}개 종목</b>으로 자금이 흩어져 있어 폭락 땐 동반 하락하고 반등 땐 약한 종목이 발목을 잡고 있습니다.</li>"
+    )
+    loss_bullets.append(
+        "<li><b>수익 극대화 핵심 원리:</b> 상승 여력이 낮은 종목을 '본전 올 때까지' 붙잡고 있으면 복구가 가장 늦습니다. "
+        "<b>반등하는 날 비핵심주를 팔아 현금 총알을 만들고, 실적이 뒷받침되는 1등 주도주 2~3개로 압축</b>해야 가장 빠르고 크게 복구됩니다.</li>"
+    )
+
+    # Build Box 2: Whole-Market & Technical Analysis Verdict
+    tech_bullets = []
+    if kr_bench:
+        kr_phase = ("상승 추세 전환 (2단계)" if (kr_bench["ma60"] and kr_bench["cur"] >= kr_bench["ma60"])
+                    else "바닥 반등 시도 중 · 아직 추세선 아래 (1단계 방어·압축 구간)")
+        tech_bullets.append(
+            f"<li><b>한국 시장 차트(KODEX 200 기준):</b> <b>{kr_phase}</b> · "
+            f"20일 평균선 대비 <b>{kr_bench['pct20']:+.1f}%</b>"
+            + (f", 60일 평균선 대비 <b>{kr_bench['pct60']:+.1f}%</b>" if kr_bench["pct60"] is not None else "")
+            + (f", 단기 과열·침체 지표(RSI) <b>{kr_bench['rsi']:.0f}</b>" if kr_bench["rsi"] is not None else "")
+            + "</li>"
+        )
+        if kr_bench["pct20"] < 0:
+            tech_bullets.append(
+                "<li><b>지금 취할 시장 전술:</b> 투매 공포는 진정됐으나 아직 20일·60일 추세선 아래입니다. "
+                "오늘 같은 강반등에 흥분해 추격 매수하지 마시고, <b>가격이 올라온 '축소 대상 종목'을 분할 매도해 현금 35%부터 채우는 날</b>로 쓰세요.</li>"
+            )
+        else:
+            tech_bullets.append(
+                "<li><b>지금 취할 시장 전술:</b> 단기 20일 추세선 위로 올라섰습니다. 비핵심주 정리 자금을 핵심 집중 종목에 실어 상승 추세를 타세요.</li>"
+            )
+    else:
+        tech_bullets.append("<li><b>시장 차트 점검:</b> 지수 이동평균선 확인 전까지는 현금 버퍼 35%와 소수 핵심주 압축 원칙을 우선합니다.</li>")
+    if us_bench:
+        tech_bullets.append(
+            f"<li><b>미국 시장 차트(SPY 기준):</b> 20일선 대비 <b>{us_bench['pct20']:+.1f}%</b>"
+            + (f", RSI <b>{us_bench['rsi']:.0f}</b>" if us_bench["rsi"] is not None else "")
+            + " · 해외·코인 자산도 20일선 안착 확인 전까지는 무리한 물타기보다 핵심주 유지가 유리합니다.</li>"
+        )
+
+    # Classify each holding into 1 of 3 unmistakable action buckets
+    rows_html = []
+    counts = {"core": 0, "trim": 0, "watch": 0}
+    def sort_key(h):
+        if h["idea"] and h["idea"]["m"]["qualifies"]:
+            tier = 0
+        elif h["idea"] and not h["idea"]["m"]["qualifies"]:
+            tier = 1
+        elif h["ccy"] == "KRW":
+            tier = 2
+        else:
+            tier = 3
+        loss_rank = float(h["gain"]) if h["gain"] is not None else 0.0
+        return (tier, loss_rank, h["symbol"])
+
+    for h in sorted(holdings, key=sort_key):
+        idea, tech, ccy = h["idea"], h["tech"], h["ccy"]
+        gross = ccy_totals.get(ccy, {}).get("gross_loss", Decimal(0))
+        loss_share = (f" · 손실비중 {(-h['gain'] / gross * 100):.0f}%"
+                      if h["gain"] is not None and h["gain"] < 0 and gross > 0 else "")
+        if idea and idea["m"]["qualifies"]:
+            counts["core"] += 1
+            badge = '<span class="badge-pass">1순위 · 핵심 집중·보유</span>'
+            m_info, a_info = idea["m"], idea["a"]
+            pullback_note = (f"20일선({_fmt_num(tech['ma20'], ccy)}) 또는 눌림목" if tech else "장중 눌림목·조정일")
+            guide = (
+                f"<b>팔지 말고 집중할 대장주.</b> 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 저평가"
+                f"(기대수익 <b>{m_info['expected']:+.1f}%</b>, 안전마진 {m_info['margin']:.0f}%). "
+                f"급등 호가 추격매수만 피하고, 비핵심주 판 현금으로 {pullback_note}에서 모아 수익을 극대화하세요."
+            )
+        elif idea and not idea["m"]["qualifies"]:
+            counts["trim"] += 1
+            badge = '<span class="badge-warn">2순위 · 반등 시 분할매도</span>'
+            m_info, a_info = idea["m"], idea["a"]
+            guide = (
+                f"<b>현금·교체 재원 만들기.</b> 기준 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 기대수익({m_info['expected']:+.1f}%)·"
+                f"안전마진({m_info['margin']:.0f}%)이 핵심주보다 낮습니다. 본전({_fmt_num(h['breakeven'], ccy)})만 기다리지 말고 "
+                "오늘 같은 장중 반등(오후장·20일선 부근)에 2~3회 나눠 팔아 현금 35%와 1순위 핵심주 자금으로 바꾸세요."
+            )
+        elif ccy == "KRW":
+            counts["trim"] += 1
+            badge = '<span class="badge-warn">비중 점검 · 반등 시 축소 검토</span>'
+            ma_txt = f"20일선({_fmt_num(tech['ma20'], ccy)}) 부근 반등 시 " if tech else "장중 반등 시 "
+            guide = (
+                f"핵심 3관문 미확정 소액·분산 종목입니다. 계좌 압축을 위해 {ma_txt}정리하여 "
+                "현금 버퍼 및 1순위 핵심주로 일원화하는 것이 복구에 유리합니다."
+            )
+        else:
+            counts["watch"] += 1
+            badge = '<span class="badge-info">해외·코인 · 추세 확인</span>'
+            if tech:
+                guide = (
+                    f"{e(tech['label'])}. 20일 평균선({_fmt_num(tech['ma20'], ccy)}) 회복 전까지 성급한 물타기를 멈추고, "
+                    "20일선 안착 확인 후 비중 확대 여부를 결정하세요."
+                )
+            else:
+                guide = "변동성이 큰 해외·디지털 자산입니다. 추가 물타기 없이 현 비중 내에서 추세 회복을 먼저 확인하세요."
+
+        cur_vs_be = f"현재 {_fmt_num(h['price'], ccy)}<br><small>본전 {_fmt_num(h['breakeven'], ccy)}</small>"
+        pnl_txt = (f"<b>{_fmt_num(h['gain'], ccy)}</b> {e(ccy)}<br>"
+                   f"<small>{h['rate']:+.1f}%{loss_share}</small>"
+                   if h["gain"] is not None and h["rate"] is not None
+                   else f"{_fmt_num(h['gain'], ccy)} {e(ccy)}")
+        tech_txt = (f"{e(tech['label'])}<br><small>60일 고점 대비 {tech['dd60']:+.1f}%</small>"
+                    if tech else "<small>일봉 축적 중 · 현재가 연결됨</small>")
+        rows_html.append(
+            f"<tr><td>{badge}</td>"
+            f"<td><b>{e(h['symbol'])}</b><br><small>{e(store.PROVIDERS[h['provider']])} · {e(h['alias'])}</small></td>"
+            f"<td class='num'>{cur_vs_be}</td>"
+            f"<td class='num'>{pnl_txt}</td>"
+            f"<td>{tech_txt}</td>"
+            f"<td class='cockpit-why'>{guide}</td></tr>"
+        )
+
+    return (
+        '<section id="action-cockpit" class="cockpit">'
+        '<div class="cockpit-head"><h2>한눈에 보는 내 계좌 손실 복기 &amp; 오늘 행동 답안지</h2>'
+        '<small>어려운 용어 없이 · ① 왜 손실 났나 → ② 지금 시장 차트가 어떤가 → ③ 어떤 종목을 팔고 무엇에 집중할까</small></div>'
+        '<div class="cockpit-grid">'
+        '<article class="cockpit-box alert"><h3>1. 내 포트폴리오 손실 원인 복기</h3><ul>'
+        + "".join(loss_bullets)
+        + '</ul></article>'
+        '<article class="cockpit-box"><h3>2. 시장 전체 &amp; 기술적 분석 결론</h3><ul>'
+        + "".join(tech_bullets)
+        + '</ul></article></div>'
+        '<div class="kpi-strip">'
+        f'<div class="kpi-box pass"><small>팔지 않고 모아갈 1순위 핵심주</small><strong>{counts["core"]}개 보유 행</strong></div>'
+        f'<div class="kpi-box warn"><small>반등 시 나눠 팔아 현금화할 행</small><strong>{counts["trim"]}개 보유 행</strong></div>'
+        f'<div class="kpi-box info"><small>추세 회복 확인할 해외·코인 행</small><strong>{counts["watch"]}개 보유 행</strong></div>'
+        '</div>'
+        '<details open><summary>3. 내 보유 전 종목 행동 지침표 (위에서부터 순서대로 대응하세요)</summary>'
+        '<div class="comparison"><table class="cockpit-table"><thead><tr>'
+        '<th>지금 할 행동</th><th>종목 · 계좌</th><th>현재가 / 본전단가</th><th>현재 평가손익</th>'
+        '<th>기술적 차트 위치</th><th>왜 이렇게 해야 하나 &amp; 구체적 매매 타이밍</th>'
+        '</tr></thead><tbody>'
+        + "".join(rows_html)
+        + '</tbody></table></div><small>직접 자동주문은 보류되어 있으며, 위 지침은 실시간 시세·일봉 기술적 지표·내재가치 시나리오를 결합한 로컬 의사결정 가이드입니다.</small></details>'
+        '</section>'
+    )
 
 
 def manager_panel(package, base):

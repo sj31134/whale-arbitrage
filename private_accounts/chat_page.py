@@ -240,8 +240,9 @@ def kst_time(value):
     return datetime.fromisoformat(value).astimezone(intel.KST).strftime("%Y-%m-%d %H:%M KST")
 
 
-def report_view(row, ledger, base):
-    out = [f'<details class="investment-report" id="report-{e(row["id"])}">'
+def report_view(row, ledger, base, *, open_first=False):
+    opened = " open" if open_first else ""
+    out = [f'<details{opened} class="investment-report" id="report-{e(row["id"])}">'
            f'<summary>{e(row["title"])} <small>{e(row["status"])} · {e(kst_time(row["as_of"]))}</small></summary>'
            f'<p>{e(row["conclusion"])}</p>'
            f'<dl><dt>하방 위험</dt><dd>{e(row["downside"])}</dd>'
@@ -279,13 +280,14 @@ def manager_research(board, ordered, base):
 
 
 def manager_sections(directory, package, base, screen, *, ordered=None, research_update=True, position=None, frame="day"):
-    from . import live_valuation
+    from . import live_valuation, research_page
     book = live_valuation.read(package)
     board = intel.board(directory, package, quote_book=book) if research_update else None
     accounts = board["accounts"] if board else live_panel.portfolio_accounts(directory, package, quote_book=book)
+    cockpit = research_page.action_cockpit(directory, package, base, quote_book=book, accounts=accounts)
     panel = live_panel.panel(directory, package, book, accounts, manager_base=base)
     panel += history_panel.position_history(package, accounts, base, position, frame, manager=True, screen=screen)
-    panel = '<div class="account-workspace">' + panel + "</div>"
+    panel = cockpit + '<div class="account-workspace">' + panel + "</div>"
     if board is not None:
         if ordered is None:
             ordered = sorted(reports.read(package).values(), key=lambda r:(r["as_of"],r["published"]), reverse=True)
@@ -311,7 +313,7 @@ def render(directory, package, base, csrf, room, css, show_all=False, feedback_o
         f'<div class="desk-title"><h1>{e(research.NAMES[room])}</h1><details><summary>담당 역할·판단 기준</summary>'
         f'<b>{e(persona.role)}</b><p>{e(persona.lens)}</p>'
         f'<p>{e(persona.reconsider)}</p></details></div>',
-        ('<nav class="manager-jumps" aria-label="매니저 화면 섹션"><a href="#live-values">내 포트폴리오</a>'
+        ('<nav class="manager-jumps" aria-label="매니저 화면 섹션"><a href="#action-cockpit">오늘 행동 답안지</a><a href="#live-values">내 포트폴리오</a>'
          '<a href="#price-history">가격 이력</a><a href="#manager-desks">담당 애널리스트</a><a href="#analysts">데이터 범주</a>'
          '<a href="#market-desk">주식 시장 브리핑</a><a href="#desk-results">종합 보고서</a></nav>'
          + manager_sections(directory, package, base, screen, ordered=ordered, position=position, frame=frame)) if manager else "",
@@ -323,8 +325,8 @@ def render(directory, package, base, csrf, room, css, show_all=False, feedback_o
     out.append('<h2 id="desk-results">' + ("투자 매니저 종합 결과" if manager else "담당 분석 결과") + "</h2>")
     if not rows:
         out.append("<p>아직 게시된 분석 결과가 없습니다. Codex에서 이 담당에게 작업을 지시하면 완료한 결과가 여기에 표시됩니다.</p>")
-    for row in rows if show_all else rows[:3]:
-        out.append(report_view(row, ledger, base))
+    for idx, row in enumerate(rows if show_all else rows[:3]):
+        out.append(report_view(row, ledger, base, open_first=(idx == 0)))
     if not show_all and len(rows) > 3:
         out.append(f'<a href="{e(url)}?all=1">전체 보고서 {len(rows)}건 보기</a>')
     if manager:

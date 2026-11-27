@@ -113,6 +113,14 @@ def test_stress_does_not_duplicate_overlapping_roles():
     assert "산정 보류" in monitor.stress_panel([dict(rows[0], weight_pct=None)], "/test", "severe")
     conc = monitor.concentration_panel(rows, None, "/test")
     assert "소수 집중 · 현금 버퍼 실전 점검" in conc and "40.0%" in conc and "버퍼 확보" in conc
+    fake_accs = [dict(provider="kis", account="fake", marks=[
+        dict(symbol="A", currency="KRW", qty="2", price=Decimal("80"), value=Decimal("160"),
+             gain=Decimal("-40"), rate=Decimal("-20"), weight_pct="80", state="시세 반영", instrument=("KRX", "005935", "KRW")),
+        dict(symbol="KRW", currency="KRW", qty="40", price=Decimal("1"), value=Decimal("40"),
+             gain=Decimal("0"), rate=Decimal("0"), weight_pct="20", state="통화 잔액", instrument=None),
+    ])]
+    cockpit = page.action_cockpit(None, None, "/test", quote_book=monitor.live_valuation.QuoteBook(), accounts=fake_accs)
+    assert "한눈에 보는 내 계좌 손실 복기" in cockpit and "본전 100" in cockpit and "행동 지침표" in cockpit
 
 
 
