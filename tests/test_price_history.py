@@ -189,6 +189,14 @@ def test_local_marks_and_private_identity(tmp_path):
         and "자료 부족" in page
         and day in page
     )
+    with live.connection(pkg, write=True) as db:
+        bars_65 = [
+            ((now - timedelta(days=90 - i)).date().isoformat(), str(10 + i), str(12 + i), str(9 + i), str(11 + i))
+            for i in range(65)
+        ]
+        hist.persist(db, ("NASDAQ", "PUBLIC", "USD"), "https://example.org/price", bars_65, now.isoformat())
+    rich_day = history_panel.position_history(pkg, accounts, "/test", pid, mode="day")
+    assert "20일선" in rich_day and "60일선" in rich_day and "%" in rich_day
 
 
 def test_token_and_korean_market_day():

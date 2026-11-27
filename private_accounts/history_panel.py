@@ -1,6 +1,7 @@
 """Private dashboard views for real workbook positions and completed price sessions."""
 
 from datetime import date
+from decimal import Decimal
 from html import escape
 from urllib.parse import urlencode
 
