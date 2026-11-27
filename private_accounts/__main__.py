@@ -16,7 +16,7 @@ from agents.portfolio import DOMAINS, portfolio_review
 from . import strategy_registry, work
 from . import market_review, price_history
 
-from . import daily_review, dashboard_launcher, discovery, exchanges, live_valuation, local_sources, reports, research_archive, research_book, store, view
+from . import contrarian, daily_review, dashboard_launcher, discovery, exchanges, live_valuation, local_sources, reports, research_archive, research_book, store, view
 
 
 def alias(text):
@@ -40,6 +40,9 @@ def args_for(argv):
     disc = commands.add_parser("discover", help="6대 변수 기반 공개 시장 대장주 발굴·갱신")
     disc.add_argument("--refresh", action="store_true", help="공개 수급·차트·SNS·지정학 원천을 새로 분석해 저장")
     disc.add_argument("--market", choices=("all", "KR", "US"), default="all")
+    cont = commands.add_parser("contrarian", help="역발상 시장 시선 괴리 스캔 및 1종목 비대칭 후보 조회")
+    cont.add_argument("--refresh", action="store_true", help="공개 해자·52주 낙폭·비대칭 괴리 레이더를 새로 스캔해 저장")
+    cont.add_argument("--market", choices=("all", "KR", "US"), default="all")
     commands.add_parser("price-history", help="공개 일봉 및 로컬 계좌 시점평가를 저장")
     daily = commands.add_parser("daily-review", help="오늘의 손실 기여·수급 검토를 Mac에 저장")
     daily.add_argument("--public-flows", action="store_true", help="표준 입력의 공개 수급 JSON을 함께 기록")
@@ -246,6 +249,14 @@ def run(argv, directory, source_root=None):
             if args.market == "all" or r["market"] == args.market
         ]
         print(json.dumps({"updated": doc.get("updated"), "count": len(rows), "leaders": rows[:15]}, ensure_ascii=False, indent=2))
+    elif args.cmd == "contrarian":
+        doc = contrarian.refresh(package) if args.refresh else contrarian.read(package)
+        rows = [
+            {k: r[k] for k in ("market", "symbol", "name", "archetype_badge", "price", "dd52", "asymmetry", "total")}
+            for r in doc.get("candidates", [])
+            if args.market == "all" or r["market"] == args.market
+        ]
+        print(json.dumps({"updated": doc.get("updated"), "count": len(rows), "candidates": rows[:15]}, ensure_ascii=False, indent=2))
     elif args.cmd == "price-history":
         price_history.snapshots(directory,package)
         price_history.refresh(package)
@@ -271,6 +282,7 @@ def run(argv, directory, source_root=None):
         if args.refresh:
             try:
                 discovery.refresh(package)
+                contrarian.refresh(package)
             except (OSError, sqlite3.Error, ValueError):
                 pass
         daily_review.save(directory, package, flows)

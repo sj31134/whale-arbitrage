@@ -813,4 +813,7 @@ equities,agents/equities/memos/2026-11-24-strategy-evidence.md,,research
 equities,private_accounts/discovery.py,,research
 equities,private_accounts/discovery_page.py,,research
 equities,tests/test_discovery.py,,tests
+equities,private_accounts/contrarian.py,,research
+equities,private_accounts/contrarian_page.py,,research
+equities,tests/test_contrarian.py,,tests
 shared,private_accounts/launcher.js,,shared

@@ -565,6 +565,7 @@ def manager_panel(package, base):
     return (f'<section><h2>오늘의 투자 검토</h2><p><a href="{e(base)}/research">가설 연구장</a>'
             f' · 평가일 도래 {due}건 · 추적 중 {len(pending)}건 (3관문 집중 후보 {qualifying}건) · 평가 완료 {len(ideas)-len(pending)}건</p>'
             f'<div class="chips"><a class="chip" href="{e(base)}/discover">신규 대장주 발굴 (6대 변수)</a>'
+            f'<a class="chip" href="{e(base)}/contrarian">역발상·1종목 비대칭 설계</a>'
             f'<a class="chip" href="{e(base)}/research">1. 시나리오·3관문 점검</a>'
             f'<a class="chip" href="{e(base)}/strategies">2. 4대 위기 백테스트·레짐 규칙</a>'
             f'<a class="chip" href="{e(base)}/quant">3. 종목별 변동성·차트 검증</a>'

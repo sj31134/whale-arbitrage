@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
 from agents import desk_variables, intelligence, research_chat
-from . import account_performance, chat_page, dashboard_launcher, desk_feedback, discovery, discovery_page, local_sources, live_panel, monitor, quant_page, research_archive, research_book, research_page
+from . import account_performance, chat_page, contrarian, contrarian_page, dashboard_launcher, desk_feedback, discovery, discovery_page, local_sources, live_panel, monitor, quant_page, research_archive, research_book, research_page
 from . import strategy_page, strategy_registry
 from .store import CRYPTO, PROVIDERS, database, positions, profiles
 
@@ -87,7 +87,7 @@ def server(directory, port=8765, package=None, *, identity_key=None):
     posts = {path + "/variable": (desk, "variable") for path, desk in desks.items() if desk != "manager"}
     posts.update({path + "/feedback": (desk, "feedback") for path, desk in desks.items()})
     posts[route + "/desk/manager/feedback-state"] = ("manager", "feedback-state")
-    for action in ("strategy-run","strategy-state","discover-run","discover-sns"):
+    for action in ("strategy-run","strategy-state","discover-run","discover-sns","contrarian-run","contrarian-plan"):
         posts[route + "/desk/manager/" + action] = ("manager",action)
     journal_actions = ("idea", "start", "assess", "snapshot", "recover", "market-note")
     for action in journal_actions:
@@ -176,8 +176,9 @@ def server(directory, port=8765, package=None, *, identity_key=None):
             quant = self.allowed(parts.path, route + "/quant")
             strategies = self.allowed(parts.path, route + "/strategies")
             discover = self.allowed(parts.path, route + "/discover")
+            contrarian_rt = self.allowed(parts.path, route + "/contrarian")
             room = desks.get(parts.path)
-            if not (details or home or portfolio or journal or quant or strategies or discover or (room and self.allowed(parts.path, route + "/desk/" + room))):
+            if not (details or home or portfolio or journal or quant or strategies or discover or contrarian_rt or (room and self.allowed(parts.path, route + "/desk/" + room))):
                 self.reply(404, ('<!doctype html><html lang="ko"><meta charset="utf-8"><title>대시보드 주소 확인</title>'
                                  '<h1>이 주소로는 대시보드를 열 수 없습니다</h1>'
                                  '<p>Mac의 프로젝트 폴더에서 <code>python3 -m private_accounts dashboard --open</code>을 '
@@ -203,6 +204,8 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                     data = strategy_page.render(package,route,csrf,monitor.CSS)
                 elif discover:
                     data = discovery_page.render(directory, package, route, csrf, query, monitor.CSS)
+                elif contrarian_rt:
+                    data = contrarian_page.render(directory, package, route, csrf, query, monitor.CSS)
                 elif quant:
                     data = quant_page.render(directory, package, route, query, monitor.CSS)
                 elif journal:
@@ -237,7 +240,7 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                 if not 0 < length <= (20000 if room else 12000) or self.headers.get("Transfer-Encoding"):
                     raise ValueError
                 args = parse_qs(self.rfile.read(length).decode(), keep_blank_values=True,
-                                max_num_fields=24 if action == "idea" else 16)
+                                max_num_fields=24 if action in ("idea", "contrarian-plan") else 16)
                 if any(len(v) != 1 for v in args.values()):
                     raise ValueError
                 fields = {k:v[0] for k,v in args.items()}
@@ -268,6 +271,10 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                         elif action == "discover-sns":
                             discovery.record_sns_note(package, fields)
                             discovery.refresh(package)
+                        elif action == "contrarian-run":
+                            contrarian.refresh(package)
+                        elif action == "contrarian-plan":
+                            contrarian.save_playbook(package, fields)
                         elif action == "strategy-state":
                             with strategy_registry.database(package) as db:
                                 strategy_registry.state(db,fields["strategy"],fields["state"])
@@ -315,6 +322,10 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                     target = route + "/discover?done=refreshed"
                 if action == "discover-sns":
                     target = route + "/discover?done=sns#sns-radar"
+                if action == "contrarian-run":
+                    target = route + "/contrarian?done=refreshed"
+                if action == "contrarian-plan":
+                    target = route + "/contrarian?done=saved#my-playbooks"
                 if action == "reconcile":
                     target = route + "/portfolio#performance"
                 if action in journal_actions:

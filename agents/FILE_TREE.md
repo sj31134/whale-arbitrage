@@ -514,7 +514,7 @@
 </details>
 
 <details>
-<summary>주식 (71개)</summary>
+<summary>주식 (74개)</summary>
 
 - `agents/`
   - `equities/`
@@ -584,6 +584,8 @@
         - [EQ-TSMC_20261118_204855.md](<../branch/investor_agent/data/memory/EQ-TSMC_20261118_204855.md>)
 - `private_accounts/`
   - [binance_daily.py](<../private_accounts/binance_daily.py>)
+  - [contrarian.py](<../private_accounts/contrarian.py>)
+  - [contrarian_page.py](<../private_accounts/contrarian_page.py>)
   - [discovery.py](<../private_accounts/discovery.py>)
   - [discovery_page.py](<../private_accounts/discovery_page.py>)
   - [equity_screen.py](<../private_accounts/equity_screen.py>)
@@ -594,6 +596,7 @@
   - [strategy_registry.py](<../private_accounts/strategy_registry.py>)
 - `tests/`
   - [test_binance_daily.py](<../tests/test_binance_daily.py>)
+  - [test_contrarian.py](<../tests/test_contrarian.py>)
   - [test_discovery.py](<../tests/test_discovery.py>)
   - [test_quant.py](<../tests/test_quant.py>)
   - [test_strategy_registry.py](<../tests/test_strategy_registry.py>)

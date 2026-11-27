@@ -14,12 +14,13 @@ def e(value):
 
 
 def navigation(base, active):
-    core_rooms = {"manager", "portfolio", "discover"}
+    core_rooms = {"manager", "portfolio", "discover", "contrarian"}
     lab_rooms = {"research", "strategies", "quant"}
     items = [
         ("manager", "★ 종합 상황판", f"{base}/desk/manager"),
         ("portfolio", "내 계좌·포트폴리오", base + "/portfolio"),
         ("discover", "신규 대장주 발굴", base + "/discover"),
+        ("contrarian", "역발상·1종목 비대칭", base + "/contrarian"),
         ("research", "가설 연구장", base + "/research"),
         ("strategies", "전략·백테스트", base + "/strategies"),
         ("quant", "퀀트·차트 검증", base + "/quant"),
@@ -27,7 +28,7 @@ def navigation(base, active):
     items.extend((room, name, f"{base}/desk/{room}") for room, name in research.NAMES.items() if room != "manager")
     links = []
     for idx, (room, name, link) in enumerate(items):
-        if idx in (3, 6):
+        if idx in (4, 7):
             links.append('<span class="nav-sep" aria-hidden="true">|</span>')
         cls = ' class="nav-core"' if room in core_rooms else (' class="nav-lab"' if room in lab_rooms else "")
         cur = ' aria-current="page"' if room == active else ""
@@ -321,6 +322,7 @@ def render(directory, package, base, csrf, room, css, show_all=False, feedback_o
         f'<p>{e(persona.reconsider)}</p></details></div>',
         ('<nav class="manager-jumps" aria-label="매니저 화면 섹션"><a href="#action-cockpit">오늘 행동 답안지</a>'
          f'<a href="{e(base)}/discover">포트폴리오 외 신규 대장주 발굴</a>'
+         f'<a href="{e(base)}/contrarian">역발상·1종목 비대칭 설계</a>'
          '<a href="#live-values">내 포트폴리오</a>'
          '<a href="#price-history">가격 이력</a><a href="#manager-desks">담당 애널리스트</a><a href="#analysts">데이터 범주</a>'
          '<a href="#market-desk">주식 시장 브리핑</a><a href="#desk-results">종합 보고서</a></nav>'
