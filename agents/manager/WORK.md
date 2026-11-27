@@ -232,4 +232,13 @@ Codex 세션은 10:08 KST 브리핑 완료 뒤 중단됐고 21:02 KST에 Claude 
 - **2026-11-27 15:36 KST 차트 이력 패널(`history_panel.py`) `Decimal` 임포트 누락 핫픽스**:
   - **작업 원장 ID**: `work-d0e0e16b0fec4d6d9fd3958817dd0cf2` (`audit --development`, `--tool Antigravity` 선점 및 `verify` 완료, 원장 총 **37건 전원 `done`**).
   - **원인 및 조치**: `private_accounts/history_panel.py`에 20일·60일 이동평균 및 소수 둘째 자리 등락률(`_signed_pct`)을 추가할 때 상단 `from decimal import Decimal` 임포트가 빠져, 완료 일봉이 20개 이상 존재하는 실계좌 환경에서 `/desk/manager`·`/portfolio` 진입 시 `NameError` → `503 자료를 읽을 수 없습니다`가 발생했다(기존 `tests/test_price_history.py`는 일봉 1개만 주입해 분기를 타지 못함).
-  - `private_accounts/history_panel.py`에 `Decimal` 임포트를 추가하고 `tests/test_price_history.py`에 65개 연속 일봉 차트 렌더링 회귀 테스트(`20일선`·`60일선`·등락률 검증)를 보강했으며, 로컬 실행 서버(`18765`) 교체 재기동 후 전 경로(`/desk/manager`, `/portfolio`, `/discover`, `/research`, `/strategies`, `/quant`, `/accounts`) 실시간 HTTP `200` 응답을 확인했다.
+  - `private_accounts/history_panel.py`에 `Decimal` 임포트를 추가하고 `tests/test_price_history.py`에 65개 연속 일봉 차트 렌더링 회귀 테스트(`20일선`·`60일선`·등락률 검증)를 보강했으며, 로컬 실행 서버(`18765`) 교체 재기동 후 전 경로(`/desk/manager`, `/portfolio`, `/discover`, `/research`, `/strategies`, `/quant`, `/accounts`) 실시간 HTTP `200` 응답을 확인했다 (`49d491f`).
+- **2026-11-27 16:05 KST 한국 정규장 마감(`15:30 KST`) 종가·수급 동기화 및 마감 브리핑 게시**:
+  - **작업 원장 ID**: `work-098bf892fea74f8a84bd14501b05cb3a` (`brief`, `KR=2026-11-27` · `US=2026-11-25`, `--tool Antigravity` 선점 및 `verify` 완료, 원장 총 **38건 전원 `done`**).
+  - **게시 보고서 및 스냅샷**: 주식 마감 점검 `820570431811`, 매니저 마감 종합 브리핑 `7efb7495d9e1` 게시 완료, 검증 스냅샷 **`20261127-160438-284497`** 저장 완료.
+  - **정규장 마감 공개 관측 요약 (`2026-11-27 CLOSE`)**:
+    - 코스피 **`4,915.68`**(`+204.47p`, **`+4.34%`**) — 외국인 **`+1조 1,317억 원`** · 기관 **`+2,365억 원`** 동반 순매수(개인 `−1조 7,788억 원`).
+    - 코스닥 **`708.99`**(`+53.28p`, **`+8.13%`**) — 외국인 **`+3,030억 원`** · 기관 **`+5,868억 원`** 동반 순매수(개인 `−8,844억 원`).
+    - 원·달러 환율 **`1,337.30원`**(`−0.50%`), `KODEX 200` 마감가 **`76,705원`**(`+4.51%`, 20일선 `80,879원` 대비 `−5.16%` · 60일선 `95,035원` 대비 `−19.29%` · `RSI 47.6`).
+    - `market-scan`·`market-crosscheck`(`KR=2026-11-27`, `US=2026-11-25`), `daily-review --refresh` 및 마감 투자자 수급 6건(`--public-flows`), `market-note 2026-11-27`, `price-history` 완료 일봉 보충, `discover --refresh`(`15:58:48 KST`, 41종목 — 상위: `한화에어로스페이스` `88.1점` `+5.91%`, `리가켐바이오` `84.6점` `+21.52%`, `HD현대일렉트릭` `84.5점` `+8.00%`, `현대차` `83.6점` `+3.86%`, `HD현대중공업` `81.9점` `+5.03%`, `셀트리온` `81.5점` `+2.55%`) 반영 완료.
+  - **다음 예정 작업**: 오늘 밤 미국 추수감사절 익일 단축장(`23:30 ~ 익일 03:00 KST`, `13:00 EST` 조기폐장) 개장 후 `USD` 가설 3건의 `research-observe start` 관측 기록 및 마감 후 `SOXX`·`NVDA` 종가 경보(`daily-review --refresh`) 점검.
