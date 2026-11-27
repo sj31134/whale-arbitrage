@@ -9,6 +9,7 @@ from math import sqrt
 from . import chat_page, quant, strategy_registry as registry
 from .strategy_catalog import (
     AQR,
+    CAPITAL_ALLOCATION_CHARTER,
     CATALOG,
     HISTORICAL_BACKTESTS,
     INTRADAY_POSTMORTEM,
@@ -128,7 +129,40 @@ def playbook_section(base):
         '<section><h2>2단계 시장 레짐 운용 원칙 (실전 복기 반영)</h2><div class="playbook-grid">'
         + "".join(cards)
         + "</div></section>"
+        + charter_section(base)
         + postmortem_section()
+    )
+
+
+def charter_section(base):
+    ch = CAPITAL_ALLOCATION_CHARTER
+    b_cards = "".join(
+        f'<article class="era-card"><span class="badge-info">{escape(b["owner"])}</span>'
+        f'<h3>{escape(b["name"])}</h3>'
+        f'<p><b>권장 자금 한도:</b> {escape(b["target"])}</p>'
+        f'<p class="era-lesson">{escape(b["rule"])}</p></article>'
+        for b in ch["buckets"]
+    )
+    ips_rows = "".join(
+        f"<tr><td><b>{escape(axis)}</b></td><td><b>{escape(lim)}</b></td><td>{escape(why)}</td></tr>"
+        for axis, lim, why in ch["ips_guardrails"]
+    )
+    p_rows = "".join(
+        f"<tr><td><b>{escape(p)}</b></td><td>{escape(guide)}</td></tr>"
+        for p, guide in ch["persona_modes"]
+    )
+    return (
+        '<section id="capital-charter"><h2>통합 자본배분 3단 바구니 &amp; 기관형 리스크 한도 헌장 (6대 페르소나 VOC 반영)</h2>'
+        f'<p>{escape(ch["summary"])} '
+        f'<a class="chip" href="{escape(base)}/discover">바구니 2 · 추세 대장주 발굴 →</a> '
+        f'<a class="chip" href="{escape(base)}/contrarian">바구니 3 · 역발상 비대칭 설계 →</a></p>'
+        f'<div class="era-grid">{b_cards}</div>'
+        '<details open><summary>기관·은행·헤지펀드 4대 포트폴리오 하드 가드레일 (IPS · 상관 팩터 · 수탁 한도)</summary>'
+        '<div class="strategy-scroll"><table><thead><tr><th>리스크 통제 축</th><th>허용 한도 (Hard Cap)</th><th>실전 운용 및 서킷브레이커 규칙</th></tr></thead>'
+        f'<tbody>{ips_rows}</tbody></table></div></details>'
+        '<details><summary>6대 투자자·기관 페르소나별 시스템 활용 가이드 요약</summary>'
+        '<div class="strategy-scroll"><table><thead><tr><th>투자자 유형</th><th>핵심 점검 메뉴 및 자본배분·실행 규칙</th></tr></thead>'
+        f'<tbody>{p_rows}</tbody></table></div></details></section>'
     )
 
 

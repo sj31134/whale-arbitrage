@@ -129,6 +129,87 @@ VALIDATION_MATRIX = dict(
     ),
 )
 
+# Credit / Balance-Sheet Solvency Tiers for High-Rate Regime (BOK 3.25% / US 10Y 4.85% — Bank Credit Risk VOC)
+SOLVENCY_TIERS = {
+    "net_cash": dict(
+        label="A등급 · 순현금·초우량 FCF 요새 (이자보상 ≥10배 · 차환위험 없음)",
+        cap_pct=10.0,
+        ok=True,
+    ),
+    "backlog_float": dict(
+        label="A-등급 · 장기 수주 선수금(Float)·영업흑자 건전 (이자보상 ≥4배)",
+        cap_pct=8.0,
+        ok=True,
+    ),
+    "turnaround_watch": dict(
+        label="B등급 · 설비투자·차입 점검 (단기차환 커버리지·유증 부재 확인 필수)",
+        cap_pct=5.0,
+        ok=True,
+    ),
+    "distressed_block": dict(
+        label="부적격 · 이자보상 <2배 또는 유상증자·CB 희석 위험 (1종목 집중 차단)",
+        cap_pct=0.0,
+        ok=False,
+    ),
+}
+
+CREDIT_PROFILES = {
+    "005935": ("net_cash", "순현금 90조+ · 무차입급 재무요새 · 자사주 소각 밸류업 수혜"),
+    "005930": ("net_cash", "순현금 90조+ · 글로벌 최대 영업현금흐름으로 설비투자 자체 조달"),
+    "000660": ("backlog_float", "HBM 선급금 유입 및 분기 수조 원대 FCF로 차입비율 급감 중"),
+    "267260": ("backlog_float", "북미 유틸리티 장기 수주 계약금(선수금 Float) 유입 · 순현금 전환"),
+    "003230": ("net_cash", "해외 고마진 현금 결제 회수로 차입 부담 극소 · ROE 30%+"),
+    "012450": ("backlog_float", "수출 계약 선수금 유입 기반 영업현금흐름 흑자 (해외 자회사 지원 공시만 점검)"),
+    "138040": ("backlog_float", "자본적정성 비율 준수 및 순이익 50%+ 자사주 소각 지속 (부동산 PF 충당금 분기 점검)"),
+    "010120": ("backlog_float", "우량 신용등급(AA급) 및 북미 배전·변압기 수주 현금흐름 안정"),
+    "196170": ("turnaround_watch", "빅파마 마일스톤·로열티 유입 구조이나 바이오 특성상 분기 현금흐름·전환증권 희석 점검 필수"),
+    "034020": ("turnaround_watch", "원전·가스터빈 수주 확대 중이나 과거 차입 구조 이력상 이자보상배율·차환 조건 분기 확인 필수"),
+    "NVDA": ("net_cash", "막대한 순현금 및 분기 수십억 달러 FCF · 자사주 매입 지속"),
+    "MU": ("backlog_float", "AI 메모리 현금흐름 회복 및 CHIPS 보조금 유입으로 재무 완충력 양호"),
+    "ASML": ("net_cash", "고객사 선수금(Float) 및 독점 마진 기반 순현금·자사주 소각 구조"),
+    "GOOG": ("net_cash", "1,000억 달러급 현금성 자산 보유 · 압도적 검색·클라우드 FCF"),
+    "MSFT": ("net_cash", "AAA 신용등급(미국 국채급) · 엔터프라이즈 구독 잉여현금흐름 요새"),
+    "CEG": ("backlog_float", "미 IRA 45U 원전 세액공제 바닥가격 보장 및 투자적격 신용등급 유지"),
+    "AVGO": ("backlog_float", "인수 차입금 보유하나 VMware+AI 고마진 FCF로 빠른 디레버리징 진행"),
+    "TSM": ("net_cash", "대규모 순현금 보유 및 빅테크 선단공정 선수금 유입"),
+    "LLY": ("backlog_float", "GLP-1 고마진 현금 창출로 증설 CapEx 및 차입 이자 충분히 상회"),
+    "AMZN": ("net_cash", "AWS+광고 영업현금흐름 급증으로 설비투자 자체 조달 충분"),
+}
+
+
+def compute_position_sizing(*, upside_pct, downside_pct, win_prob=0.55, risk_budget_pct=1.2, cap_pct=10.0, blocked=False):
+    """Fractional-Kelly (1/4 Kelly) + 1R Portfolio Risk-Budget position sizing (Hedge Fund & Pro Trader VOC)."""
+    if blocked or cap_pct <= 0 or upside_pct <= 0 or downside_pct <= 0:
+        return dict(kelly_quarter_pct=0.0, r_budget_pct=0.0, cap_pct=max(0.0, cap_pct), recommended_pct=0.0)
+    p = _clamp(float(win_prob), 0.20, 0.85)
+    q = 1.0 - p
+    u = max(float(upside_pct) / 100.0, 0.01)
+    d = max(float(downside_pct) / 100.0, 0.02)
+    # Continuous partial-loss Kelly fraction: f* = p/d - (1-p)/u, scaled by 0.25 (Quarter-Kelly)
+    full_kelly = max(0.0, (p / d) - (q / u))
+    kelly_q_pct = round(_clamp(0.25 * full_kelly * 100.0, 0.0, 25.0), 1)
+    # 3-tranche weighted average entry (30% @ 0, 40% @ -45% of span, 30% @ -85% of span) -> avg distance to floor is 56.5% of downside_pct
+    avg_stop_pct = max(2.5, float(downside_pct) * 0.565 + 0.8)  # +0.8% execution/gap slippage buffer
+    r_bgt = _clamp(float(risk_budget_pct), 0.3, 3.0)
+    r_weight_pct = round((r_bgt / avg_stop_pct) * 100.0, 1)
+    rec = round(min(kelly_q_pct, r_weight_pct, float(cap_pct)), 1)
+    return dict(
+        kelly_quarter_pct=kelly_q_pct,
+        r_budget_pct=r_weight_pct,
+        cap_pct=round(float(cap_pct), 1),
+        recommended_pct=rec,
+    )
+
+
+def _monotonic_tranches(entry_val, floor_val, rnd):
+    """Guarantee strictly decreasing 3-tranche prices: entry (30%) > t2 (40%) > t3 (30%) >= floor."""
+    span = max(0.0, float(entry_val) - float(floor_val))
+    t1 = rnd(float(entry_val))
+    t2 = rnd(float(entry_val) - span * 0.45)
+    t3 = rnd(float(entry_val) - span * 0.85)
+    return [t1, t2, t3]
+
+
 # Public Structural Moat Universe for Variant-Perception Dislocation Scanning (Zero portfolio input!)
 # (symbol, market, venue, currency, name, archetype, essence_score[0..35], moat_essence, crowd_fear, kill_switch)
 CONTRARIAN_UNIVERSE = (
@@ -303,14 +384,36 @@ def _score_candidate(spec, db_bars, cur_price):
     variant_total = round(essence + gap_score + asym_score, 1)
     arch = ARCHETYPES[arch_id]
 
-    # Bespoke 3-tranche contrarian accumulation schedule
+    # Bespoke 3-tranche contrarian accumulation schedule (strictly decreasing: t1 > t2 > t3 >= floor)
     rnd = (lambda v: round(v)) if ccy == "KRW" else (lambda v: round(v, 2))
-    buy_1 = rnd(cur)
-    buy_2 = rnd(cur * 0.94)
-    buy_3 = rnd((cur + floor_px) / 2)
+    buy_1, buy_2, buy_3 = _monotonic_tranches(cur, floor_px, rnd)
     floor_r = rnd(floor_px)
     target_r = rnd(target_px)
     bull_r = rnd(bull_px)
+
+    solv_key, solv_note = CREDIT_PROFILES.get(sym, ("backlog_float", "영업현금흐름 및 이자보상배율 분기 공시 확인"))
+    solv_meta = SOLVENCY_TIERS[solv_key]
+    overheated = bool(rsi >= 68.0 or dd52 > -10.0)
+    shield_ok = bool(
+        not overheated
+        and solv_meta["ok"]
+        and essence >= 28
+        and asymmetry_ratio >= 3.0
+        and margin_pct >= 20.0
+    )
+    sizing = compute_position_sizing(
+        upside_pct=upside_pct,
+        downside_pct=downside_pct,
+        win_prob=0.55,
+        risk_budget_pct=1.2,
+        cap_pct=solv_meta["cap_pct"],
+        blocked=overheated or not solv_meta["ok"],
+    )
+    live_fear = (
+        f"[현재 단기 강세·군중 동의 구간 (52주고점 대비 {dd52:+.1f}% · RSI {rsi:.0f}) — 지금 역발상 추격 매수 잠금, 조정 대기 또는 /discover 추세 규칙 적용] {fear_txt}"
+        if overheated
+        else fear_txt
+    )
 
     src_url = (
         f"https://m.stock.naver.com/domestic/stock/{sym}/total"
@@ -342,9 +445,14 @@ def _score_candidate(spec, db_bars, cur_price):
         tranches=[buy_1, buy_2, buy_3],
         scores=dict(essence=essence, gap=gap_score, asymmetry=asym_score),
         total=variant_total,
-        trap_shield_ok=bool(essence >= 28 and asymmetry_ratio >= 3.0 and margin_pct >= 20.0),
+        overheated=overheated,
+        solvency_tier=solv_key,
+        solvency_label=solv_meta["label"],
+        solvency_note=solv_note,
+        sizing=sizing,
+        trap_shield_ok=shield_ok,
         moat_essence=moat_txt,
-        crowd_fear=fear_txt,
+        crowd_fear=live_fear,
         execution_rule=arch["execution_rule"],
         kill_switch=kill_txt,
         source_url=src_url,
@@ -440,18 +548,36 @@ def save_playbook(package, fields):
     if private:
         raise ValueError("공개 인터넷 원문 URL을 입력하세요.")
 
+    solvency = str(fields.get("solvency", "")).strip() or CREDIT_PROFILES.get(symbol, ("backlog_float", ""))[0]
+    if solvency not in SOLVENCY_TIERS:
+        raise ValueError("여신심사 재무생존 등급을 확인하세요.")
+    try:
+        win_prob_pct = float(str(fields.get("win_prob", "55")).strip() or "55")
+        risk_budget_pct = float(str(fields.get("risk_budget", "1.2")).strip() or "1.2")
+    except ValueError as exc:
+        raise ValueError("예상 승률(%)과 계좌 허용 손실(1R %)을 숫자로 입력하세요.") from exc
+    if not (20.0 <= win_prob_pct <= 85.0 and 0.3 <= risk_budget_pct <= 3.0):
+        raise ValueError("예상 승률(20~85%)과 계좌 허용 손실(0.3~3.0%) 범위를 확인하세요.")
+
     ccy = "KRW" if market == "KR" else "USD"
     upside_pct = float((target / entry - 1) * 100)
     downside_pct = float((1 - floor / entry) * 100)
     asymmetry = round(upside_pct / max(downside_pct, 0.1), 2)
     margin_pct = round(float((1 - entry / target) * 100), 1)
     min_req = ARCHETYPES[archetype]["min_asymmetry"]
-    passes = asymmetry >= min_req and margin_pct >= 20.0
+    solv_meta = SOLVENCY_TIERS[solvency]
+    passes = bool(solv_meta["ok"] and asymmetry >= min_req and margin_pct >= 20.0)
+    sizing = compute_position_sizing(
+        upside_pct=upside_pct,
+        downside_pct=downside_pct,
+        win_prob=win_prob_pct / 100.0,
+        risk_budget_pct=risk_budget_pct,
+        cap_pct=solv_meta["cap_pct"],
+        blocked=not solv_meta["ok"],
+    )
 
     rnd = (lambda v: str(round(float(v)))) if ccy == "KRW" else (lambda v: f"{float(v):.2f}")
-    t1 = rnd(entry)
-    t2 = rnd(entry * Decimal("0.93"))
-    t3 = rnd((entry + floor) / 2)
+    t1, t2, t3 = _monotonic_tranches(entry, floor, rnd)
 
     now = datetime.now(intel.KST).isoformat(timespec="seconds")
     pid = hashlib.sha256(f"{market}:{symbol}:{archetype}:{entry}:{target}".encode()).hexdigest()[:16]
@@ -464,6 +590,11 @@ def save_playbook(package, fields):
         name=name,
         archetype=archetype,
         archetype_badge=ARCHETYPES[archetype]["badge"],
+        solvency=solvency,
+        solvency_label=solv_meta["label"],
+        win_prob=round(win_prob_pct, 1),
+        risk_budget=round(risk_budget_pct, 2),
+        sizing=sizing,
         entry=rnd(entry),
         floor=rnd(floor),
         target=rnd(target),

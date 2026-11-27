@@ -174,6 +174,7 @@ def test_run_persistence_pause_missing_inputs_and_ui(package):
     html = page.render(package, "/unit", "token", "").decode()
     assert "전략 관리" in html and "연구 재개" in html and "기존 5~120일" in html
     assert "하방 변동성에 따른 노출 축소" in html and "4대 매크로 위기 백테스트 비교" in html
+    assert "통합 자본배분 3단 바구니" in html and "IPS · 상관 팩터 · 수탁 한도" in html
     assert "실전 시나리오 대조 복기" in html and "타당 · 유지" in html and "오류 · 보정" in html
     next((package / ".local/equity_screens").glob("*-validation.sqlite3")).unlink()
     assert reg.refresh(package) == {}

@@ -45,20 +45,40 @@ def test_contrarian_gap_scanner_and_bespoke_1stock_playbook(tmp_path):
             url="http://127.0.0.1/private",
         ))
     saved = contrarian.save_playbook(pkg, dict(
-        market="KR", symbol="000660", name="SK하이닉스", archetype="hynix_bottleneck",
-        entry="100000", floor="80000", target="220000", horizon="24개월",
-        crowd_view="레거시 D램 적자 공포로 기관 매도", variant_insight="HBM3E·HBM4 독점 수율 및 물리적 병목",
-        kill_switch="AI 서버 CapEx 역성장 전환", url="https://dart.fss.or.kr/",
+        market="KR", symbol="012450", name="한화에어로스페이스", archetype="calm_compounder",
+        solvency="backlog_float", win_prob="60", risk_budget="1.2",
+        entry="610000", floor="530000", target="920000", horizon="24개월",
+        crowd_view="휴전 협상 노이즈로 수주 피크아웃 오해", variant_insight="유럽 자주포·탄약 장기 수주잔고",
+        kill_switch="주요국 국방예산 삭감", url="https://dart.fss.or.kr/",
     ))
-    assert saved["passes"] and saved["asymmetry"] == 6.0 and len(contrarian.playbooks(pkg)) == 1
+    assert saved["passes"] and len(contrarian.playbooks(pkg)) == 1
+    # Verify monotonic tranche order (no t3 > t2 inversion even when floor is -13.1% below entry)
+    t1, t2, t3 = [float(x) for x in saved["tranches"]]
+    assert t1 > t2 > t3 >= float(saved["floor"])
+    assert 0 < saved["sizing"]["recommended_pct"] <= saved["sizing"]["cap_pct"] == 8.0
+
+    # Bank Credit Risk Gate: distressed_block forces passes=False and recommended_pct=0.0
+    blocked = contrarian.save_playbook(pkg, dict(
+        market="KR", symbol="035720", name="모의한계기업", archetype="burry_asymmetry",
+        solvency="distressed_block", entry="30000", floor="25000", target="60000", horizon="12개월",
+        crowd_view="단순 낙폭과대 저가매수", variant_insight="비용 절감",
+        kill_switch="유상증자 및 CB 리픽싱", url="https://dart.fss.or.kr/",
+    ))
+    assert not blocked["passes"] and blocked["sizing"]["recommended_pct"] == 0.0
 
     # Render /contrarian: held 005935 hidden by default, shown with include_held=1
     html_def = contrarian_page.render(directory, pkg, "/unit", "csrf1", {}, "").decode()
     assert "캄투자일임 이호걸" in html_def and "마이클 버리" in html_def and "가치함정" in html_def
+    assert "초보자·기관 통합 자금 바구니 규칙" in html_def and "권장 베팅 비중" in html_def
+    assert "여신심사 부적격" in html_def
     assert "(005935)" not in html_def
-    assert "비대칭 배수 6.00배" in html_def
     html_inc = contrarian_page.render(directory, pkg, "/unit", "csrf1", {"include_held": "1"}, "").decode()
     assert "(005935)" in html_inc and "내 보유 중" in html_inc
+
+    # Overheated stock (near 52w high / high RSI) locks contrarian immediate entry
+    hot_closes = [100.0 + 1.2 * i for i in range(90)]
+    hot_item = contrarian._score_candidate(contrarian.CONTRARIAN_UNIVERSE[0], hot_closes, hot_closes[-1])
+    assert hot_item["overheated"] and not hot_item["trap_shield_ok"] and hot_item["sizing"]["recommended_pct"] == 0.0
 
 
 def test_contrarian_http_routes_and_csrf(tmp_path, dashboard_http, monkeypatch):

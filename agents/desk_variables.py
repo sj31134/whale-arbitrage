@@ -33,6 +33,7 @@ FIELDS = {
         "dilution": ("주식 희석", "fundamentals"),
         "debt": ("순부채", "fundamentals"),
         "constituents": ("ETF 편입·비중", "fundamentals"),
+        "shareholder_return": ("ROE·주주환원·자사주 소각", "fundamentals"),
     },
     "us_small_cap_high_beta": {
         "cap": ("시가총액", "fundamentals"),

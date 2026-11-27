@@ -83,11 +83,15 @@ def _holding_prefill_href(base, h):
     fmt = (lambda v: str(round(v))) if ccy == "KRW" else (lambda v: f"{v:.2f}")
     inst = h.get("inst")
     code = inst[1] if inst else h["symbol"]
-    src_url = (
-        f"https://m.stock.naver.com/domestic/stock/{code}/total"
-        if ccy == "KRW"
-        else f"https://stockanalysis.com/stocks/{str(code).lower()}/"
-    )
+    prov = h.get("provider", "")
+    if prov == "upbit":
+        src_url = f"https://upbit.com/exchange?code=CRIX.UPBIT.KRW-{str(code).upper()}"
+    elif prov == "binance":
+        src_url = f"https://www.binance.com/en/trade/{str(code).upper()}_USDT"
+    elif ccy == "KRW":
+        src_url = f"https://m.stock.naver.com/domestic/stock/{code}/total"
+    else:
+        src_url = f"https://stockanalysis.com/stocks/{str(code).lower()}/"
     params = dict(
         asset=f"{h['symbol']} ({code})" if code != h["symbol"] else h["symbol"],
         currency=ccy,
@@ -281,6 +285,11 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                 "① <b>장 초반(09:00~09:30) 흔들기 매도·칼손절은 금지</b>하고, ② 반등장에서도 탄력이 약한 '최우선 현금화 종목'부터 정리하되 "
                 "외국인·기관 수급이 오후까지 가속되는 추세일에는 <b>15:10~15:20 마감 동시호가 전후</b>에 매도 및 핵심주 동시교체(Switch)를 실행하세요.</li>"
             )
+        elif (kr_bench["rsi"] is not None and kr_bench["rsi"] >= 75) or kr_bench["pct20"] >= 10:
+            tech_bullets.append(
+                "<li><b>지금 취할 시장 전술 (단기 과열 브레이크):</b> 단기 급등으로 과열(RSI≥75 또는 20일선 +10% 이상 이격) 구간입니다. "
+                "<b>시초·종가 추격 매수를 멈추고</b>, 비핵심주 현금화 후 핵심주는 20일선 눌림목 지정가로만 대기하세요.</li>"
+            )
         else:
             tech_bullets.append(
                 "<li><b>지금 취할 시장 전술:</b> 단기 20일 추세선 위로 올라섰습니다. 비핵심주 정리 자금을 15:15 수급 확인 종가 선발진입(40%)과 20일선 눌림(60%)으로 핵심 종목에 실으세요.</li>"
@@ -375,7 +384,14 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
             counts["semicore"] += 1
             badge = '<span class="badge-info">준코어 · 반등 추세 유예</span>' + extra_badges
             m_info, a_info = idea["m"], idea["a"]
-            res_note = f"20일선({_fmt_num(tech['ma20'], ccy)}) 저항 구간" if tech else "단기 목표 저항 구간"
+            if tech:
+                res_note = (
+                    f"20일선({_fmt_num(tech['ma20'], ccy)}) 저항 구간"
+                    if tech["cur"] < tech["ma20"]
+                    else f"20일선({_fmt_num(tech['ma20'], ccy)}) 지지 유지 · 직전 고점 저항 구간"
+                )
+            else:
+                res_note = "단기 목표 저항 구간"
             guide = (
                 f"<b>성급한 조기 매도 금지(11/27 복기 보정).</b> 기대수익(<b>{m_info['expected']:+.1f}%</b>)은 높으나 "
                 f"최근 급락 변동성 할인 때문에 안전마진({m_info['margin']:.1f}% vs 기준 20%)만 소폭 미달한 낙폭과대 탄력주입니다. "
@@ -474,6 +490,8 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
         kr_target = kr_total * Decimal("0.35")
         kr_deficit = max(Decimal(0), kr_target - kr_cash)
         deployable = max(Decimal(0), kr_cash + trim_general_krw - kr_target)
+        rp_yield_yr = kr_target * Decimal("0.0325")
+        rp_note = f" · 목표 버퍼 원화 RP·KOFR(연 3.25%) 파킹 시 연 약 <b>{_fmt_num(rp_yield_yr, 'KRW')}원{_kor_unit(rp_yield_yr, 'KRW')}</b> 무위험 이자 확보(0% 방치 금지)"
         if kr_deficit > 0:
             reb_main = (
                 f"<div><b>현금 35% 목표 시뮬레이터:</b> 현재 원화 현금 <b>{_fmt_num(kr_cash, 'KRW')}원{_kor_unit(kr_cash, 'KRW')} ({kr_cash_pct:.1f}%)</b> → "
@@ -484,13 +502,14 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                     f" · 절세계좌(ISA·연금) 내 조정분 {_fmt_num(trim_sheltered_krw, 'KRW')}원{_kor_unit(trim_sheltered_krw, 'KRW')}은 인출 없이 계좌 내 교체 권장"
                     if trim_sheltered_krw > 0 else ""
                 )
-                + "</small>"
+                + rp_note + "</small>"
             )
         else:
             surplus = kr_cash - kr_target
             reb_main = (
                 f"<div><b>현금 35% 목표 시뮬레이터:</b> 원화 현금 <b>{_fmt_num(kr_cash, 'KRW')}원{_kor_unit(kr_cash, 'KRW')} ({kr_cash_pct:.1f}%)</b>로 "
                 f"방어 버퍼 확보 완료 · 즉시 활용 가능한 초과 현금 <b>{_fmt_num(surplus, 'KRW')}원{_kor_unit(surplus, 'KRW')}</b></div>"
+                f"<small>{rp_note.lstrip(' · ')}</small>"
             )
         rebalance_html = f'<div class="rebalance-bar">{reb_main}</div>'
 
@@ -507,23 +526,28 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
             lead_parts.append(f"{lbl} <b>${xp:,.2f}</b> ({gap:+.2f}%)")
     if us_b or lead_parts:
         today_kst = datetime.now(intel.KST).date().isoformat()
+        is_short_us = today_kst == "2026-11-27"
         session_tag = (
             "오늘 밤 23:30 개장 ~ 익일 03:00 조기폐장 (추수감사절 익일 3.5시간 단축장 · 얇은 호가 주의)"
-            if today_kst == "2026-11-27"
+            if is_short_us
             else "정규장 23:30 개장 ~ 익일 06:00 마감 (KST)"
         )
         usd_cash_txt = ""
         if us_b and us_b["val"] > 0:
             u_pct = us_b["cash"] / us_b["val"] * 100
-            usd_cash_txt = f" · 내 달러(USD) 현금 <b>${_fmt_num(us_b['cash'], 'USD')} ({u_pct:.1f}%)</b>"
+            usd_cash_txt = f" · 내 달러(USD) 현금 <b>${_fmt_num(us_b['cash'], 'USD')} ({u_pct:.1f}% · SGOV 4.5% 파킹 기준)</b>"
         lead_line = ("24시간 토큰주가 직전 종가 대비 · " + " · ".join(lead_parts)) if lead_parts else "개장 전 선물·반도체(SOXX·NVDA) 호가 점검"
+        exec_slot = (
+            "장 중반 호가 안정 구간(<b>00:30~02:00 KST</b>, 마감 직전 얇은 MOC 슬리피지 회피)"
+            if is_short_us
+            else "마감 20분 전(05:40 KST)"
+        )
         rebalance_html += (
             '<div class="networth-banner">'
             f'<div><b>저녁 미국장 실전 준비 ({session_tag}):</b> {lead_line}{usd_cash_txt}</div>'
             '<small>① <b>23:30~00:00 시초 갭업 추격·투매 금지</b> → '
-            '② <b>00:30~02:00 장중 지지 확인</b> → '
-            '③ <b>마감 20분 전</b> 안전마진 미달 약세주 달러 현금화 및 '
-            f'<a href="{e(base)}/discover?market=US">미국 S급 대장주</a> 선발교체</small></div>'
+            f'② <b>{exec_slot}</b>에 안전마진 미달 약세주 지정가 달러 현금화 → '
+            f'③ 확보된 달러 현금 범위 내에서(원화 매도분은 T+2 결제·환전 시차 유의) <a href="{e(base)}/discover?market=US">미국 S급 대장주</a> 교체</small></div>'
         )
 
     return (

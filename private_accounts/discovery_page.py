@@ -139,15 +139,25 @@ def _candidate_card(rank, item, is_held, base):
         if item.get("target_price") and item.get("upside_pct") is not None
         else ""
     )
+    cur = float(item["price"] or 0)
     e1 = tech.get("entry_1")
     e2 = tech.get("entry_2")
     sp = tech.get("stop_price")
+    rsi = tech.get("rsi", 50.0)
+    stop_gap_pct = max(3.0, (1.0 - sp / cur) * 100.0) if (sp and cur > 0 and sp < cur) else 8.0
+    one_r_pct = min(20.0, round(1.2 / ((stop_gap_pct + 0.8) / 100.0), 1))
     plan_line = ""
     if e1 and sp:
+        chase_warn = (
+            ' · <span class="badge-warn">단기 과열(RSI≥75) · 종가 추격 금지, 2차 눌림선 대기</span>'
+            if rsi >= 75
+            else ""
+        )
         plan_line = (
-            f'<p><small>실전 가격 가이드 · <b>1차 분할진입 {_fmt_px(e1, ccy)}</b>'
+            f'<p><small>실전 가격·리스크 사이징 · <b>1R(계좌 손실 1.2% 한도) 1차 권장 비중 {one_r_pct:.1f}%</b> · '
+            f'<b>1차 분할진입 {_fmt_px(e1, ccy)}</b>'
             + (f' · <b>2차 눌림/돌파 {_fmt_px(e2, ccy)}</b>' if e2 else '')
-            + f' · <b>방어·점검선(-8%) {_fmt_px(sp, ccy)}</b></small></p>'
+            + f' · <b>방어·점검선(-{stop_gap_pct:.1f}%) {_fmt_px(sp, ccy)}</b>{chase_warn}</small></p>'
         )
     return (
         f'<article class="era-card">'
@@ -156,7 +166,8 @@ def _candidate_card(rank, item, is_held, base):
         f'<strong>총점 {item["total"]:.1f} / 100{e(delta_txt)}</strong></div>'
         f'<h3>{e(item["name"])} <small>({e(item["symbol"])})</small></h3>'
         f'<p><b>현재가 {_fmt_px(item["price"], ccy)}</b>{chg_html}{e(target_txt)} · '
-        f'<abbr title="최근 21일 하락 변동성 기준 계좌 내 권장 최대 비중">하방변동성 권장 비중 상한</abbr> <b>{tech["down_cap"]}%</b></p>'
+        f'<abbr title="1회 매매 손절 시 전체 계좌 손실을 1.2%(1R) 이내로 제한하는 실전 단일종목 권장 비중">실전 1R 권장 비중</abbr> <b>{one_r_pct:.1f}%</b> '
+        f'<small>(하방변동성 권장 비중 상한 {tech["down_cap"]}%)</small></p>'
         + plan_line
         + _axis_bars(item["scores"])
         + '<div class="era-lesson">'
@@ -281,6 +292,9 @@ def render(directory, package, base, csrf, query, css):
         out.append('<p role="status" class="badge-pass">X·SNS 관측을 저장하고 대장주 감성 점수에 반영했습니다.</p>')
 
     out.append(
+        '<div class="rebalance-bar"><b>자금 바구니 안내 (어느 돈으로 사나요?):</b> '
+        '전체 자산을 ① <b>현금·단기금리(RP·SGOV) 버퍼 35%+</b>, ② <b>이 메뉴(<code>/discover</code>)의 추세 대장주 코어 45~50%</b>(종목당 1R 권장 비중 13~20% 이내), '
+        f'③ <a href="{e(base)}/contrarian"><b>역발상·1종목 비대칭(<code>/contrarian</code>)</b></a> <b>소액 스나이퍼 슬리브(총자산 최대 10~15% 상한)</b>로 나누어 운용하세요.</div>'
         '<div class="guide-banner"><h2>오늘의 6대 변수 레이더 요약</h2>'
         '<div class="step-flow">'
         f'<div class="step-box"><b><span class="step-num">1</span>글로벌·환율 흐름</b>'

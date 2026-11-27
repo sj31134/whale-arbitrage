@@ -100,19 +100,22 @@ def concentration_panel(positions, package, route):
         if p["weight_pct"] is None:
             continue
         key = (p["provider"], p["account"], p["currency"])
-        b = buckets.setdefault(key, dict(cash=Decimal(0), weights=[]))
+        b = buckets.setdefault(key, dict(cash=Decimal(0), stable=Decimal(0), weights=[]))
         w = Decimal(p["weight_pct"])
         if p["role"] == "cash" or p["symbol"].upper() in CASH_NAMES:
             b["cash"] += w
+        elif p["symbol"].upper() in ("USDT", "USDC"):
+            b["stable"] += w
         else:
             b["weights"].append(w)
     out = [
         '<section id="concentration-guide" class="guide-banner">'
         "<h2>소수 집중 · 현금 버퍼 실전 점검</h2>"
-        "<p>하락·고변동장(1단계)에서는 계좌별 <b>현금 버퍼 35% 이상</b>을 확보해 바닥권 손절(휩소)을 막고, "
+        "<p>하락·고변동장(1단계)에서는 계좌별 <b>현금 버퍼 35% 이상</b>(원화 RP·달러 SGOV 단기금리 파킹 활용)을 확보해 바닥권 손절(휩소)을 막고, "
         "주식 비중은 <b>가설 3관문을 통과한 소수 핵심 종목</b>으로 압축합니다.</p>"
         f'<div class="chips"><a class="chip" href="{e(route)}/research">'
         f"가설 연구장 · 집중 후보 {qualifying}건 / 추적 {len(ideas)}건</a>"
+        f'<a class="chip" href="{e(route)}/strategies#capital-charter">3단 자본배분·IPS 한도 헌장</a>'
         f'<a class="chip" href="{e(route)}/strategies#historical-backtests">4대 위기 백테스트 비교</a>'
         f'<a class="chip" href="{e(route)}/quant">종목별 권장 비중·차트</a></div>'
     ]
@@ -124,15 +127,18 @@ def concentration_panel(positions, package, route):
         for (provider, alias, currency), b in sorted(buckets.items()):
             top2 = sum(sorted(b["weights"], reverse=True)[:2], Decimal(0))
             cash = b["cash"]
-            ok = cash >= Decimal(35)
-            badge = (
-                '<span class="badge-pass">버퍼 확보</span>'
-                if ok
-                else '<span class="badge-warn">비중 미달 종목 정리로 현금 보강 권장</span>'
-            )
+            stable = b["stable"]
+            ok = (cash + stable) >= Decimal(35) and cash >= Decimal(35)
+            if ok:
+                badge = '<span class="badge-pass">버퍼 확보</span>'
+            elif stable > 0 and (cash + stable) >= Decimal(35):
+                badge = f'<span class="badge-info">스테이블코인 포함 {cash + stable:.1f}% (페그 리스크 분리)</span>'
+            else:
+                badge = '<span class="badge-warn">비중 미달 종목 정리로 현금 보강 권장</span>'
+            cash_txt = f"<b>{cash:.1f}%</b>" + (f" <small>(+스테이블 {stable:.1f}%)</small>" if stable > 0 else "")
             out.append(
                 f"<tr><td>{e(store.PROVIDERS[provider])} · {e(alias)} · {e(currency)}</td>"
-                f'<td>{len(b["weights"])}종목</td><td>{top2:.1f}%</td><td><b>{cash:.1f}%</b></td><td>{badge}</td></tr>'
+                f'<td>{len(b["weights"])}종목</td><td>{top2:.1f}%</td><td>{cash_txt}</td><td>{badge}</td></tr>'
             )
         out.append("</tbody></table></div>")
     return "".join(out) + "</section>"
@@ -142,12 +148,17 @@ def stress_panel(positions, route, scenario):
     presets = {
         "pullback": ("조정 가정", {"equities": -10, "crypto": -20, "real_estate": -5, "cash": 0}),
         "severe": ("급락 가정", {"equities": -30, "crypto": -50, "real_estate": -20, "cash": 0}),
+        "combined": ("복합 위기 (금리·상관1·디페깅)", {"equities": -35, "crypto": -55, "real_estate": -20, "cash": 0}),
     }
     name, shocks = presets.get(scenario, presets["pullback"])
+    is_combined = scenario == "combined"
     buckets = {}
     for p in positions:
         key = (p["provider"], p["account"], p["currency"])
-        b = buckets.setdefault(key, dict(change=Decimal(0), coverage=Decimal(0), missing=0, as_of=p["as_of"]))
+        b = buckets.setdefault(
+            key,
+            dict(change=Decimal(0), conservative=Decimal(0), coverage=Decimal(0), missing=0, as_of=p["as_of"]),
+        )
         role = p["role"]
         if role == "us_small_cap_high_beta":
             role = "equities"
@@ -160,26 +171,39 @@ def stress_panel(positions, route, scenario):
                 role = "real_estate"
             elif p["tasks"].get("equities") == "보유 분석":
                 role = "equities"
-        if p["weight_pct"] is None or role not in shocks:
+        if p["weight_pct"] is None:
             b["missing"] += 1
             continue
         weight = Decimal(p["weight_pct"])
+        if role not in shocks:
+            b["missing"] += 1
+            # Bank/Institutional conservative look-through: treat unconfirmed brokerage securities as equity shock
+            if "equities" in p["tasks"]:
+                b["conservative"] += weight * shocks["equities"] / 100
+            continue
         b["coverage"] += weight
-        b["change"] += weight * shocks[role] / 100
+        row_shock = shocks[role]
+        if p["symbol"].upper() in ("USDT", "USDC"):
+            row_shock = -5 if is_combined else 0
+        b["change"] += weight * row_shock / 100
+        b["conservative"] += weight * row_shock / 100
     out = ['<section id="stress" data-watch><h2>보유분 하방 스트레스</h2><div class="chips">']
     for k, (label, _) in presets.items():
         out.append(f'<a class="chip" href="{e(route)}/portfolio?stress={k}#stress">{label}</a>')
     out.append(f'</div><p>{name} · 주식 {shocks["equities"]}% / 코인 {shocks["crypto"]}% / '
-               f'실물 {shocks["real_estate"]}% / 현금 0%. 가상 가격 충격이며 환율·차입·거래 비용은 고정합니다.</p>')
+               f'실물 {shocks["real_estate"]}% / 현금 0%'
+               + (" (복합 위기 시 스테이블코인 -5% 디페깅 및 미분류 증권 보수치 병기)." if is_combined else ". 가상 가격 충격이며 환율·차입·거래 비용은 고정합니다.")
+               + '</p>')
     if not buckets:
         return "".join(out) + "<p>평가할 보유 자료가 없습니다.</p></section>"
     out.append('<div class="comparison"><table><thead><tr><th>계좌 · 평가통화</th><th>수량 기준시각</th>'
-               '<th>반영 비중</th><th>미분류·미평가</th><th>반영분의 손익 기여</th></tr></thead><tbody>')
+               '<th>반영 비중</th><th>미분류·미평가</th><th>반영분의 손익 기여</th><th>미분류 주식가정 보수치</th></tr></thead><tbody>')
     for (provider, alias, currency), b in sorted(buckets.items()):
         value = f'{b["change"]:+.2f}%p' if b["coverage"] > 0 else "산정 보류"
+        cons_val = f'{b["conservative"]:+.2f}%p' if (b["coverage"] > 0 or b["conservative"] != 0) else "산정 보류"
         out.append(f'<tr><td>{e(store.PROVIDERS[provider])} · {e(alias)} · {e(currency)}</td>'
                    f'<td>{e(chat_page.kst_time(b["as_of"]))}</td><td>{b["coverage"]:.2f}%</td>'
-                   f'<td>{b["missing"]}행</td><td>{value}</td></tr>')
+                   f'<td>{b["missing"]}행</td><td>{value}</td><td><b>{cons_val}</b></td></tr>')
     return "".join(out) + "</tbody></table></div></section>"
 
 

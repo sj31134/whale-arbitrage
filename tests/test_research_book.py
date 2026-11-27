@@ -283,3 +283,51 @@ def test_research_cli_retry(journal, tmp_path, monkeypatch, capsys):
     clock.instant += timedelta(days=1)
     quote.update(observed="2024-01-04T09:00:00+09:00", exit="85", verdict="가설 기각", reason="촉매 취소")
     assert call(["research-observe","finish",key], quote) == "모의 관측 저장 완료"
+
+
+def test_six_persona_institutional_factor_custody_and_combined_stress():
+    from private_accounts import live_panel
+    stamp = "2026-11-27T23:00:00+09:00"
+    qb = monitor.live_valuation.QuoteBook(rows=[
+        dict(venue="fx", symbol="USD/KRW", currency="KRW", price="1350", at=stamp, seen=stamp),
+        dict(venue="fx", symbol="USDT/USD", currency="USD", price="1.0", at=stamp, seen=stamp),
+    ])
+    accs = [
+        dict(provider="kis", account="일반위탁", marks=[
+            dict(symbol="000660", currency="KRW", qty="10", price=Decimal("5000000"), value=Decimal("50000000"),
+                 gain=Decimal("0"), rate=Decimal("0"), weight_pct="71.4", state="시세 반영", instrument=("KRX", "000660", "KRW")),
+            dict(symbol="KRW", currency="KRW", qty="20000000", price=Decimal("1"), value=Decimal("20000000"),
+                 gain=Decimal("0"), rate=Decimal("0"), weight_pct="28.6", state="통화 잔액", instrument=None),
+        ]),
+        dict(provider="upbit", account="원화코인", marks=[
+            dict(symbol="BTC", currency="KRW", qty="0.1", price=Decimal("80000000"), value=Decimal("8000000"),
+                 gain=Decimal("0"), rate=Decimal("0"), weight_pct="100", state="시세 반영", instrument=None),
+        ]),
+        dict(provider="binance", account="현물RWA", marks=[
+            dict(symbol="NVDAB", currency="USD", qty="100", price=Decimal("150"), value=Decimal("15000"),
+                 gain=Decimal("0"), rate=Decimal("0"), weight_pct="60", state="시세 반영", instrument=("BINANCE_B", "NVDAB", "USD")),
+            dict(symbol="BTC", currency="USDT", qty="0.1", price=Decimal("60000"), value=Decimal("6000"),
+                 gain=Decimal("0"), rate=Decimal("0"), weight_pct="30", state="시세 반영", instrument=None),
+            dict(symbol="USDT", currency="USDT", qty="4000", price=Decimal("1"), value=Decimal("4000"),
+                 gain=Decimal("0"), rate=Decimal("0"), weight_pct="10", state="시세 반영", instrument=None),
+        ]),
+    ]
+    strip = live_panel.institutional_risk_strip(accs, qb)
+    assert "IPS 팩터 상한(45%) 초과" in strip and "해외거래소·RWA 수탁" in strip and "RP 3.25%" in strip
+    ov = live_panel.multi_account_overlap(accs, qb)
+    assert "BTC (거래소·통화 통합)" in ov
+
+    cockpit = page.action_cockpit(None, None, "/test", quote_book=qb, accounts=accs)
+    assert "CRIX.UPBIT.KRW-BTC" in cockpit
+    assert "domestic%2Fstock%2FBTC" not in cockpit
+
+    pos = [
+        dict(provider="mirae", account="isa", currency="KRW", role=None, as_of=stamp,
+             symbol="267260", tasks={"equities": "증권 계좌 상품 유형 확인"}, weight_pct="90"),
+        dict(provider="mirae", account="isa", currency="KRW", role="cash", as_of=stamp,
+             symbol="KRW", tasks={}, weight_pct="10"),
+        dict(provider="binance", account="spot", currency="USDT", role="crypto", as_of=stamp,
+             symbol="USDT", tasks={"crypto": "보유 분석"}, weight_pct="100"),
+    ]
+    comb = monitor.stress_panel(pos, "/test", "combined")
+    assert "복합 위기" in comb and "-31.50%p" in comb and "-5.00%p" in comb

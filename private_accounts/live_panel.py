@@ -92,22 +92,38 @@ def _canonical_symbol(provider, sym):
     return normalize(up).replace(" ", "") or up
 
 
-def multi_account_overlap(accounts):
-    """Highlight non-cash symbols (including US stock + Binance RWA bStock pairs) split across 2+ accounts."""
+AI_FACTOR_KEYS = {
+    "000660", "005930", "005935", "267260", "010120", "034020", "042700",
+    "NVDA", "AVGO", "MSFT", "GOOG", "GOOGL", "TSM", "ASML", "MU", "CEG", "AMD", "INTC", "ARM", "VRT", "SMCI",
+    "sk하이닉스", "삼성전자", "삼성전자우", "hd현대일렉트릭", "ls일렉트릭", "두산에너빌리티", "한미반도체", "엔비디아", "브로드컴",
+}
+
+
+def multi_account_overlap(accounts, book=None):
+    """Highlight non-cash symbols (including US stock + Binance RWA bStock pairs and cross-venue BTC) split across 2+ accounts."""
     from agents.equities.daily_bars import BSTOCKS
     from agents.portfolio import CASH_NAMES
     grouped = {}
+    btc_accs, btc_krw_eq = set(), Decimal(0)
+    fx = Decimal(book.fx["price"]) if (book is not None and getattr(book, "fx", None)) else None
+    usdt_rate = Decimal(book.usdt_usd["price"]) if (book is not None and getattr(book, "usdt_usd", None)) else Decimal(1)
+
     for a in accounts or ():
         for m in a.get("marks", ()):
             sym = m["symbol"].strip()
             if sym.upper() in CASH_NAMES or m["state"].startswith("통화 잔액") or m["value"] is None:
                 continue
+            acc_lbl = f'{store.PROVIDERS[a["provider"]]}({a["account"]})'
+            if sym.upper() == "BTC" and fx:
+                mult = Decimal(1) if m["currency"] == "KRW" else (fx * usdt_rate if m["currency"] == "USDT" else fx)
+                btc_accs.add(acc_lbl)
+                btc_krw_eq += Decimal(m["value"]) * mult
             key = (m["currency"], _canonical_symbol(a["provider"], sym))
             entry = grouped.setdefault(key, dict(symbols=[], total=Decimal(0), accs=set(), has_rwa=False))
             if sym not in entry["symbols"]:
                 entry["symbols"].append(sym)
             entry["total"] += Decimal(m["value"])
-            entry["accs"].add(f'{store.PROVIDERS[a["provider"]]}({a["account"]})')
+            entry["accs"].add(acc_lbl)
             if a["provider"] == "binance" and sym.upper() in BSTOCKS:
                 entry["has_rwa"] = True
     overlaps = [
@@ -116,17 +132,117 @@ def multi_account_overlap(accounts):
         for (ccy, _), v in sorted(grouped.items())
         if len(v["accs"]) >= 2
     ]
+    if len(btc_accs) >= 2 and btc_krw_eq > 0:
+        overlaps.append(
+            f'<b>BTC (거래소·통화 통합)</b> {len(btc_accs)}개 거래소 환산 합산 약 {fmt(btc_krw_eq / Decimal(10000))}만 원'
+        )
     if not overlaps:
         return ""
     return (
-        '<div class="networth-banner"><small>다계좌·본주+RWA 중복 보유 합산 (동일 통화 참고): '
+        '<div class="networth-banner"><small>다계좌·본주+RWA·이종통화 중복 보유 합산 참고: '
         + " · ".join(overlaps[:6])
         + "</small></div>"
     )
 
 
+def institutional_risk_strip(accounts, book):
+    """Look-through Factor Exposure, Custody 3-Tier Limit, and Cash Parking Yield monitor (6-Persona Institutional/Bank VOC)."""
+    from agents.portfolio import CASH_NAMES
+    if not accounts or book is None or not book.fx:
+        return ""
+    fx = Decimal(book.fx["price"])
+    usdt_rate = Decimal(book.usdt_usd["price"]) if getattr(book, "usdt_usd", None) else Decimal(1)
+    total_krw = Decimal(0)
+    ai_factor_krw = Decimal(0)
+    tier3_offshore_krw = Decimal(0)
+    tier2_kr_crypto_krw = Decimal(0)
+    free_krw_cash = Decimal(0)
+    sheltered_krw_cash = Decimal(0)
+    usd_fiat_cash = Decimal(0)
+    usdt_cash = Decimal(0)
+
+    for a in accounts:
+        prov = a["provider"]
+        alias_low = (a.get("account") or "").lower()
+        is_sheltered = any(t in alias_low for t in ("isa", "pension", "irp", "연금", "퇴직", "절세"))
+        for m in a.get("marks", ()):
+            if m["value"] is None:
+                continue
+            ccy = m["currency"]
+            val = Decimal(m["value"])
+            mult = Decimal(1) if ccy == "KRW" else (fx if ccy == "USD" else (fx * usdt_rate if ccy == "USDT" else Decimal(0)))
+            if mult <= 0:
+                continue
+            krw_eq = val * mult
+            total_krw += krw_eq
+            if prov == "binance":
+                tier3_offshore_krw += krw_eq
+            elif prov == "upbit":
+                tier2_kr_crypto_krw += krw_eq
+
+            sym_up = m["symbol"].strip().upper()
+            is_cash = sym_up in CASH_NAMES or m["state"].startswith("통화 잔액")
+            if is_cash:
+                if ccy == "KRW":
+                    if is_sheltered:
+                        sheltered_krw_cash += val
+                    else:
+                        free_krw_cash += val
+                elif ccy == "USD":
+                    usd_fiat_cash += val
+                continue
+            if sym_up in ("USDT", "USDC"):
+                usdt_cash += val
+                continue
+
+            canon = _canonical_symbol(prov, m["symbol"])
+            inst_code = m["instrument"][1].upper() if m.get("instrument") else ""
+            if canon.upper() in AI_FACTOR_KEYS or canon in AI_FACTOR_KEYS or inst_code in AI_FACTOR_KEYS:
+                ai_factor_krw += krw_eq
+
+    if total_krw <= 0:
+        return ""
+    ai_pct = (ai_factor_krw / total_krw) * 100
+    t3_pct = (tier3_offshore_krw / total_krw) * 100
+    t1_pct = max(Decimal(0), 100 - t3_pct - (tier2_kr_crypto_krw / total_krw) * 100)
+    est_yield_krw = (free_krw_cash + sheltered_krw_cash) * Decimal("0.0325") + (usd_fiat_cash * fx) * Decimal("0.045")
+
+    ai_badge = (
+        f'<span class="badge-warn">IPS 팩터 상한(45%) 초과 · {ai_pct:.1f}%</span>'
+        if ai_pct > Decimal(45)
+        else f'<span class="badge-pass">AI·반도체·전력 팩터 {ai_pct:.1f}% (한도 ≤45%)</span>'
+    )
+    cust_badge = (
+        f'<span class="badge-warn">해외거래소·RWA 수탁 {t3_pct:.1f}% (권고 ≤15% 초과)</span>'
+        if t3_pct > Decimal(15)
+        else f'<span class="badge-info">제도권 예탁 {t1_pct:.0f}% · 해외수탁 {t3_pct:.1f}%</span>'
+    )
+    liq_parts = [f"D+0 자유원화 {fmt(free_krw_cash / Decimal(10000))}만 원"]
+    if sheltered_krw_cash > 0:
+        liq_parts.append(f"절세계좌내 원화 {fmt(sheltered_krw_cash / Decimal(10000))}만 원")
+    if usd_fiat_cash > 0:
+        liq_parts.append(f"달러예수금 ${fmt(usd_fiat_cash)}")
+    if usdt_cash > 0:
+        liq_parts.append(f"해외거래소 스테이블 {fmt(usdt_cash)} USDT (페그·출금 분리)")
+    yield_note = (
+        f" · 유휴 현금 단기금리(원화 RP 3.25%·달러 SGOV 4.5%) 파킹 시 연 약 <b>{fmt(est_yield_krw / Decimal(10000))}만 원</b> 이자 보강 가능"
+        if est_yield_krw >= Decimal(10000)
+        else ""
+    )
+    return (
+        '<div class="networth-banner">'
+        f'<div><small>기관·은행 통합 리스크 점검:</small> {ai_badge} {cust_badge}</div>'
+        f'<small>유동성 사다리: {" / ".join(liq_parts)}{yield_note}</small></div>'
+    )
+
+
 def networth_and_cards(accounts, book):
-    return networth_reference(accounts, book) + multi_account_overlap(accounts) + currency_cards(accounts)
+    return (
+        networth_reference(accounts, book)
+        + multi_account_overlap(accounts, book)
+        + institutional_risk_strip(accounts, book)
+        + currency_cards(accounts)
+    )
 
 
 def currency_cards(accounts):
