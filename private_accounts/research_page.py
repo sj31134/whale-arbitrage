@@ -313,8 +313,9 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
 
     return (
         '<section id="action-cockpit" class="cockpit">'
-        '<div class="cockpit-head"><h2>한눈에 보는 내 계좌 손실 복기 &amp; 오늘 행동 답안지</h2>'
+        '<div class="cockpit-head"><div><h2>한눈에 보는 내 계좌 손실 복기 &amp; 오늘 행동 답안지</h2>'
         '<small>어려운 용어 없이 · ① 왜 손실 났나 → ② 지금 시장 차트가 어떤가 → ③ 어떤 종목을 팔고 무엇에 집중할까</small></div>'
+        f'<a class="btn" href="{e(base)}/discover">내 포트폴리오 외 신규 대장주 발굴 보기 →</a></div>'
         '<div class="cockpit-grid">'
         '<article class="cockpit-box alert"><h3>1. 내 포트폴리오 손실 원인 복기</h3><ul>'
         + "".join(loss_bullets)
@@ -346,7 +347,8 @@ def manager_panel(package, base):
     qualifying = sum(book.metrics(row["a"])["qualifies"] for row in pending)
     return (f'<section><h2>오늘의 투자 검토</h2><p><a href="{e(base)}/research">가설 연구장</a>'
             f' · 평가일 도래 {due}건 · 추적 중 {len(pending)}건 (3관문 집중 후보 {qualifying}건) · 평가 완료 {len(ideas)-len(pending)}건</p>'
-            f'<div class="chips"><a class="chip" href="{e(base)}/research">1. 시나리오·3관문 점검</a>'
+            f'<div class="chips"><a class="chip" href="{e(base)}/discover">신규 대장주 발굴 (6대 변수)</a>'
+            f'<a class="chip" href="{e(base)}/research">1. 시나리오·3관문 점검</a>'
             f'<a class="chip" href="{e(base)}/strategies">2. 4대 위기 백테스트·레짐 규칙</a>'
             f'<a class="chip" href="{e(base)}/quant">3. 종목별 변동성·차트 검증</a>'
             f'<a class="chip" href="{e(base)}/portfolio#stress">보유분 하방 스트레스</a>'

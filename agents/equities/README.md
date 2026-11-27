@@ -37,6 +37,9 @@ python3 -m private_accounts strategies run
 python3 -m private_accounts strategies history variance-cap
 python3 -m private_accounts strategies history downside-cap
 python3 -m private_accounts strategies evidence berkshire --as-of 2026-11-16T16:00:03-05:00
+python3 -m private_accounts discover --refresh
 ```
+
+**신규 대장주 발굴(`/discover`)**은 보유 목록 입력 없이 국내·미국 상장 후보의 공개 수급·일봉 상대강도·컨센서스/공시·SNS 관심도·환율/연준 흐름·유엔 안보 지정학 변수를 100점 만점으로 일별 추적하며, 개인 보유분 제외 대조는 Mac 화면 렌더링 시점에만 수행한다.
 
 `daily-review`와 수동 재계산은 최신 완료된 공개 시세 실험과 같은 시각표의 독립 종가 검증을 읽는다. 새 검증본이 없으면 마지막 결과와 시장 마감일을 유지한다. 새 원문을 검토한 담당은 `strategies import-event` 표준입력에 `strategy, effective, available, url, items`를 넣는다. 날짜·공개시각·HTTPS 원문은 문자열, `items`는 해당 기준일에 원문에서 확인한 공개 발행인 표본의 전체 목록이다. 같은 기준일의 정정은 실제 정정 공개시각에 새 버전으로 추가한다. 13F는 분기 말과 SEC 접수시각, PTR은 거래일과 실제 공개 확인시각을 구분한다. 가격 규칙은 전략 명세 및 검증된 계산 코드를 추가하고 버전을 올린다.

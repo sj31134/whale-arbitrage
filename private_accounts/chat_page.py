@@ -16,6 +16,7 @@ def e(value):
 def navigation(base, active):
     items = [(room, name, f"{base}/desk/{room}") for room, name in research.NAMES.items()]
     items.append(("portfolio", "포트폴리오 현황", base + "/portfolio"))
+    items.append(("discover", "신규 대장주 발굴", base + "/discover"))
     items.append(("quant", "퀀트 연구", base + "/quant"))
     items.append(("strategies", "전략 관리", base + "/strategies"))
     items.append(("research", "가설 연구장", base + "/research"))
@@ -313,7 +314,9 @@ def render(directory, package, base, csrf, room, css, show_all=False, feedback_o
         f'<div class="desk-title"><h1>{e(research.NAMES[room])}</h1><details><summary>담당 역할·판단 기준</summary>'
         f'<b>{e(persona.role)}</b><p>{e(persona.lens)}</p>'
         f'<p>{e(persona.reconsider)}</p></details></div>',
-        ('<nav class="manager-jumps" aria-label="매니저 화면 섹션"><a href="#action-cockpit">오늘 행동 답안지</a><a href="#live-values">내 포트폴리오</a>'
+        ('<nav class="manager-jumps" aria-label="매니저 화면 섹션"><a href="#action-cockpit">오늘 행동 답안지</a>'
+         f'<a href="{e(base)}/discover">포트폴리오 외 신규 대장주 발굴</a>'
+         '<a href="#live-values">내 포트폴리오</a>'
          '<a href="#price-history">가격 이력</a><a href="#manager-desks">담당 애널리스트</a><a href="#analysts">데이터 범주</a>'
          '<a href="#market-desk">주식 시장 브리핑</a><a href="#desk-results">종합 보고서</a></nav>'
          + manager_sections(directory, package, base, screen, ordered=ordered, position=position, frame=frame)) if manager else "",
