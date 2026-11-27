@@ -81,28 +81,45 @@ def networth_reference(accounts, book):
     )
 
 
+def _canonical_symbol(provider, sym):
+    from agents.equities.daily_bars import BSTOCKS
+    from agents.portfolio import normalize
+    up = sym.strip().upper()
+    if provider == "binance" and up in BSTOCKS and len(up) >= 3:
+        up = up[:-1]
+    if up == "GOOGL":
+        return "GOOG"
+    return normalize(up).replace(" ", "") or up
+
+
 def multi_account_overlap(accounts):
-    """Highlight non-cash symbols split across 2+ accounts within the same currency."""
-    from agents.portfolio import CASH_NAMES, normalize
+    """Highlight non-cash symbols (including US stock + Binance RWA bStock pairs) split across 2+ accounts."""
+    from agents.equities.daily_bars import BSTOCKS
+    from agents.portfolio import CASH_NAMES
     grouped = {}
     for a in accounts or ():
         for m in a.get("marks", ()):
             sym = m["symbol"].strip()
             if sym.upper() in CASH_NAMES or m["state"].startswith("통화 잔액") or m["value"] is None:
                 continue
-            key = (m["currency"], normalize(sym).replace(" ", "") or sym.upper())
-            entry = grouped.setdefault(key, dict(symbol=sym, total=Decimal(0), accs=set()))
+            key = (m["currency"], _canonical_symbol(a["provider"], sym))
+            entry = grouped.setdefault(key, dict(symbols=[], total=Decimal(0), accs=set(), has_rwa=False))
+            if sym not in entry["symbols"]:
+                entry["symbols"].append(sym)
             entry["total"] += Decimal(m["value"])
             entry["accs"].add(f'{store.PROVIDERS[a["provider"]]}({a["account"]})')
+            if a["provider"] == "binance" and sym.upper() in BSTOCKS:
+                entry["has_rwa"] = True
     overlaps = [
-        f'<b>{e(v["symbol"])}</b> {len(v["accs"])}개 계좌 합산 {fmt(v["total"])} {e(ccy)}'
+        f'<b>{e(" + ".join(v["symbols"]))}</b> {len(v["accs"])}개 계좌 합산 {fmt(v["total"])} {e(ccy)}'
+        + (' <span class="badge-warn">본주+RWA 기초자산 중복</span>' if v["has_rwa"] else "")
         for (ccy, _), v in sorted(grouped.items())
         if len(v["accs"]) >= 2
     ]
     if not overlaps:
         return ""
     return (
-        '<div class="networth-banner"><small>다계좌 중복 보유 종목 합산 (동일 통화 참고): '
+        '<div class="networth-banner"><small>다계좌·본주+RWA 중복 보유 합산 (동일 통화 참고): '
         + " · ".join(overlaps[:6])
         + "</small></div>"
     )

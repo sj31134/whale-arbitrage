@@ -174,13 +174,22 @@ def test_voc_prefill_crypto_form_url_and_networth_banner(journal, tmp_path):
         ]),
         dict(provider="binance", account="spot", marks=[
             dict(symbol="BTC", currency="USD", qty="1", price=Decimal("98049"), value=Decimal("98049"),
-                 gain=Decimal("-1951"), rate=Decimal("-1.95"), weight_pct="100", state="시세 반영", instrument=None),
+                 gain=Decimal("-1951"), rate=Decimal("-1.95"), weight_pct="80", state="시세 반영", instrument=None),
+            dict(symbol="NVDAB", currency="USD", qty="100", price=Decimal("155.26"), value=Decimal("15526"),
+                 gain=Decimal("526"), rate=Decimal("3.5"), weight_pct="20", state="시세 반영", instrument=("Binance", "NVDAB", "USDT")),
+        ]),
+        dict(provider="kis", account="us", marks=[
+            dict(symbol="NVDA", currency="USD", qty="50", price=Decimal("149.30"), value=Decimal("7465"),
+                 gain=Decimal("-535"), rate=Decimal("-6.7"), weight_pct="100", state="시세 반영", instrument=("NASDAQ", "NVDA", "USD")),
         ]),
     ]
     banner = live_panel.networth_reference(accs, qb)
     assert "전체 계좌 단순 합산 참고치" in banner and "BTC 김치프리미엄" in banner
+    overlap = live_panel.multi_account_overlap(accs)
+    assert "본주+RWA 기초자산 중복" in overlap
     us_cockpit = page.action_cockpit(None, None, "/test", quote_book=qb, accounts=accs)
     assert "저녁 미국장 실전 준비" in us_cockpit and "엔비디아 선행(NVDAx)" in us_cockpit and "+3.99%" in us_cockpit
+    assert "본주+RWA 합산 2곳" in us_cockpit
 
 
 

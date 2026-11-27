@@ -7,8 +7,9 @@ from html import escape
 from urllib.parse import urlencode
 
 from agents import intelligence as intel
+from agents.equities.daily_bars import BSTOCKS
 from agents.portfolio import CASH_NAMES, normalize, portfolio_accounts
-from . import chat_page, live_valuation, price_history, reports, research_book as book, store
+from . import chat_page, live_panel, live_valuation, price_history, reports, research_book as book, store
 
 e = escape
 
@@ -156,10 +157,14 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
         base_tok = normalize(a["asset"].split("·")[0].split("(")[0]).replace(" ", "")
         if base_tok:
             idea_map[base_tok] = info
-        code_hit = re.search(r"\b([0-9A-Z]{1,6})\b", a["asset"].upper())
-        if code_hit:
-            idea_map[code_hit.group(1)] = info
-        url_code = re.search(r"(?:code=|/stock/|symbol=)(\d{6})", a["price_source"])
+        for ex_hit in re.findall(r"(?:NASDAQ|NYSE|AMEX|BINANCE|BINANCE_B|KRX):([0-9A-Z.\-]{1,10})", a["asset"].upper()):
+            idea_map[ex_hit] = info
+        for par_hit in re.findall(r"\(([0-9A-Z]{1,10})\)", a["asset"].upper()):
+            idea_map[par_hit] = info
+        for code_hit in re.findall(r"\b([0-9A-Z]{2,8})\b", a["asset"].upper()):
+            if code_hit not in {"CLASS", "RWA", "TOKEN", "ETF", "ADR", "INC", "CORP", "USD", "KRW", "NASDAQ", "NYSE", "AMEX", "BINANCE", "KRX"}:
+                idea_map.setdefault(code_hit, info)
+        url_code = re.search(r"(?:code=|/stock/|symbol=|/krx/)(\d{6})", a["price_source"])
         if url_code:
             idea_map[url_code.group(1)] = info
 
@@ -216,12 +221,14 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
     if not holdings:
         return ""
 
-    # Multi-account duplicate map (same currency + normalized symbol)
+    # Multi-account & US-stock + Binance-RWA canonical duplicate map
     dup_map = {}
     for h in holdings:
-        dkey = (h["ccy"], normalize(h["symbol"]).replace(" ", "") or h["symbol"].upper())
-        dentry = dup_map.setdefault(dkey, dict(accs=set(), val=Decimal(0)))
+        dkey = (h["ccy"], live_panel._canonical_symbol(h["provider"], h["symbol"]))
+        dentry = dup_map.setdefault(dkey, dict(accs=set(), val=Decimal(0), has_rwa=False))
         dentry["accs"].add((h["provider"], h["alias"]))
+        if h["provider"] == "binance" and h["symbol"].strip().upper() in BSTOCKS:
+            dentry["has_rwa"] = True
         if h["val"] is not None:
             dentry["val"] += h["val"]
 
@@ -316,20 +323,36 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
     for h in sorted(holdings, key=sort_key):
         idea, tech, ccy = h["idea"], h["tech"], h["ccy"]
         sheltered = _is_tax_sheltered(h["alias"])
-        dkey = (ccy, normalize(h["symbol"]).replace(" ", "") or h["symbol"].upper())
+        sym_up = h["symbol"].strip().upper()
+        is_rwa = h["provider"] == "binance" and sym_up in BSTOCKS
+        dkey = (ccy, live_panel._canonical_symbol(h["provider"], h["symbol"]))
         dup = dup_map.get(dkey)
+        dup_lbl = "본주+RWA 합산" if (dup and dup["has_rwa"]) else "다계좌"
         dup_badge = (
-            f'<br><small class="badge-muted">다계좌 {len(dup["accs"])}곳 합산 {_fmt_num(dup["val"], ccy)} {e(ccy)}</small>'
+            f'<br><small class="badge-muted">{dup_lbl} {len(dup["accs"])}곳 합산 {_fmt_num(dup["val"], ccy)} {e(ccy)}</small>'
             if dup and len(dup["accs"]) >= 2
             else ""
         )
+        rwa_badge = ""
+        rwa_tip = ""
+        if is_rwa and h.get("price") is not None:
+            under_t = "BRK-B" if sym_up[:-1] == "BRKB" else sym_up[:-1]
+            uq = qb.match("kis", under_t, "USD", (f"stock:US:{under_t}",))
+            if uq and Decimal(uq["price"]) > 0:
+                peg = (Decimal(h["price"]) / Decimal(uq["price"]) - 1) * 100
+                rwa_badge = f' <span class="badge-info">RWA · 본주대비 {peg:+.2f}%</span>'
+                if abs(peg) >= Decimal("2"):
+                    rwa_tip = f" <b>(개장 전 RWA 괴리 {peg:+.2f}% · 23:30 본장 개장 전 시장가 추격 금지, 중복 축소 시 본주보다 RWA(왕복 50bp·수탁위험) 우선 정리 유리)</b>"
+            else:
+                rwa_badge = ' <span class="badge-info">미국주식 RWA 토큰</span>'
         shelter_badge = ' <span class="badge-info">절세계좌 보호</span>' if sheltered else ""
+        extra_badges = shelter_badge + rwa_badge
         gross = ccy_totals.get(ccy, {}).get("gross_loss", Decimal(0))
         loss_share = (f" · 손실비중 {(-h['gain'] / gross * 100):.0f}%"
                       if h["gain"] is not None and h["gain"] < 0 and gross > 0 else "")
         if idea and idea["m"]["qualifies"]:
             counts["core"] += 1
-            badge = '<span class="badge-pass">1순위 · 핵심 집중·보유</span>' + shelter_badge
+            badge = '<span class="badge-pass">1순위 · 핵심 집중·보유</span>' + extra_badges
             m_info, a_info = idea["m"], idea["a"]
             close_slot = "마감 20분 전(정규 05:40 / 단축장 02:40 KST)" if ccy == "USD" else "15:15 종가"
             open_avoid = "개장 첫 30분(23:30~00:00 KST) 호가 왜곡" if ccy == "USD" else "장초반 급등"
@@ -337,21 +360,27 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                 f"20일선({_fmt_num(tech['ma20'], ccy)}) 눌림(60%) 또는 수급 확인 {close_slot} 선발교체(40%)"
                 if tech else f"{close_slot} 수급 확인 또는 눌림목"
             )
+            dup_rwa_note = (
+                " 단, 증권사 미국 본주와 기초자산이 중복된 상태이므로 추가 집중은 수수료·수탁 측면에서 본주 계좌로 일원화하고 RWA 비중 확대를 자제하세요."
+                if (is_rwa and dup and len(dup["accs"]) >= 2) else ""
+            )
             guide = (
                 f"<b>팔지 말고 집중할 대장주.</b> 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 저평가"
                 f"(기대수익 <b>{m_info['expected']:+.1f}%</b>, "
                 f'<abbr title="내재가치 대비 현재 주가 할인율(20% 이상 권장)">안전마진</abbr> {m_info["margin"]:.0f}%). '
                 f"{open_avoid} 추격만 피하고, 비핵심주 정리 자금으로 {pullback_note}로 모아 수익을 극대화하세요."
+                + dup_rwa_note + rwa_tip
             )
         elif _is_semicore(idea):
             counts["semicore"] += 1
-            badge = '<span class="badge-info">준코어 · 반등 추세 유예</span>' + shelter_badge
+            badge = '<span class="badge-info">준코어 · 반등 추세 유예</span>' + extra_badges
             m_info, a_info = idea["m"], idea["a"]
             res_note = f"20일선({_fmt_num(tech['ma20'], ccy)}) 저항 구간" if tech else "단기 목표 저항 구간"
             guide = (
                 f"<b>성급한 조기 매도 금지(11/27 복기 보정).</b> 기대수익(<b>{m_info['expected']:+.1f}%</b>)은 높으나 "
                 f"최근 급락 변동성 할인 때문에 안전마진({m_info['margin']:.1f}% vs 기준 20%)만 소폭 미달한 낙폭과대 탄력주입니다. "
                 f"수급 유입 시 강한 반등 탄력이 나오므로 2순위 약세주보다 뒤로 미루고, {res_note} 도달 시에만 일부 현금화·실적 목표가 재산정을 진행하세요."
+                + rwa_tip
             )
         elif idea and not idea["m"]["qualifies"]:
             counts["trim"] += 1
@@ -360,21 +389,21 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                     trim_sheltered_krw += h["val"]
                 else:
                     trim_general_krw += h["val"]
-            badge = '<span class="badge-warn">2순위 · 최우선 현금화</span>' + shelter_badge
+            badge = '<span class="badge-warn">2순위 · 최우선 현금화</span>' + extra_badges
             m_info, a_info = idea["m"], idea["a"]
             tax_tip = (
                 " <b>(절세계좌 유의: 계좌 밖 인출 시 비과세 한도가 줄어드니 출금 대신 계좌 내 핵심주·지수ETF로 교체하세요.)</b>"
                 if sheltered else ""
             )
             timing_rule = (
-                "개장 첫 30분(23:30~00:00 KST) 스프레드 확대 구간은 피하되, 장중 반등 구간(00:30~02:50 KST)에 분할 매도해 달러 현금 버퍼와 미국 1순위 대장주 교체 재원으로 바꾸세요."
+                "개장 첫 30분(23:30~00:00 KST) 스프레드 확대 구간은 피하되, 장중 반등 구간(00:30~02:50 KST)에 지정가 분할 매도해 달러 현금 버퍼와 미국 1순위 대장주 교체 재원으로 바꾸세요."
                 if ccy == "USD"
                 else "장 초반(09:00~09:30) 흔들기는 피하되, 반등일 오후장 또는 외인 수급 가속 시 <b>15:10~15:20 마감 동시호가</b>에 우선 매도해 현금 35%와 1순위 대장주 자금으로 바꾸세요."
             )
             guide = (
                 f"<b>현금 버퍼 최우선 재원.</b> 기준 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 기대수익({m_info['expected']:+.1f}%)·"
                 f"안전마진({m_info['margin']:.1f}%)이 모두 낮고 시장 반등 대비 탄력도 약합니다. "
-                + timing_rule + tax_tip
+                + timing_rule + tax_tip + rwa_tip
             )
         elif ccy == "KRW":
             counts["trim"] += 1
