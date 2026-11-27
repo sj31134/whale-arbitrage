@@ -68,7 +68,9 @@ padding:0 1rem 1rem;margin:1rem 0;overflow:auto}h2{font-size:1.15rem}p{color:#41
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{text-align:right;
 padding:.35rem;border-bottom:1px solid #dde5e3}th:first-child,td:first-child{text-align:left}
 .desk-tabs{display:flex;flex-wrap:wrap;gap:.45rem 1rem}.desk-tabs a{color:#005e4d}</style>
-""" + ("<style>" + monitor.CSS + "</style>" + live_panel.script(base) + chat_page.navigation(base, "accounts") if base else "")
+""" + ("<style>" + monitor.CSS + "</style>" + live_panel.script(base)
+       + "<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 내 계좌 잔고</small></div></header>"
+       + chat_page.navigation(base, "accounts") if base else "")
             + "<main><h1>내 계좌 잔고</h1>" + (live_panel.panel(directory, package) if base else "")
             + "<details><summary>수집 당시 계좌 원장</summary>" + "".join(cards) + "</details></main></html>").encode()
 
@@ -182,7 +184,7 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                                  '실행하면 현재 세션의 투자 매니저가 열립니다.</p></html>').encode())
                 return
             try:
-                query = {k: v[0] for k,v in parse_qs(parts.query, max_num_fields=10).items()}
+                query = {k: v[0] for k,v in parse_qs(parts.query, max_num_fields=16).items()}
                 if home and not {"position", "agent", "provider", "category"}.intersection(query):
                     room = research_chat.MANAGER
                 if self.headers.get("X-Live-Sections") == "1" and (details or room == research_chat.MANAGER):
@@ -204,7 +206,7 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                 elif quant:
                     data = quant_page.render(directory, package, route, query, monitor.CSS)
                 elif journal:
-                    data = research_page.render(package, route, csrf, monitor.CSS, query.get("done"))
+                    data = research_page.render(package, route, csrf, monitor.CSS, query.get("done"), query=query)
                 elif details:
                     data = render(directory, package, route)
                 else:

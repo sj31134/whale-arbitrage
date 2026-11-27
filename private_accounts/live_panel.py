@@ -39,6 +39,79 @@ def script(base):
     return f'<script defer src="{e(base)}/live.js"></script>'
 
 
+def networth_reference(accounts, book):
+    """Reference-only KRW-converted total net worth & Kimchi premium badge. Keeps accounting denominators separate."""
+    if not accounts or book is None or not book.fx:
+        return ""
+    fx = Decimal(book.fx["price"])
+    usdt_rate = Decimal(book.usdt_usd["price"]) if getattr(book, "usdt_usd", None) else Decimal(1)
+    total_krw = Decimal(0)
+    gain_krw = Decimal(0)
+    has_foreign = False
+    has_gain = False
+    for a in accounts:
+        for m in a.get("marks", ()):
+            if m["value"] is None:
+                continue
+            mult = Decimal(1)
+            if m["currency"] == "USD":
+                mult, has_foreign = fx, True
+            elif m["currency"] == "USDT":
+                mult, has_foreign = fx * usdt_rate, True
+            total_krw += Decimal(m["value"]) * mult
+            if m.get("gain") is not None:
+                gain_krw += Decimal(m["gain"]) * mult
+                has_gain = True
+    if not has_foreign or total_krw <= 0:
+        return ""
+    man_won = total_krw / Decimal(10000)
+    gain_txt = f" · 환산 총평가손익 {signed(gain_krw)}원" if has_gain else ""
+    kimp_txt = ""
+    up_btc = book.match("upbit", "BTC", "KRW")
+    bn_btc = book.match("binance", "BTC", "USDT")
+    if up_btc and bn_btc and Decimal(bn_btc["price"]) > 0:
+        fair_krw = Decimal(bn_btc["price"]) * usdt_rate * fx
+        kimp = (Decimal(up_btc["price"]) / fair_krw - 1) * 100
+        kimp_txt = f' <span class="badge-info">BTC 김치프리미엄 {kimp:+.2f}%</span>'
+    return (
+        '<div class="networth-banner">'
+        f'<div><small>환율({fmt(fx)}원/USD) 반영 전체 계좌 단순 합산 참고치</small> '
+        f'<strong>총 {fmt(total_krw)}원 (약 {man_won:,.0f}만 원)</strong>{gain_txt}{kimp_txt}</div>'
+        '<small>계좌·통화별 공식 비중 분모와는 분리된 통합 참고 지표입니다.</small></div>'
+    )
+
+
+def multi_account_overlap(accounts):
+    """Highlight non-cash symbols split across 2+ accounts within the same currency."""
+    from agents.portfolio import CASH_NAMES, normalize
+    grouped = {}
+    for a in accounts or ():
+        for m in a.get("marks", ()):
+            sym = m["symbol"].strip()
+            if sym.upper() in CASH_NAMES or m["state"].startswith("통화 잔액") or m["value"] is None:
+                continue
+            key = (m["currency"], normalize(sym).replace(" ", "") or sym.upper())
+            entry = grouped.setdefault(key, dict(symbol=sym, total=Decimal(0), accs=set()))
+            entry["total"] += Decimal(m["value"])
+            entry["accs"].add(f'{store.PROVIDERS[a["provider"]]}({a["account"]})')
+    overlaps = [
+        f'<b>{e(v["symbol"])}</b> {len(v["accs"])}개 계좌 합산 {fmt(v["total"])} {e(ccy)}'
+        for (ccy, _), v in sorted(grouped.items())
+        if len(v["accs"]) >= 2
+    ]
+    if not overlaps:
+        return ""
+    return (
+        '<div class="networth-banner"><small>다계좌 중복 보유 종목 합산 (동일 통화 참고): '
+        + " · ".join(overlaps[:6])
+        + "</small></div>"
+    )
+
+
+def networth_and_cards(accounts, book):
+    return networth_reference(accounts, book) + multi_account_overlap(accounts) + currency_cards(accounts)
+
+
 def currency_cards(accounts):
     buckets = {}
     for account in accounts:
@@ -134,7 +207,7 @@ def panel(directory, package, book=None, accounts=None, *, manager_base=None, de
     title = "내 포트폴리오" if manager else "계좌 평가"
     out = ['<section id="live-values" data-watch class="live-values"><div class="value-head">'
            f'<h2>{title}</h2><span class="live-badge {tone}">{badge}</span></div>',
-           currency_cards(accounts)]
+           networth_and_cards(accounts, book)]
     books = [a["as_of"] for a in accounts if a["source"] == "workbook"]
     ticks = [m["at"] for a in accounts for m in a["marks"] if m.get("at")]
     out.append('<div class="valuation-dates"><span>화면 자료 조회 <b>' + time(now.isoformat())
@@ -166,10 +239,10 @@ def panel(directory, package, book=None, accounts=None, *, manager_base=None, de
             if manager or detail_base:
                 pid = intel.position_id(a["provider"], a["account"], m["symbol"], m["currency"])
                 position_url = f"{e(manager_base or detail_base)}/portfolio?position={pid}"
-                symbol = (f'<a href="{position_url}#position">{symbol}</a> '
-                          f'<a class="price-link" href="{position_url}#price-history" aria-label="{symbol} 가격 차트">차트</a>')
+                symbol = f'<a href="{position_url}#position">{symbol}</a>'
                 if eligible(a["provider"], m):
-                    symbol += f' <a class="price-link" href="{e(manager_base or detail_base)}/quant?position={pid}">퀀트 연구</a>'
+                    symbol += (f' <a class="price-link" href="{position_url}#price-history" aria-label="{e(m["symbol"])} 가격 차트">차트</a>'
+                               f' <a class="price-link" href="{e(manager_base or detail_base)}/quant?position={pid}">퀀트 연구</a>')
             cells = {"시장 단가": fmt(m.get("market_price")) + " <small>" + e(m.get("market_currency") or "") + "</small>",
                      "종목": symbol, "계좌": e(store.PROVIDERS[a["provider"]] + " · " + a["account"]),
                      "평가통화": e(m["currency"]), "수량": e(m["qty"]), "평가 단가": fmt(m["price"]),

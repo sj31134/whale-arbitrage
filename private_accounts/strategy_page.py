@@ -154,7 +154,9 @@ def historical_section():
     )
     return (
         '<section id="historical-backtests"><h2>4대 매크로 위기 백테스트 비교 (1997~2026)</h2>'
-        '<p>막대 길이는 각 위기 구간의 누적 수익률 크기이며, 괄호 안은 계좌가 고점 대비 가장 크게 밀린 최대낙폭(MDD)입니다.</p>'
+        '<p>막대 길이는 각 위기 구간의 누적 수익률 크기이며, 괄호 안은 계좌가 고점 대비 가장 크게 밀린 '
+        '<abbr title="고점 대비 계좌 평가액이 가장 크게 하락한 비율 (Maximum Drawdown)">최대낙폭(MDD)</abbr>입니다. '
+        '매매 비용은 왕복 <abbr title="1bp = 0.01%, 50bp = 0.50% (수수료·거래세·슬리피지 합산)">50bp(0.5%)</abbr>를 차감했습니다.</p>'
         f'<div class="era-grid">{"".join(cards)}</div>'
         '<details open><summary>폭락 한복판 진입 시점별 12~24개월 실전 비교 (-10% 칼손절 vs 하방변동성 캡)</summary>'
         '<div class="strategy-scroll"><table><thead><tr><th>진입 시점 · 보유 기간</th>'
@@ -172,11 +174,13 @@ def render(package, base, csrf, css):
         css,
         ".strategy-row{display:flex;align-items:center;justify-content:space-between;gap:1em;flex-wrap:wrap}"
         ".strategy-list details{padding:12px 0;border-bottom:1px solid #ccd5d9}.strategy-list summary{cursor:pointer}"
-        ".strategy-scroll{overflow:auto}.strategy-scroll table{white-space:nowrap}.strategy-list p{max-width:82ch}</style><main>",
+        ".strategy-scroll{overflow:auto}.strategy-scroll table{white-space:nowrap}.strategy-list p{max-width:82ch}</style>"
+        "<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 전략·백테스트</small></div></header>"
+        "<main>",
         chat_page.navigation(base, "strategies"),
-        '<header class="strategy-row"><h1>전략 관리</h1>',
+        '<div class="strategy-row"><h1>전략 관리</h1>',
         form(base, csrf, "strategy-run", {}, "공개 일봉으로 재계산"),
-        "</header>",
+        "</div>",
         playbook_section(base),
     ]
     with registry.database(package) as db:
@@ -313,6 +317,7 @@ def render(package, base, csrf, css):
                             dict(strategy=key, state=new),
                             "연구 일시정지" if state == "연구 중" else "연구 재개",
                         )
+                        + "<small>공개 종목 표본 백그라운드 모의실험만 일시정지하며, 내 계좌 방어 기준에는 영향을 주지 않습니다.</small>"
                     )
                 elif key == "sma":
                     html.append(

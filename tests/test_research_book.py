@@ -113,14 +113,67 @@ def test_stress_does_not_duplicate_overlapping_roles():
     assert "산정 보류" in monitor.stress_panel([dict(rows[0], weight_pct=None)], "/test", "severe")
     conc = monitor.concentration_panel(rows, None, "/test")
     assert "소수 집중 · 현금 버퍼 실전 점검" in conc and "40.0%" in conc and "버퍼 확보" in conc
-    fake_accs = [dict(provider="kis", account="fake", marks=[
-        dict(symbol="A", currency="KRW", qty="2", price=Decimal("80"), value=Decimal("160"),
-             gain=Decimal("-40"), rate=Decimal("-20"), weight_pct="80", state="시세 반영", instrument=("KRX", "005935", "KRW")),
-        dict(symbol="KRW", currency="KRW", qty="40", price=Decimal("1"), value=Decimal("40"),
-             gain=Decimal("0"), rate=Decimal("0"), weight_pct="20", state="통화 잔액", instrument=None),
-    ])]
+    fake_accs = [
+        dict(provider="kis", account="main", marks=[
+            dict(symbol="A", currency="KRW", qty="2", price=Decimal("80"), value=Decimal("160"),
+                 gain=Decimal("-40"), rate=Decimal("-20"), weight_pct="80", state="시세 반영", instrument=("KRX", "005935", "KRW")),
+            dict(symbol="KRW", currency="KRW", qty="40", price=Decimal("1"), value=Decimal("40"),
+                 gain=Decimal("0"), rate=Decimal("0"), weight_pct="20", state="통화 잔액", instrument=None),
+        ]),
+        dict(provider="mirae", account="isa", marks=[
+            dict(symbol="A", currency="KRW", qty="1", price=Decimal("80"), value=Decimal("80"),
+                 gain=Decimal("-10"), rate=Decimal("-11.1"), weight_pct="100", state="시세 반영", instrument=("KRX", "005935", "KRW")),
+        ]),
+    ]
     cockpit = page.action_cockpit(None, None, "/test", quote_book=monitor.live_valuation.QuoteBook(), accounts=fake_accs)
     assert "한눈에 보는 내 계좌 손실 복기" in cockpit and "본전 100" in cockpit and "행동 지침표" in cockpit
+    assert "현금 35% 목표 시뮬레이터" in cockpit and "+58원" in cockpit
+    assert "절세계좌 보호" in cockpit and "다계좌 2곳 합산" in cockpit
+    assert "가설 미등록 주요 보유주" in cockpit and "원클릭 가설 검증 채우기" in cockpit
+
+
+def test_voc_prefill_crypto_form_url_and_networth_banner(journal, tmp_path):
+    from private_accounts import chat_page, live_panel, live_valuation
+    package, _, _ = journal
+    prefilled = page.render(
+        package, "/test", "csrf-tok", "", query=dict(
+            asset="한화에어로스페이스 (012450)", currency="KRW",
+            entry="650000", bear="598000", base="950000", bull="1120000",
+            price_source="https://m.stock.naver.com/domestic/stock/012450/total",
+            catalyst="방산 수주", invalidate="수주 취소",
+        )
+    ).decode()
+    assert '<details id="create" open>' in prefilled
+    assert "자동 채움 시나리오 3관문 사전 시뮬레이션" in prefilled
+    assert "한화에어로스페이스 (012450)" in prefilled
+
+    crypto_desk = chat_page.render(tmp_path.resolve() / "empty-vault", package, "/tok", "csrf-tok", "crypto", "").decode()
+    assert 'action="/tok/desk/crypto/variable"' in crypto_desk
+
+    qb = live_valuation.QuoteBook(
+        rows=[
+            dict(venue="upbit", symbol="BTC", currency="KRW", name="비트코인", english="Bitcoin",
+                 price="138000000", at="2026-11-27T10:00:00+09:00", session="OPEN", delay="0", feed="upbit", page=1, seen="2026-11-27T10:00:00+09:00"),
+            dict(venue="binance", symbol="BTC", currency="USDT", name="Bitcoin", english="Bitcoin",
+                 price="98000", at="2026-11-27T10:00:00+09:00", session="OPEN", delay="0", feed="binance", page=1, seen="2026-11-27T10:00:00+09:00"),
+            dict(venue="fx", symbol="USD/KRW", currency="KRW", name="달러원", english="USD/KRW",
+                 price="1395", at="2026-11-27T10:00:00+09:00", session="OPEN", delay="0", feed="fx", page=1, seen="2026-11-27T10:00:00+09:00"),
+            dict(venue="fx", symbol="USDT/USD", currency="USD", name="테더", english="USDT/USD",
+                 price="1.0005", at="2026-11-27T10:00:00+09:00", session="OPEN", delay="0", feed="usdt_usd", page=1, seen="2026-11-27T10:00:00+09:00"),
+        ]
+    )
+    accs = [
+        dict(provider="upbit", account="spot", marks=[
+            dict(symbol="BTC", currency="KRW", qty="1", price=Decimal("138000000"), value=Decimal("138000000"),
+                 gain=Decimal("8000000"), rate=Decimal("6.15"), weight_pct="100", state="시세 반영", instrument=None),
+        ]),
+        dict(provider="binance", account="spot", marks=[
+            dict(symbol="BTC", currency="USD", qty="1", price=Decimal("98049"), value=Decimal("98049"),
+                 gain=Decimal("-1951"), rate=Decimal("-1.95"), weight_pct="100", state="시세 반영", instrument=None),
+        ]),
+    ]
+    banner = live_panel.networth_reference(accs, qb)
+    assert "전체 계좌 단순 합산 참고치" in banner and "BTC 김치프리미엄" in banner
 
 
 

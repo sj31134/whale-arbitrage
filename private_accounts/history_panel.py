@@ -11,17 +11,30 @@ from . import live_panel, live_valuation, price_history, store
 MODES = {"day": "일봉", "week": "주봉", "month": "월봉", "ma": "120일선", "year": "1년"}
 
 
+def _signed_pct(val):
+    n = Decimal(val)
+    direction = "gain" if n > 0 else "loss" if n < 0 else "flat"
+    return f'<span class="amount-{direction}">{n:+.2f}%</span>'
+
+
 def chart(rows, mode, missing=()):
     points = price_history.aggregate(rows, mode)
     ma = price_history.moving_average(rows, missing) if mode == "ma" else {}
+    ma20_map = {}
+    if mode in ("day", "ma") and len(rows) >= 20:
+        closes = [Decimal(r["closing"]) for r in rows]
+        for idx in range(19, len(rows)):
+            ma20_map[rows[idx]["day"]] = sum(closes[idx - 19 : idx + 1]) / 20
     if mode in ("ma", "year"):
         end = date.fromisoformat(points[-1]["day"])
         points = [p for p in points if (end - date.fromisoformat(p["day"])).days <= 366]
     else:
         points = points[-{"day": 35, "week": 26, "month": 24}[mode] :]
-    values = [p["closing"] for p in points] + [
-        ma[p["day"]] for p in points if p["day"] in ma
-    ]
+    values = (
+        [p["closing"] for p in points]
+        + [ma[p["day"]] for p in points if p["day"] in ma]
+        + [ma20_map[p["day"]] for p in points if p["day"] in ma20_map]
+    )
     lo, hi = min(values), max(values)
 
     def xy(i, v):
@@ -29,7 +42,12 @@ def chart(rows, mode, missing=()):
 
     line = " ".join(xy(i, p["closing"]) for i, p in enumerate(points))
     avg = " ".join(xy(i, ma[p["day"]]) for i, p in enumerate(points) if p["day"] in ma)
-    legend = '<span class="average-key">120거래일 단순이동평균</span>' if avg else ""
+    avg20 = " ".join(xy(i, ma20_map[p["day"]]) for i, p in enumerate(points) if p["day"] in ma20_map)
+    legend = ""
+    if avg20:
+        legend += ' · <span style="color:#0d7a5f;font-weight:600">20일선</span>'
+    if avg:
+        legend += ' · <span class="average-key">120거래일 단순이동평균</span>'
     svg = (
         '<svg viewBox="0 0 700 115" preserveAspectRatio="none" role="img" aria-label="완료 거래일 종가 추이">'
         '<path d="M0 15H700 M0 57H700 M0 100H700" stroke="#dde4ee" fill="none" stroke-dasharray="3 6"/>'
@@ -37,6 +55,8 @@ def chart(rows, mode, missing=()):
     )
     if len(points) == 1:
         svg += '<circle cx="8" cy="57" r="3" fill="#3155b3"/>'
+    if avg20:
+        svg += f'<polyline points="{avg20}" fill="none" stroke="#0d7a5f" stroke-width="1.8" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>'
     if avg:
         svg += f'<polyline points="{avg}" fill="none" stroke="#ad6417" stroke-width="2" vector-effect="non-scaling-stroke"/>'
     return (
@@ -191,8 +211,17 @@ def position_history(
             out.append(
                 f"<small>같은 시장의 거래가 확인된 날 중 {len(missing)}일 결측 · 해당 이동평균 보류</small>"
             )
+        ma20_now = (sum(Decimal(r["closing"]) for r in rows[-20:]) / 20) if len(rows) >= 20 else None
+        ma60_now = (sum(Decimal(r["closing"]) for r in rows[-60:]) / 60) if len(rows) >= 60 else None
+        ma_line = []
+        if ma20_now is not None:
+            ma_line.append(f"20일선 <b>{live_panel.fmt(ma20_now)}</b>")
+        if ma60_now is not None:
+            ma_line.append(f"60일선 <b>{live_panel.fmt(ma60_now)}</b>")
         out.append(
-            f'<div class="last-candle"><b>{live_panel.fmt(rows[-1]["closing"])} {escape(key[2])}</b> 종가 · 시가 {live_panel.fmt(rows[-1]["opening"])}</div>'
+            f'<div class="last-candle"><b>{live_panel.fmt(rows[-1]["closing"])} {escape(key[2])}</b> 종가 · 시가 {live_panel.fmt(rows[-1]["opening"])}'
+            + (" · " + " · ".join(ma_line) if ma_line else "")
+            + "</div>"
             f"<small>{escape(key[2])} · 마지막 완료 일봉 {rows[-1]['day']} · 원천 종가 기준</small>"
         )
         out.append('<div class="history-stats">')
@@ -210,7 +239,7 @@ def position_history(
                 if val is None
                 else live_panel.fmt(val)
                 if id_ == "ma"
-                else live_panel.signed(val) + "%"
+                else _signed_pct(val)
             )
             out.append(
                 f"<div><small>{label}</small><b>{value}</b>"

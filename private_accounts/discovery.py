@@ -128,9 +128,42 @@ def _bars_from_db(db, venue, symbol, currency):
     ]
 
 
+def _day_change_pct(bars, cur_price):
+    if not cur_price or cur_price <= 0 or not bars:
+        return None
+    last = bars[-1]["close"]
+    if last <= 0:
+        return None
+    if abs(cur_price - last) / last > 1e-4:
+        return round((cur_price / last - 1) * 100, 2)
+    if len(bars) >= 2 and bars[-2]["close"] > 0:
+        return round((last / bars[-2]["close"] - 1) * 100, 2)
+    return 0.0
+
+
+def _sns_badge_state(sns_note, sns_score, flow_score, rsi):
+    if "과열" in sns_note or "FOMO" in sns_note or rsi > 78:
+        return "overheat"
+    if "악재" in sns_note:
+        return "caution"
+    if flow_score >= 17.5 and sns_score <= 6.5:
+        return "stealth"
+    if sns_score >= 7.5:
+        return "positive"
+    return "normal"
+
+
 def _compute_tech(bars, cur_price, bench_ret20):
+    fallback_px = float(cur_price or (bars[-1]["close"] if bars else 0.0))
     if len(bars) < 21:
-        return dict(score=10, rs20=0.0, pct20=0.0, pct60=None, rsi=50.0, down_cap=65, status="일봉 데이터 축적 중", entry_hint="분할 접근")
+        e1 = round(fallback_px, 2) if fallback_px > 0 else None
+        e2 = round(fallback_px * 0.96, 2) if fallback_px > 0 else None
+        sp = round(fallback_px * 0.92, 2) if fallback_px > 0 else None
+        return dict(
+            score=10, rs20=0.0, pct20=0.0, pct60=None, rsi=50.0, down_cap=65,
+            ma20=e2, ma60=None, entry_1=e1, entry_2=e2, stop_price=sp,
+            status="일봉 데이터 축적 중", entry_hint="분할 접근",
+        )
     closes = [b["close"] for b in bars]
     if cur_price and cur_price > 0 and abs(cur_price - closes[-1]) / closes[-1] > 1e-5:
         closes = closes + [float(cur_price)]
@@ -164,18 +197,24 @@ def _compute_tech(bars, cur_price, bench_ret20):
     if rsi > 78:
         status = f"단기 과열 주의 (RSI {rsi:.0f} · 20일선 {pct20:+.1f}%)"
         entry_hint = f"추격 금지 · 20일선({ma20:,.0f}) 눌림 대기"
+        entry_1, entry_2 = round(ma20, 2), round(ma20 * 0.96, 2)
     elif ma60 and cur >= ma20 and cur >= ma60:
         status = f"정배열 주도 추세 (시장대비 {rs20:+.1f}%p · RSI {rsi:.0f})"
         entry_hint = f"20일선({ma20:,.0f}) 지지 확인 분할 진입"
+        entry_1, entry_2 = round(cur, 2), round(ma20, 2)
     elif cur >= ma20:
         status = f"단기 추세 돌파 (20일선 +{pct20:.1f}% · 시장대비 {rs20:+.1f}%p)"
         entry_hint = f"20일선({ma20:,.0f}) 안착 시 분할 매수"
+        entry_1, entry_2 = round(cur, 2), round(ma20, 2)
     elif rsi <= 36:
         status = f"과매도 변곡점 대기 (RSI {rsi:.0f} · 시장대비 {rs20:+.1f}%p)"
         entry_hint = f"20일선({ma20:,.0f}) 회복 확인 후 진입"
+        entry_1, entry_2 = round(cur, 2), round(ma20, 2)
     else:
         status = f"조정·바닥 다지기 (20일선 {pct20:+.1f}% · 시장대비 {rs20:+.1f}%p)"
         entry_hint = f"눌림 분할 또는 20일선({ma20:,.0f}) 돌파 확인"
+        entry_1, entry_2 = round(cur, 2), round(ma20, 2)
+    stop_ref = min(entry_1 * 0.92, (ma60 * 0.97) if (ma60 and cur >= ma60) else entry_1 * 0.92)
 
     return dict(
         score=round(_clamp(pts, 2.0, 25.0), 1),
@@ -184,6 +223,9 @@ def _compute_tech(bars, cur_price, bench_ret20):
         pct60=round(pct60, 1) if pct60 is not None else None,
         ma20=round(ma20, 2),
         ma60=round(ma60, 2) if ma60 else None,
+        entry_1=entry_1,
+        entry_2=entry_2,
+        stop_price=round(stop_ref, 2),
         rsi=round(rsi, 1),
         down_cap=down_cap,
         status=status,
@@ -461,9 +503,11 @@ def refresh(package, *, fetcher=None, now=None):
             currency="KRW",
             theme=theme,
             price=cur_price,
+            change_pct=_day_change_pct(bars, cur_price),
             target_price=target_px,
             upside_pct=round(upside_pct, 1) if upside_pct is not None else None,
             total=total,
+            sns_state=_sns_badge_state(sns_note, sns_score, flow_score, tech["rsi"]),
             scores=dict(flow=flow_score, tech=tech["score"], value=value_score, sns=sns_score, macro=macro_score, geo=geo_score),
             tech=tech,
             flow_note=flow_note,
@@ -562,9 +606,11 @@ def refresh(package, *, fetcher=None, now=None):
             currency="USD",
             theme=theme,
             price=cur_price,
+            change_pct=_day_change_pct(bars, cur_price),
             target_price=target_px,
             upside_pct=upside_pct,
             total=total,
+            sns_state=_sns_badge_state(sns_note, sns_score, flow_score, tech["rsi"]),
             scores=dict(flow=flow_score, tech=tech["score"], value=value_score, sns=sns_score, macro=macro_score, geo=geo_score),
             tech=tech,
             flow_note=flow_note,

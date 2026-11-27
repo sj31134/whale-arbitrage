@@ -237,3 +237,20 @@ input[type="hidden"] {display:none!important}.history-top h2,.history-controls a
 .cockpit-table td,.cockpit-table th{vertical-align:top;white-space:normal;min-width:95px}
 .cockpit-table td.num{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
 .cockpit-why{min-width:240px;max-width:420px;font-size:.85rem;line-height:1.45;color:var(--ink)}
+
+/* 10-Persona VOC upgrades: visual nav hierarchy, glossary tooltips, cash simulator, responsive cards */
+.desk-tabs a.nav-core{color:#0b5d46;font-weight:700;background:#f1f9f5;border-radius:8px 8px 0 0}
+.desk-tabs a.nav-lab{color:#1d4b7a;font-weight:650}
+.desk-tabs .nav-sep{align-self:center;color:#b8c7c2;padding:0 2px;user-select:none}
+abbr[title]{text-decoration:underline dotted #5d7a74;text-underline-offset:3px;cursor:help}
+.rebalance-bar{background:#f2f8f5;border:1px solid #bdd9cd;border-radius:11px;padding:12px 15px;margin:10px 0 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px}
+.rebalance-bar strong{display:block;font-size:1.18rem;color:#0e4f3f;font-variant-numeric:tabular-nums}
+.networth-banner{background:#eef4fb;border:1px solid #c8d8ec;border-radius:10px;padding:10px 14px;margin:8px 0 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-variant-numeric:tabular-nums}
+.networth-banner strong{font-size:1.2rem;color:#17223b}
+.panel table td:nth-child(n+4),.strategy-scroll table td:nth-child(n+4){font-variant-numeric:tabular-nums}
+@media(max-width:680px){
+  .cockpit-table thead{display:none}
+  .cockpit-table tr{display:block;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:#fff}
+  .cockpit-table td,.cockpit-table td.num{display:block;text-align:left;border:0;padding:4px 0;min-width:0}
+  .cockpit-why{max-width:none;padding-top:6px!important;border-top:1px dashed var(--line)!important}
+}

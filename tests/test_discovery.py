@@ -78,6 +78,8 @@ def test_six_axis_discovery_streaks_sns_and_portfolio_exclusion(tmp_path):
     assert day1["candidates"] and any(c["symbol"] == "012450" for c in day1["candidates"])
     hanwha = next(c for c in day1["candidates"] if c["symbol"] == "012450")
     assert hanwha["scores"]["flow"] > 20 and hanwha["scores"]["geo"] >= 8.5 and hanwha["streak"] == 1
+    assert hanwha["change_pct"] is not None and hanwha["tech"]["entry_1"] > 0 and hanwha["tech"]["stop_price"] > 0
+    assert hanwha["sns_state"] in ("stealth", "positive", "overheat", "caution", "normal")
 
     # Next day run increments streak
     day2 = discovery.refresh(pkg, fetcher=_fake_fetcher, now=now + timedelta(days=1))
@@ -91,11 +93,15 @@ def test_six_axis_discovery_streaks_sns_and_portfolio_exclusion(tmp_path):
     day3 = discovery.refresh(pkg, fetcher=_fake_fetcher, now=now + timedelta(days=1, hours=1))
     hanwha3 = next(c for c in day3["candidates"] if c["symbol"] == "012450")
     assert hanwha3["scores"]["sns"] < hanwha2["scores"]["sns"] and "과열·설거지 주의" in hanwha3["sns_note"]
+    assert hanwha3["sns_state"] == "overheat"
 
     # Render /discover: held 005930 and NVDA must be excluded by default, shown only when include_held=1
     html_default = discovery_page.render(directory, pkg, "/unit", "csrf1", {}, "").decode()
     assert "한화에어로스페이스" in html_default and "내 보유 2종목 자동 제외" in html_default
     assert "(005930)" not in html_default and "(NVDA)" not in html_default
+    assert "하방변동성 권장 비중 상한" in html_default and "이 종목으로 가설 자동 채우기" in html_default
+    html_sorted = discovery_page.render(directory, pkg, "/unit", "csrf1", {"sort": "upside", "show": "all"}, "").decode()
+    assert "목표가 상승여력순" in html_sorted and "상위 16종목 요약 보기" in html_sorted
     html_with_held = discovery_page.render(directory, pkg, "/unit", "csrf1", {"include_held": "1"}, "").decode()
     assert "내 보유 중" in html_with_held
 

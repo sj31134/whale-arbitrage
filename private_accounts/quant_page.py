@@ -132,8 +132,17 @@ def report(base, pid, n, bars, r, key, digest):
         + "</p></section>"
     )
     if scores:
+        top5 = sorted(scores.items(), key=lambda kv: (-kv[1]["net"], kv[0]))[:5]
+        top_rows = "".join(
+            f"<tr><td><b>#{idx}</b></td><td><b>{k}일선</b></td><td>{pct(m['net'])}</td>"
+            f"<td>{pct(m['mdd'])}</td><td>{m['exits']}회</td></tr>"
+            for idx, (k, m) in enumerate(top5, 1)
+        )
         out.append(
-            f'<section><h2>학습 구간 성과</h2><p>{" ~ ".join(r["training"])} · 비용 후 수익률 · 파랑은 이익, 주황은 손실 · 셀을 눌러 비교</p><div class="heat">'
+            f'<section><h2>학습 구간 성과</h2><p>{" ~ ".join(r["training"])} · 비용 후 수익률 · 파랑은 이익, 주황은 손실 · 셀을 눌러 비교</p>'
+            f'<table><thead><tr><th>순위</th><th>학습 상위 이동평균선</th><th>비용 후 순수익</th><th>최대낙폭</th><th>왕복 청산</th></tr></thead>'
+            f'<tbody>{top_rows}</tbody></table>'
+            '<div class="heat">'
         )
         ceiling = max(abs(m["net"]) for m in scores.values()) or 1
         for k, m in scores.items():
@@ -364,7 +373,8 @@ def render(directory, package, base, query, css):
     out = [
         '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>퀀트 연구</title><style>',
         css,
-        ".heat{display:grid;grid-template-columns:repeat(auto-fit,minmax(66px,1fr));gap:4px}.heat a{padding:6px;color:#132738;text-align:center}.heat small,svg{display:block}.heat [aria-current=true]{outline:2px solid #173750}svg{width:100%}section{overflow:auto}</style>",
+        ".heat{display:grid;grid-template-columns:repeat(auto-fit,minmax(66px,1fr));gap:4px}.heat a{padding:6px;color:#132738;text-align:center}.heat small,svg{display:block}.heat [aria-current=true]{outline:2px solid #173750}svg{width:100%}section{overflow:auto}</style>"
+        "<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 퀀트 연구</small></div></header>",
         chat_page.navigation(base, "quant"),
         "<main><h1>퀀트 연구</h1>",
         '<div class="guide-banner"><h2>초보자용 퀀트 화면 읽는 법</h2>'

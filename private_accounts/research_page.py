@@ -1,9 +1,10 @@
 """Local manager queue, feed provenance and prospective investment review."""
 from decimal import Decimal
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from html import escape
+from urllib.parse import urlencode
 
 from agents import intelligence as intel
 from agents.portfolio import CASH_NAMES, normalize, portfolio_accounts
@@ -57,6 +58,45 @@ def _fmt_num(val, ccy=""):
     if ccy == "KRW" or abs(n) >= 100:
         return f"{n:,.0f}"
     return f"{n:,.2f}"
+
+
+def _kor_unit(val, ccy=""):
+    if val is None or ccy != "KRW":
+        return ""
+    n = abs(Decimal(val))
+    if n >= Decimal("100000000"):
+        return f" (약 {n / Decimal('100000000'):,.2f}억 원)"
+    if n >= Decimal("10000"):
+        return f" (약 {n / Decimal('10000'):,.0f}만 원)"
+    return ""
+
+
+def _is_tax_sheltered(alias):
+    low = (alias or "").lower()
+    return any(tok in low for tok in ("isa", "pension", "irp", "연금", "퇴직", "절세"))
+
+
+def _holding_prefill_href(base, h):
+    ccy = h["ccy"]
+    px = float(Decimal(h["price"]))
+    fmt = (lambda v: str(round(v))) if ccy == "KRW" else (lambda v: f"{v:.2f}")
+    inst = h.get("inst")
+    code = inst[1] if inst else h["symbol"]
+    src_url = (
+        f"https://m.stock.naver.com/domestic/stock/{code}/total"
+        if ccy == "KRW"
+        else f"https://stockanalysis.com/stocks/{str(code).lower()}/"
+    )
+    params = dict(
+        asset=f"{h['symbol']} ({code})" if code != h["symbol"] else h["symbol"],
+        currency=ccy,
+        entry=fmt(px),
+        bear=fmt(px * 0.90),
+        base=fmt(px * 1.26),
+        bull=fmt(px * 1.48),
+        price_source=src_url,
+    )
+    return e(base + "/research?" + urlencode(params) + "#create")
 
 
 def _tech_snapshot(db, key, cur_price=None):
@@ -176,6 +216,15 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
     if not holdings:
         return ""
 
+    # Multi-account duplicate map (same currency + normalized symbol)
+    dup_map = {}
+    for h in holdings:
+        dkey = (h["ccy"], normalize(h["symbol"]).replace(" ", "") or h["symbol"].upper())
+        dentry = dup_map.setdefault(dkey, dict(accs=set(), val=Decimal(0)))
+        dentry["accs"].add((h["provider"], h["alias"]))
+        if h["val"] is not None:
+            dentry["val"] += h["val"]
+
     # Build Box 1: Plain-Korean Loss Root-Cause Post-Mortem
     loss_bullets = []
     for ccy, b in sorted(ccy_totals.items()):
@@ -188,7 +237,7 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
             top_share = sum(-g for g, _ in top_losers) / b["gross_loss"] * 100
             names = ", ".join(e(s) for _, s in top_losers)
             loss_bullets.append(
-                f"<li><b>{e(ccy)} 계좌 현황:</b> 순평가손익 <b>{_fmt_num(b['net_gain'], ccy)} {e(ccy)}</b> "
+                f"<li><b>{e(ccy)} 계좌 현황:</b> 순평가손익 <b>{_fmt_num(b['net_gain'], ccy)} {e(ccy)}</b>{_kor_unit(b['net_gain'], ccy)} "
                 f"(현재 자산에서 <b>+{rec_pct:.1f}%</b> 수익이 나야 원금 복구) · "
                 f"전체 손실의 <b>{top_share:.0f}%</b>가 <b>{names}</b>에서 발생했습니다.</li>"
             )
@@ -214,9 +263,9 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                     else "바닥 반등 시도 중 · 아직 추세선 아래 (1단계 방어·압축 구간)")
         tech_bullets.append(
             f"<li><b>한국 시장 차트(KODEX 200 기준):</b> <b>{kr_phase}</b> · "
-            f"20일 평균선 대비 <b>{kr_bench['pct20']:+.1f}%</b>"
-            + (f", 60일 평균선 대비 <b>{kr_bench['pct60']:+.1f}%</b>" if kr_bench["pct60"] is not None else "")
-            + (f", 단기 과열·침체 지표(RSI) <b>{kr_bench['rsi']:.0f}</b>" if kr_bench["rsi"] is not None else "")
+            f'<abbr title="최근 20거래일 평균 주가(단기 추세선)">20일선</abbr> 대비 <b>{kr_bench["pct20"]:+.1f}%</b>'
+            + (f', <abbr title="최근 60거래일 평균 주가(중기 수급선)">60일선</abbr> 대비 <b>{kr_bench["pct60"]:+.1f}%</b>' if kr_bench["pct60"] is not None else "")
+            + (f', <abbr title="0~100 단기 과열·침체 지표 (30 이하 과매도, 70 이상 과열)">RSI</abbr> <b>{kr_bench["rsi"]:.0f}</b>' if kr_bench["rsi"] is not None else "")
             + "</li>"
         )
         if kr_bench["pct20"] < 0:
@@ -232,14 +281,17 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
         tech_bullets.append("<li><b>시장 차트 점검:</b> 지수 이동평균선 확인 전까지는 현금 버퍼 35%와 소수 핵심주 압축 원칙을 우선합니다.</li>")
     if us_bench:
         tech_bullets.append(
-            f"<li><b>미국 시장 차트(SPY 기준):</b> 20일선 대비 <b>{us_bench['pct20']:+.1f}%</b>"
-            + (f", RSI <b>{us_bench['rsi']:.0f}</b>" if us_bench["rsi"] is not None else "")
+            f'<li><b>미국 시장 차트(SPY 기준):</b> <abbr title="최근 20거래일 평균 주가">20일선</abbr> 대비 <b>{us_bench["pct20"]:+.1f}%</b>'
+            + (f', <abbr title="0~100 단기 과열·침체 지표">RSI</abbr> <b>{us_bench["rsi"]:.0f}</b>' if us_bench["rsi"] is not None else "")
             + " · 해외·코인 자산도 20일선 안착 확인 전까지는 무리한 물타기보다 핵심주 유지가 유리합니다.</li>"
         )
 
-    # Classify each holding into 1 of 3 unmistakable action buckets
+    # Classify each holding into 1 of 3 unmistakable action buckets + compute KRW cash rebalance bar
     rows_html = []
     counts = {"core": 0, "trim": 0, "watch": 0}
+    trim_general_krw = Decimal(0)
+    trim_sheltered_krw = Decimal(0)
+
     def sort_key(h):
         if h["idea"] and h["idea"]["m"]["qualifies"]:
             tier = 0
@@ -254,39 +306,80 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
 
     for h in sorted(holdings, key=sort_key):
         idea, tech, ccy = h["idea"], h["tech"], h["ccy"]
+        sheltered = _is_tax_sheltered(h["alias"])
+        dkey = (ccy, normalize(h["symbol"]).replace(" ", "") or h["symbol"].upper())
+        dup = dup_map.get(dkey)
+        dup_badge = (
+            f'<br><small class="badge-muted">다계좌 {len(dup["accs"])}곳 합산 {_fmt_num(dup["val"], ccy)} {e(ccy)}</small>'
+            if dup and len(dup["accs"]) >= 2
+            else ""
+        )
+        shelter_badge = ' <span class="badge-info">절세계좌 보호</span>' if sheltered else ""
         gross = ccy_totals.get(ccy, {}).get("gross_loss", Decimal(0))
         loss_share = (f" · 손실비중 {(-h['gain'] / gross * 100):.0f}%"
                       if h["gain"] is not None and h["gain"] < 0 and gross > 0 else "")
         if idea and idea["m"]["qualifies"]:
             counts["core"] += 1
-            badge = '<span class="badge-pass">1순위 · 핵심 집중·보유</span>'
+            badge = '<span class="badge-pass">1순위 · 핵심 집중·보유</span>' + shelter_badge
             m_info, a_info = idea["m"], idea["a"]
             pullback_note = (f"20일선({_fmt_num(tech['ma20'], ccy)}) 또는 눌림목" if tech else "장중 눌림목·조정일")
             guide = (
                 f"<b>팔지 말고 집중할 대장주.</b> 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 저평가"
-                f"(기대수익 <b>{m_info['expected']:+.1f}%</b>, 안전마진 {m_info['margin']:.0f}%). "
+                f"(기대수익 <b>{m_info['expected']:+.1f}%</b>, "
+                f'<abbr title="내재가치 대비 현재 주가 할인율(20% 이상 권장)">안전마진</abbr> {m_info["margin"]:.0f}%). '
                 f"급등 호가 추격매수만 피하고, 비핵심주 판 현금으로 {pullback_note}에서 모아 수익을 극대화하세요."
             )
         elif idea and not idea["m"]["qualifies"]:
             counts["trim"] += 1
-            badge = '<span class="badge-warn">2순위 · 반등 시 분할매도</span>'
+            if ccy == "KRW" and h["val"] is not None:
+                if sheltered:
+                    trim_sheltered_krw += h["val"]
+                else:
+                    trim_general_krw += h["val"]
+            badge = '<span class="badge-warn">2순위 · 반등 시 분할매도</span>' + shelter_badge
             m_info, a_info = idea["m"], idea["a"]
+            tax_tip = (
+                " <b>(절세계좌 유의: 계좌 밖 인출 시 비과세 한도가 줄어드니 출금 대신 계좌 내 핵심주·지수ETF로 교체하세요.)</b>"
+                if sheltered else ""
+            )
             guide = (
                 f"<b>현금·교체 재원 만들기.</b> 기준 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 기대수익({m_info['expected']:+.1f}%)·"
                 f"안전마진({m_info['margin']:.0f}%)이 핵심주보다 낮습니다. 본전({_fmt_num(h['breakeven'], ccy)})만 기다리지 말고 "
                 "오늘 같은 장중 반등(오후장·20일선 부근)에 2~3회 나눠 팔아 현금 35%와 1순위 핵심주 자금으로 바꾸세요."
+                + tax_tip
             )
         elif ccy == "KRW":
             counts["trim"] += 1
-            badge = '<span class="badge-warn">비중 점검 · 반등 시 축소 검토</span>'
-            ma_txt = f"20일선({_fmt_num(tech['ma20'], ccy)}) 부근 반등 시 " if tech else "장중 반등 시 "
-            guide = (
-                f"핵심 3관문 미확정 소액·분산 종목입니다. 계좌 압축을 위해 {ma_txt}정리하여 "
-                "현금 버퍼 및 1순위 핵심주로 일원화하는 것이 복구에 유리합니다."
+            if h["val"] is not None:
+                if sheltered:
+                    trim_sheltered_krw += h["val"]
+                else:
+                    trim_general_krw += h["val"]
+            w_dec = Decimal(h["weight"]) if h.get("weight") is not None else Decimal(0)
+            prefill_btn = (
+                f' <a class="chip" href="{_holding_prefill_href(base, h)}">원클릭 가설 검증 채우기 →</a>'
+                if h.get("price") is not None
+                else ""
             )
+            if w_dec >= Decimal(10):
+                badge = '<span class="badge-warn">가설 미등록 주요 보유주 · 검증 시급</span>' + shelter_badge
+                guide = (
+                    f"계좌 비중 <b>{w_dec:.1f}%</b>를 차지하는 주요 보유주이나 아직 3관문 내재가치 시나리오가 등록되지 않았습니다. "
+                    "막연한 보유나 감정적 손절 대신 목표가·철회 조건부터 검증한 뒤 핵심 유지 또는 반등 축소를 결정하세요."
+                    + prefill_btn
+                )
+            else:
+                badge = '<span class="badge-warn">비중 점검 · 반등 시 축소 검토</span>' + shelter_badge
+                ma_txt = f"20일선({_fmt_num(tech['ma20'], ccy)}) 부근 반등 시 " if tech else "장중 반등 시 "
+                tax_tip = " 절세계좌이므로 출금 대신 계좌 내 핵심주 교체가 유리합니다." if sheltered else ""
+                guide = (
+                    f"핵심 3관문 미확정 소액·분산 종목입니다. 계좌 압축을 위해 {ma_txt}정리하여 "
+                    "현금 버퍼 및 1순위 핵심주로 일원화하는 것이 복구에 유리합니다."
+                    + tax_tip + prefill_btn
+                )
         else:
             counts["watch"] += 1
-            badge = '<span class="badge-info">해외·코인 · 추세 확인</span>'
+            badge = '<span class="badge-info">해외·코인 · 추세 확인</span>' + shelter_badge
             if tech:
                 guide = (
                     f"{e(tech['label'])}. 20일 평균선({_fmt_num(tech['ma20'], ccy)}) 회복 전까지 성급한 물타기를 멈추고, "
@@ -296,7 +389,7 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                 guide = "변동성이 큰 해외·디지털 자산입니다. 추가 물타기 없이 현 비중 내에서 추세 회복을 먼저 확인하세요."
 
         cur_vs_be = f"현재 {_fmt_num(h['price'], ccy)}<br><small>본전 {_fmt_num(h['breakeven'], ccy)}</small>"
-        pnl_txt = (f"<b>{_fmt_num(h['gain'], ccy)}</b> {e(ccy)}<br>"
+        pnl_txt = (f"<b>{_fmt_num(h['gain'], ccy)}</b> {e(ccy)}{_kor_unit(h['gain'], ccy)}<br>"
                    f"<small>{h['rate']:+.1f}%{loss_share}</small>"
                    if h["gain"] is not None and h["rate"] is not None
                    else f"{_fmt_num(h['gain'], ccy)} {e(ccy)}")
@@ -304,19 +397,47 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                     if tech else "<small>일봉 축적 중 · 현재가 연결됨</small>")
         rows_html.append(
             f"<tr><td>{badge}</td>"
-            f"<td><b>{e(h['symbol'])}</b><br><small>{e(store.PROVIDERS[h['provider']])} · {e(h['alias'])}</small></td>"
+            f"<td><b>{e(h['symbol'])}</b><br><small>{e(store.PROVIDERS[h['provider']])} · {e(h['alias'])}</small>{dup_badge}</td>"
             f"<td class='num'>{cur_vs_be}</td>"
             f"<td class='num'>{pnl_txt}</td>"
             f"<td>{tech_txt}</td>"
             f"<td class='cockpit-why'>{guide}</td></tr>"
         )
 
+    rebalance_html = ""
+    kr_b = ccy_totals.get("KRW")
+    if kr_b and kr_b["val"] > 0:
+        kr_total, kr_cash = kr_b["val"], kr_b["cash"]
+        kr_target = kr_total * Decimal("0.35")
+        kr_deficit = max(Decimal(0), kr_target - kr_cash)
+        deployable = max(Decimal(0), kr_cash + trim_general_krw - kr_target)
+        if kr_deficit > 0:
+            reb_main = (
+                f"<div><b>현금 35% 목표 시뮬레이터:</b> 현재 원화 현금 <b>{_fmt_num(kr_cash, 'KRW')}원{_kor_unit(kr_cash, 'KRW')} ({kr_cash_pct:.1f}%)</b> → "
+                f"<b>목표 35% 달성까지 +{_fmt_num(kr_deficit, 'KRW')}원{_kor_unit(kr_deficit, 'KRW')} 추가 현금화 필요</b></div>"
+                f"<small>일반계좌 축소 후보 정리 시 최대 <b>{_fmt_num(trim_general_krw, 'KRW')}원{_kor_unit(trim_general_krw, 'KRW')}</b> 확보 가능 · "
+                f"현금 버퍼 35%를 먼저 채운 뒤 1순위 핵심·신규 대장주 교체 가용액 <b>{_fmt_num(deployable, 'KRW')}원{_kor_unit(deployable, 'KRW')}</b>"
+                + (
+                    f" · 절세계좌(ISA·연금) 내 조정분 {_fmt_num(trim_sheltered_krw, 'KRW')}원{_kor_unit(trim_sheltered_krw, 'KRW')}은 인출 없이 계좌 내 교체 권장"
+                    if trim_sheltered_krw > 0 else ""
+                )
+                + "</small>"
+            )
+        else:
+            surplus = kr_cash - kr_target
+            reb_main = (
+                f"<div><b>현금 35% 목표 시뮬레이터:</b> 원화 현금 <b>{_fmt_num(kr_cash, 'KRW')}원{_kor_unit(kr_cash, 'KRW')} ({kr_cash_pct:.1f}%)</b>로 "
+                f"방어 버퍼 확보 완료 · 즉시 활용 가능한 초과 현금 <b>{_fmt_num(surplus, 'KRW')}원{_kor_unit(surplus, 'KRW')}</b></div>"
+            )
+        rebalance_html = f'<div class="rebalance-bar">{reb_main}</div>'
+
     return (
         '<section id="action-cockpit" class="cockpit">'
         '<div class="cockpit-head"><div><h2>한눈에 보는 내 계좌 손실 복기 &amp; 오늘 행동 답안지</h2>'
-        '<small>어려운 용어 없이 · ① 왜 손실 났나 → ② 지금 시장 차트가 어떤가 → ③ 어떤 종목을 팔고 무엇에 집중할까</small></div>'
+        '<small>어려운 용어 없이 · ① 왜 손실 났나 → ② 지금 시장 차트가 어떤가 → ③ 얼마를 현금화해 어디에 집중할까</small></div>'
         f'<a class="btn" href="{e(base)}/discover">내 포트폴리오 외 신규 대장주 발굴 보기 →</a></div>'
-        '<div class="cockpit-grid">'
+        + rebalance_html
+        + '<div class="cockpit-grid">'
         '<article class="cockpit-box alert"><h3>1. 내 포트폴리오 손실 원인 복기</h3><ul>'
         + "".join(loss_bullets)
         + '</ul></article>'
@@ -356,12 +477,13 @@ def manager_panel(package, base):
             + feed_health(package) + "</section>")
 
 
-def field(key, label, kind="text", attrs=""):
-    return f'<label>{e(label)}<input name="{key}" type="{kind}" required {attrs}></label>'
+def field(key, label, kind="text", attrs="", val=""):
+    v_attr = f' value="{e(val)}"' if val != "" else ""
+    return f'<label>{e(label)}<input name="{key}" type="{kind}" required{v_attr} {attrs}></label>'
 
 
-def price(key, label):
-    return field(key, label, "number", 'min="0" step="any"')
+def price(key, label, val=""):
+    return field(key, label, "number", 'min="0" step="any"', val=val)
 
 
 def form(base, csrf, action, key):
@@ -370,26 +492,87 @@ def form(base, csrf, action, key):
             f'<input type="hidden" name="idea" value="{e(key)}">')
 
 
-def obs_field():
-    return field("observed", "두 가격의 공통 기준시각 (KST)", "datetime-local", 'step="1"')
+def obs_field(val=""):
+    return field("observed", "두 가격의 공통 기준시각 (KST)", "datetime-local", 'step="1"', val=val)
 
 
-def new_form(ledger, base, csrf):
+def new_form(ledger, base, csrf, query=None, package=None):
     eligible = sorted((r for r in ledger.values() if r["sources"]), key=lambda r: r["as_of"], reverse=True)
     if not eligible:
         return "<p>원문 근거가 있는 분야 보고서를 게시하면 가설을 등록할 수 있습니다.</p>"
-    choices = "".join(f'<option value="{e(r["id"])}">{e(stamp(r["as_of"]))} · {e(r["title"])}</option>'
-                      for r in eligible)
-    return (form(base, csrf, "idea", secrets.token_hex(16)) + '<label>근거 보고서<select name="report">'
-            + choices + "</select></label>" + field("asset", "평가 대상") + field("currency", "평가통화", attrs='placeholder="KRW" maxlength="3"')
-            + field("benchmark", "같은 통화 기준의 비교지수·대안") + obs_field()
-            + price("entry", "대상 기준가격") + price("benchmark_entry", "비교지수 기준값")
-            + field("price_source", "대상 기준가격 원문", "url") + field("benchmark_source", "비교지수 기준값 원문", "url")
-            + price("bear", "약세 목표가격 · 20%") + price("base", "기준 내재가치 겸 목표가격 · 50%")
-            + price("bull", "강세 목표가격 · 30%") + price("fees", "예상 왕복 수수료·세금 (bp)")
-            + price("slip", "예상 왕복 스프레드·슬리피지 (bp)") + field("catalyst", "예상 촉매와 근거")
-            + field("invalidate", "가설을 철회할 관측 조건") + field("due", "평가 예정일", "date")
-            + '<button>가설과 최초 가정 저장</button></form>')
+    q = query or {}
+    ccy = (q.get("currency") or "KRW").strip().upper()[:3]
+    qb = live_valuation.read(package) if package is not None else None
+    if ccy == "USD":
+        def_bench = q.get("benchmark") or "SPDR S&P 500 ETF (SPY)"
+        spy_q = qb.match("kis", "SPY", "USD", ("stock:US:SPY",)) if qb else None
+        def_bpx = q.get("benchmark_entry") or (str(spy_q["price"]) if spy_q else "")
+        def_bsrc = q.get("benchmark_source") or "https://stockanalysis.com/etf/spy/"
+        def_fees, def_slip = q.get("fees") or "10", q.get("slip") or "10"
+    else:
+        def_bench = q.get("benchmark") or "KODEX 200 (069500)"
+        k200_q = qb.match("kis", "069500", "KRW", ("stock:KR:069500",)) if qb else None
+        def_bpx = q.get("benchmark_entry") or (str(k200_q["price"]) if k200_q else "")
+        def_bsrc = q.get("benchmark_source") or "https://m.stock.naver.com/domestic/stock/069500/total"
+        def_fees, def_slip = q.get("fees") or "28", q.get("slip") or "12"
+    now_kst = datetime.now(intel.KST)
+    def_obs = q.get("observed") or now_kst.strftime("%Y-%m-%dT%H:%M:%S")
+    def_due = q.get("due") or (now_kst.date() + timedelta(days=180)).isoformat()
+
+    preferred_desk = "equities" if ccy in ("KRW", "USD") else ""
+    selected_rid = next((r["id"] for r in eligible if r.get("desk") == preferred_desk), eligible[0]["id"])
+    choices = "".join(
+        f'<option value="{e(r["id"])}"{" selected" if r["id"] == selected_rid else ""}>'
+        f'{e(stamp(r["as_of"]))} · [{e(r["desk"])}] {e(r["title"])}</option>'
+        for r in eligible
+    )
+
+    preview_html = ""
+    if all(q.get(k) for k in ("entry", "bear", "base", "bull")):
+        try:
+            cand_a = dict(
+                entry=str(Decimal(q["entry"])),
+                bear=str(Decimal(q["bear"])),
+                base=str(Decimal(q["base"])),
+                bull=str(Decimal(q["bull"])),
+                fees=str(Decimal(def_fees)),
+                slip=str(Decimal(def_slip)),
+            )
+            cand_m = book.metrics(cand_a)
+            preview_html = (
+                '<div class="rebalance-bar"><b>자동 채움 시나리오 3관문 사전 시뮬레이션</b> · '
+                '아래 목표가·약세가를 수정한 뒤 저장하면 내 가설 연구장에 확정 등록됩니다.'
+                + gate_cards(cand_m)
+                + price_gauge(cand_a, cand_m)
+                + "</div>"
+            )
+        except Exception:
+            preview_html = ""
+
+    cat_val = e(q.get("catalyst", ""))
+    inv_val = e(q.get("invalidate", ""))
+    return (
+        preview_html
+        + form(base, csrf, "idea", secrets.token_hex(16))
+        + '<label>근거 보고서<select name="report">' + choices + "</select></label>"
+        + field("asset", "평가 대상 (종목명·코드)", val=q.get("asset", ""))
+        + field("currency", "평가통화 (KRW / USD)", attrs='placeholder="KRW" maxlength="3"', val=ccy)
+        + field("benchmark", "같은 통화 비교지수·대안 (자동 채움)", val=def_bench)
+        + obs_field(val=def_obs)
+        + price("entry", "대상 진입 기준가격", val=q.get("entry", ""))
+        + price("benchmark_entry", "비교지수 현재값", val=def_bpx)
+        + field("price_source", "대상 가격 원문 URL", "url", val=q.get("price_source", ""))
+        + field("benchmark_source", "비교지수 원문 URL", "url", val=def_bsrc)
+        + price("bear", "약세 시나리오 가격 · 확률 20%", val=q.get("bear", ""))
+        + price("base", "기준 내재가치 목표가 · 확률 50%", val=q.get("base", ""))
+        + price("bull", "강세 시나리오 목표가 · 확률 30%", val=q.get("bull", ""))
+        + price("fees", "왕복 수수료·세금 (bp · 100bp=1%, 국내 기본 28)", val=def_fees)
+        + price("slip", "왕복 슬리피지 (bp · 100bp=1%, 기본 12)", val=def_slip)
+        + f'<label>예상 촉매와 핵심 투자 근거<textarea name="catalyst" rows="2" required placeholder="실적·수주·해자 근거">{cat_val}</textarea></label>'
+        + f'<label>가설을 철회할 관측 조건 (손절 기준)<textarea name="invalidate" rows="2" required placeholder="수주 취소, 점유율 훼손 등">{inv_val}</textarea></label>'
+        + field("due", "평가 만기 예정일 (기본 +6개월)", "date", val=def_due)
+        + '<button>가설과 최초 가정 저장</button></form>'
+    )
 
 
 def outcome_form(row, base, csrf):
@@ -549,7 +732,8 @@ def archive_controls(package, base, csrf):
             '<button>로컬 Markdown 저장</button></form><small>공개 노트 폴더 · private_accounts/.local/market-notes</small></details>')
 
 
-def render(package, base, csrf, css, done=None):
+def render(package, base, csrf, css, done=None, query=None):
+    q = query or {}
     ledger = reports.read(package)
     rows = book.entries(package)
     today = datetime.now(intel.KST).date().isoformat()
@@ -581,17 +765,19 @@ def render(package, base, csrf, css, done=None):
         f'<div class="kpi-box info"><small>검증 완료 (지수 초과)</small><strong>{len(closed)}건 ({wins}건)</strong></div>'
         '</div>'
     )
+    open_attr = " open" if (q.get("open") == "create" or q.get("asset")) else ""
     out = [f'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" '
-           f'content="width=device-width,initial-scale=1"><title>가설 연구장</title><style>{css}</style></head><body>',
+           f'content="width=device-width,initial-scale=1"><title>가설 연구장</title><style>{css}</style></head><body>'
+           '<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 가설 연구장</small></div></header>',
            chat_page.navigation(base, "research"), '<main class="desk-main"><h1>가설 연구장</h1>'
            '<p>현금 매수 가정의 가격수익률을 같은 통화·기간의 지수와 비교합니다. '
            '배당·이자·임대료를 제외하며, 분할·병합은 양 시점에 같은 조정 기준을 적용하세요.</p>',
            guide, kpis,
            f'<p>검증 완료 {len(closed)}건 · 비교지수 초과 {wins}건 · 전체 등록 {len(rows)}건</p>',
-           '<details id="create"><summary>새 투자 가설 등록</summary>'
+           f'<details id="create"{open_attr}><summary>새 투자 가설 등록 (비교지수·수수료 자동 채움 지원)</summary>'
            '<p>기대수익률 12%는 입력한 평가기간 기준입니다. 약세 손실과 기준 이익이 있는 경우 '
            '확률가중 손익비 3배를 검사하며 안전마진 기준은 20%입니다. 등록한 가정은 결과와 함께 보존합니다.</p>',
-           new_form(ledger, base, csrf), "</details>", comparison(rows)]
+           new_form(ledger, base, csrf, query=q, package=package), "</details>", comparison(rows)]
     for name, group in groups:
         out.append(f"<section><h2>{name} · {len(group)}건</h2>")
         out.extend(show(r, ledger, base, csrf) for r in group)

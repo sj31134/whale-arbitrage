@@ -14,20 +14,25 @@ def e(value):
 
 
 def navigation(base, active):
-    items = [(room, name, f"{base}/desk/{room}") for room, name in research.NAMES.items()]
-    items.append(("portfolio", "포트폴리오 현황", base + "/portfolio"))
-    items.append(("discover", "신규 대장주 발굴", base + "/discover"))
-    items.append(("quant", "퀀트 연구", base + "/quant"))
-    items.append(("strategies", "전략 관리", base + "/strategies"))
-    items.append(("research", "가설 연구장", base + "/research"))
-    return (
-        '<nav class="desk-tabs" aria-label="투자 에이전트">'
-        + "".join(
-            f'<a href="{e(link)}"' + (' aria-current="page"' if room == active else "") + f">{e(name)}</a>"
-            for room, name, link in items
-        )
-        + "</nav>"
-    )
+    core_rooms = {"manager", "portfolio", "discover"}
+    lab_rooms = {"research", "strategies", "quant"}
+    items = [
+        ("manager", "★ 종합 상황판", f"{base}/desk/manager"),
+        ("portfolio", "내 계좌·포트폴리오", base + "/portfolio"),
+        ("discover", "신규 대장주 발굴", base + "/discover"),
+        ("research", "가설 연구장", base + "/research"),
+        ("strategies", "전략·백테스트", base + "/strategies"),
+        ("quant", "퀀트·차트 검증", base + "/quant"),
+    ]
+    items.extend((room, name, f"{base}/desk/{room}") for room, name in research.NAMES.items() if room != "manager")
+    links = []
+    for idx, (room, name, link) in enumerate(items):
+        if idx in (3, 6):
+            links.append('<span class="nav-sep" aria-hidden="true">|</span>')
+        cls = ' class="nav-core"' if room in core_rooms else (' class="nav-lab"' if room in lab_rooms else "")
+        cur = ' aria-current="page"' if room == active else ""
+        links.append(f'<a href="{e(link)}"{cls}{cur}>{e(name)}</a>')
+    return '<nav class="desk-tabs" aria-label="투자 에이전트">' + "".join(links) + "</nav>"
 
 
 def source_link(source):
@@ -374,14 +379,14 @@ def render(directory, package, base, csrf, room, css, show_all=False, feedback_o
             from agents import public_variables
             states = intel.private_json(package, public_variables.CACHE, {})
             out.append("<details><summary>공개 표본 수집 상태</summary>")
-            for key, url in public_variables.URLS.items():
+            for key, feed_url in public_variables.URLS.items():
                 state = states.get(key, {})
                 key_name = key.rsplit("_", 1)[0] if key != "depth" else key
                 name = desk_variables.FIELDS[room][key_name][0]
                 asset = key.rsplit("_", 1)[-1] if key != "depth" else "BTC·ETH"
                 success = kst_time(state["success"]) if state.get("success") else "기록 없음"
                 out.append(f'<div class="row">{e(asset)} · {e(name)} · {e(state.get("status", "미수집"))}'
-                           f'<small>마지막 자동 성공 {e(success)} · {source_link(url)}</small></div>')
+                           f'<small>마지막 자동 성공 {e(success)} · {source_link(feed_url)}</small></div>')
             out.append("</details>")
         out.append("</div>")
         if room == "us_small_cap_high_beta":

@@ -34,10 +34,56 @@ def _held_keys(directory, package):
     return codes, names
 
 
+SORT_OPTIONS = (
+    ("total", "종합 총점순"),
+    ("flow", "수급·매집 1위순"),
+    ("tech", "차트 상대강도순"),
+    ("upside", "목표가 상승여력순"),
+    ("geo", "지정학·공급망순"),
+    ("sns", "X·SNS 화제순"),
+)
+
+SNS_BADGES = {
+    "stealth": ('badge-pass', '조용한 기관 매집 · 루머 과열 없음'),
+    "positive": ('badge-info', 'SNS·시장 건전 관심 확산'),
+    "overheat": ('badge-warn', 'SNS·단기 추격 과열 주의'),
+    "caution": ('badge-warn', 'SNS 악재·변동성 주의'),
+}
+
+
 def _fmt_px(val, ccy):
     if val is None:
         return "—"
     return f"{val:,.0f}원" if ccy == "KRW" else f"${val:,.2f}"
+
+
+def _prefill_href(base, item):
+    ccy = item["currency"]
+    cur = item["price"]
+    tech = item["tech"]
+    bear_px = tech.get("stop_price") or (cur * 0.92)
+    base_px = item.get("target_price") or (cur * 1.25)
+    if base_px < cur * 1.20:
+        base_px = cur * 1.25
+    bull_px = base_px * 1.18
+    fmt = (lambda v: str(round(v))) if ccy == "KRW" else (lambda v: f"{v:.2f}")
+    src_url = (item.get("sources") or [{}])[0].get("url") or (
+        f"https://m.stock.naver.com/domestic/stock/{item['symbol']}/total"
+        if item["market"] == "KR"
+        else f"https://stockanalysis.com/stocks/{item['symbol'].lower()}/"
+    )
+    params = dict(
+        asset=f"{item['name']} ({item['symbol']})",
+        currency=ccy,
+        entry=fmt(cur),
+        bear=fmt(bear_px),
+        base=fmt(base_px),
+        bull=fmt(bull_px),
+        price_source=src_url,
+        catalyst=f"[{item['theme']}] {item['flow_note']} · {item['value_note']}"[:220],
+        invalidate=item["invalidate"][:200],
+    )
+    return e(base + "/research?" + urlencode(params) + "#create")
 
 
 def _grade_badge(item):
@@ -66,7 +112,7 @@ def _axis_bars(scores):
     return '<div class="era-bars">' + "".join(rows) + "</div>"
 
 
-def _candidate_card(rank, item, is_held):
+def _candidate_card(rank, item, is_held, base):
     ccy = item["currency"]
     tech = item["tech"]
     streak_badge = (
@@ -74,9 +120,16 @@ def _candidate_card(rank, item, is_held):
         if item.get("is_new")
         else f'<span class="badge-muted">{item.get("streak", 1)}일 연속 추적</span>'
     )
+    sns_cls_lbl = SNS_BADGES.get(item.get("sns_state", ""))
+    sns_badge = f' <span class="{sns_cls_lbl[0]}">{sns_cls_lbl[1]}</span>' if sns_cls_lbl else ""
     delta = item.get("score_delta")
     delta_txt = f" ({delta:+.1f}점)" if delta is not None else ""
     held_tag = ' <span class="badge-warn">내 보유 중</span>' if is_held else ""
+    chg = item.get("change_pct")
+    chg_html = ""
+    if chg is not None:
+        c_dir = "gain" if chg > 0 else ("loss" if chg < 0 else "flat")
+        chg_html = f' <span class="amount-{c_dir}">({chg:+.2f}%)</span>'
     srcs = " · ".join(
         f'<a href="{e(s["url"])}" target="_blank" rel="noreferrer noopener">{e(s["label"])} ↗</a>'
         for s in item.get("sources", ())
@@ -86,14 +139,25 @@ def _candidate_card(rank, item, is_held):
         if item.get("target_price") and item.get("upside_pct") is not None
         else ""
     )
+    e1 = tech.get("entry_1")
+    e2 = tech.get("entry_2")
+    sp = tech.get("stop_price")
+    plan_line = ""
+    if e1 and sp:
+        plan_line = (
+            f'<p><small>실전 가격 가이드 · <b>1차 분할진입 {_fmt_px(e1, ccy)}</b>'
+            + (f' · <b>2차 눌림/돌파 {_fmt_px(e2, ccy)}</b>' if e2 else '')
+            + f' · <b>방어·점검선(-8%) {_fmt_px(sp, ccy)}</b></small></p>'
+        )
     return (
         f'<article class="era-card">'
         f'<div class="spread"><div><span class="badge-info">#{rank} · {e(item["market"])} · {e(item["theme"])}</span> '
-        f'{_grade_badge(item)} {streak_badge}{held_tag}</div>'
+        f'{_grade_badge(item)} {streak_badge}{sns_badge}{held_tag}</div>'
         f'<strong>총점 {item["total"]:.1f} / 100{e(delta_txt)}</strong></div>'
         f'<h3>{e(item["name"])} <small>({e(item["symbol"])})</small></h3>'
-        f'<p><b>현재가 {_fmt_px(item["price"], ccy)}</b>{e(target_txt)} · '
-        f'하방변동성 권장 비중上限 <b>{tech["down_cap"]}%</b></p>'
+        f'<p><b>현재가 {_fmt_px(item["price"], ccy)}</b>{chg_html}{e(target_txt)} · '
+        f'<abbr title="최근 21일 하락 변동성 기준 계좌 내 권장 최대 비중">하방변동성 권장 비중 상한</abbr> <b>{tech["down_cap"]}%</b></p>'
+        + plan_line
         + _axis_bars(item["scores"])
         + '<div class="era-lesson">'
         f'<b>① 수급·이슈·가치:</b> {e(item["flow_note"])} / {e(item["value_note"])}<br>'
@@ -101,7 +165,8 @@ def _candidate_card(rank, item, is_held):
         f'<b>③ SNS·글로벌·지정학:</b> {e(item["sns_note"])} · {e(item["macro_note"])} · {e(item["geo_note"])}<br>'
         f'<b>④ 가설 철회(손절) 조건:</b> {e(item["invalidate"])}'
         "</div>"
-        f"<small>{srcs}</small></article>"
+        f'<div class="spread"><small>{srcs}</small>'
+        f'<a class="chip" href="{_prefill_href(base, item)}">이 종목으로 가설 자동 채우기 →</a></div></article>'
     )
 
 
@@ -137,6 +202,10 @@ def render(directory, package, base, csrf, query, css):
         market_filter = "all"
     theme_filter = query.get("theme", "")
     include_held = query.get("include_held") == "1"
+    sort_by = query.get("sort", "total")
+    if sort_by not in {k for k, _ in SORT_OPTIONS}:
+        sort_by = "total"
+    show_all = query.get("show") == "all"
     done = query.get("done")
 
     held_codes, held_names = _held_keys(directory, package)
@@ -161,7 +230,17 @@ def render(directory, package, base, csrf, query, css):
             continue
         filtered.append(c)
 
-    def link(m_val, t_val="", inc=include_held):
+    sort_fn = {
+        "total": lambda c: (-c["total"], -c["scores"]["flow"], c["symbol"]),
+        "flow": lambda c: (-c["scores"]["flow"], -c["total"], c["symbol"]),
+        "tech": lambda c: (-c["scores"]["tech"], -c["tech"].get("rs20", 0), c["symbol"]),
+        "upside": lambda c: (-(c["upside_pct"] if c.get("upside_pct") is not None else -999.0), -c["total"], c["symbol"]),
+        "geo": lambda c: (-c["scores"]["geo"], -c["total"], c["symbol"]),
+        "sns": lambda c: (-c["scores"]["sns"], -c["total"], c["symbol"]),
+    }[sort_by]
+    filtered.sort(key=sort_fn)
+
+    def link(m_val, t_val="", inc=include_held, srt=sort_by, shw=show_all):
         params = {}
         if m_val != "all":
             params["market"] = m_val
@@ -169,6 +248,10 @@ def render(directory, package, base, csrf, query, css):
             params["theme"] = t_val
         if inc:
             params["include_held"] = "1"
+        if srt != "total":
+            params["sort"] = srt
+        if shw:
+            params["show"] = "all"
         q_str = ("?" + urlencode(params)) if params else ""
         return e(base + "/discover" + q_str)
 
@@ -181,7 +264,8 @@ def render(directory, package, base, csrf, query, css):
     out = [
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>신규 대장주 발굴 · Whale Tracking</title><style>{css}</style></head><body>",
+        f"<title>신규 대장주 발굴 · Whale Tracking</title><style>{css}</style></head><body>"
+        "<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 신규 대장주 발굴</small></div></header>",
         chat_page.navigation(base, "discover"),
         '<main class="desk-main">',
         '<div class="spread"><div><h1>포트폴리오 외 신규 대장주 발굴</h1>'
@@ -220,7 +304,18 @@ def render(directory, package, base, csrf, query, css):
         f'<a class="{toggle_cls}" href="{link(market_filter, theme_filter, not include_held)}">'
         f'{"내 보유 종목 숨기기" if include_held else f"내 보유 종목({excluded_held}개) 함께 비교"}</a>'
     )
-    out.append(f'<a class="chip" href="{e(base)}/research#create">가설 연구장에 새 후보 등록하기 →</a></div>')
+    out.append(f'<a class="chip" href="{e(base)}/research?open=create#create">가설 연구장에 새 후보 등록하기 →</a></div>')
+
+    # Sort chips + Show-All toggle
+    out.append('<div class="chips"><small>정렬 기준:</small>')
+    for s_key, s_label in SORT_OPTIONS:
+        cls = "chip active" if sort_by == s_key else "chip"
+        out.append(f'<a class="{cls}" href="{link(market_filter, theme_filter, include_held, s_key, show_all)}">{s_label}</a>')
+    if len(filtered) > 16:
+        all_cls = "chip active" if show_all else "chip"
+        all_lbl = "상위 16종목 요약 보기" if show_all else f"전체 {len(filtered)}종목 모두 보기"
+        out.append(f'<a class="{all_cls}" href="{link(market_filter, theme_filter, include_held, sort_by, not show_all)}">{all_lbl}</a>')
+    out.append("</div>")
 
     if themes:
         out.append('<div class="chips"><small>테마 필터:</small>')
@@ -238,17 +333,19 @@ def render(directory, package, base, csrf, query, css):
     else:
         s_count = sum(1 for c in filtered if c["total"] >= 76 and c["tech"]["rsi"] <= 78)
         new_count = sum(1 for c in filtered if c.get("is_new"))
+        visible = filtered if show_all else filtered[:16]
+        sort_title = dict(SORT_OPTIONS).get(sort_by, "종합 총점순")
         out.append(
             '<div class="kpi-strip">'
             f'<div class="kpi-box info"><small>최근 분석 기준시각</small><strong>{e(doc.get("updated", "")[:16].replace("T", " "))}</strong></div>'
             f'<div class="kpi-box pass"><small>S급 주도 대장주 (≥76점)</small><strong>{s_count}종목</strong></div>'
-            f'<div class="kpi-box info"><small>표시 중인 신규 후보</small><strong>{len(filtered)}종목</strong></div>'
+            f'<div class="kpi-box info"><small>표시 / 조건 일치 후보</small><strong>{len(visible)} / {len(filtered)}종목</strong></div>'
             f'<div class="kpi-box warn"><small>오늘 새로 진입(NEW)</small><strong>{new_count}종목</strong></div>'
             "</div>"
         )
-        out.append('<section><h2>포트폴리오 외 대장주 종합 순위</h2><div class="era-grid">')
-        for idx, item in enumerate(filtered[:16], 1):
-            out.append(_candidate_card(idx, item, is_held(item)))
+        out.append(f'<section><h2>포트폴리오 외 대장주 순위 ({e(sort_title)})</h2><div class="era-grid">')
+        for idx, item in enumerate(visible, 1):
+            out.append(_candidate_card(idx, item, is_held(item), base))
         if not filtered:
             out.append("<p>선택한 시장·테마 조건에 해당하는 포트폴리오 외 종목이 없습니다.</p>")
         out.append("</div></section>")
