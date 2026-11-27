@@ -161,6 +161,10 @@ def test_voc_prefill_crypto_form_url_and_networth_banner(journal, tmp_path):
                  price="1395", at="2026-11-27T10:00:00+09:00", session="OPEN", delay="0", feed="fx", page=1, seen="2026-11-27T10:00:00+09:00"),
             dict(venue="fx", symbol="USDT/USD", currency="USD", name="테더", english="USDT/USD",
                  price="1.0005", at="2026-11-27T10:00:00+09:00", session="OPEN", delay="0", feed="usdt_usd", page=1, seen="2026-11-27T10:00:00+09:00"),
+            dict(venue="NASDAQ", symbol="NVDA", currency="USD", name="NVIDIA", english="NVIDIA",
+                 price="149.30", at="2026-11-25T16:00:00-05:00", session="CLOSE", delay="0", feed="NASDAQ", page=1, seen="2026-11-26T00:00:00+00:00"),
+            dict(venue="KRAKEN_X", symbol="NVDAX", currency="USD", name="NVDAx", english="NVDAx",
+                 price="155.26", at="2026-11-27T07:25:00+00:00", session="OPEN", delay="0", feed="kraken_x", page=1, seen="2026-11-27T07:25:00+00:00"),
         ]
     )
     accs = [
@@ -175,6 +179,8 @@ def test_voc_prefill_crypto_form_url_and_networth_banner(journal, tmp_path):
     ]
     banner = live_panel.networth_reference(accs, qb)
     assert "전체 계좌 단순 합산 참고치" in banner and "BTC 김치프리미엄" in banner
+    us_cockpit = page.action_cockpit(None, None, "/test", quote_book=qb, accounts=accs)
+    assert "저녁 미국장 실전 준비" in us_cockpit and "엔비디아 선행(NVDAx)" in us_cockpit and "+3.99%" in us_cockpit
 
 
 

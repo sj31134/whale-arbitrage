@@ -331,12 +331,17 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
             counts["core"] += 1
             badge = '<span class="badge-pass">1순위 · 핵심 집중·보유</span>' + shelter_badge
             m_info, a_info = idea["m"], idea["a"]
-            pullback_note = (f"20일선({_fmt_num(tech['ma20'], ccy)}) 눌림(60%) 또는 외인 수급일 15:15 종가 선발교체(40%)" if tech else "15:15 수급 확인 종가 또는 눌림목")
+            close_slot = "마감 20분 전(정규 05:40 / 단축장 02:40 KST)" if ccy == "USD" else "15:15 종가"
+            open_avoid = "개장 첫 30분(23:30~00:00 KST) 호가 왜곡" if ccy == "USD" else "장초반 급등"
+            pullback_note = (
+                f"20일선({_fmt_num(tech['ma20'], ccy)}) 눌림(60%) 또는 수급 확인 {close_slot} 선발교체(40%)"
+                if tech else f"{close_slot} 수급 확인 또는 눌림목"
+            )
             guide = (
                 f"<b>팔지 말고 집중할 대장주.</b> 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 저평가"
                 f"(기대수익 <b>{m_info['expected']:+.1f}%</b>, "
                 f'<abbr title="내재가치 대비 현재 주가 할인율(20% 이상 권장)">안전마진</abbr> {m_info["margin"]:.0f}%). '
-                f"장초반 급등 추격만 피하고, 비핵심주 정리 자금으로 {pullback_note}로 모아 수익을 극대화하세요."
+                f"{open_avoid} 추격만 피하고, 비핵심주 정리 자금으로 {pullback_note}로 모아 수익을 극대화하세요."
             )
         elif _is_semicore(idea):
             counts["semicore"] += 1
@@ -346,7 +351,7 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
             guide = (
                 f"<b>성급한 조기 매도 금지(11/27 복기 보정).</b> 기대수익(<b>{m_info['expected']:+.1f}%</b>)은 높으나 "
                 f"최근 급락 변동성 할인 때문에 안전마진({m_info['margin']:.1f}% vs 기준 20%)만 소폭 미달한 낙폭과대 탄력주입니다. "
-                f"외인·기관 수급 유입 시 강한 반등 탄력이 나오므로 2순위 약세주보다 뒤로 미루고, {res_note} 도달 시에만 일부 현금화·실적 목표가 재산정을 진행하세요."
+                f"수급 유입 시 강한 반등 탄력이 나오므로 2순위 약세주보다 뒤로 미루고, {res_note} 도달 시에만 일부 현금화·실적 목표가 재산정을 진행하세요."
             )
         elif idea and not idea["m"]["qualifies"]:
             counts["trim"] += 1
@@ -361,11 +366,15 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                 " <b>(절세계좌 유의: 계좌 밖 인출 시 비과세 한도가 줄어드니 출금 대신 계좌 내 핵심주·지수ETF로 교체하세요.)</b>"
                 if sheltered else ""
             )
+            timing_rule = (
+                "개장 첫 30분(23:30~00:00 KST) 스프레드 확대 구간은 피하되, 장중 반등 구간(00:30~02:50 KST)에 분할 매도해 달러 현금 버퍼와 미국 1순위 대장주 교체 재원으로 바꾸세요."
+                if ccy == "USD"
+                else "장 초반(09:00~09:30) 흔들기는 피하되, 반등일 오후장 또는 외인 수급 가속 시 <b>15:10~15:20 마감 동시호가</b>에 우선 매도해 현금 35%와 1순위 대장주 자금으로 바꾸세요."
+            )
             guide = (
-                f"<b>현금 35% 버퍼 최우선 재원.</b> 기준 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 기대수익({m_info['expected']:+.1f}%)·"
-                f"안전마진({m_info['margin']:.1f}%)이 모두 낮고 시장 반등 대비 탄력도 약합니다. 장 초반(09:00~09:30) 흔들기는 피하되, "
-                "반등일 오후장 또는 외인 수급 가속 시 <b>15:10~15:20 마감 동시호가</b>에 우선 매도해 현금 35%와 1순위 대장주 자금으로 바꾸세요."
-                + tax_tip
+                f"<b>현금 버퍼 최우선 재원.</b> 기준 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 기대수익({m_info['expected']:+.1f}%)·"
+                f"안전마진({m_info['margin']:.1f}%)이 모두 낮고 시장 반등 대비 탄력도 약합니다. "
+                + timing_rule + tax_tip
             )
         elif ccy == "KRW":
             counts["trim"] += 1
@@ -399,13 +408,19 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
         else:
             counts["watch"] += 1
             badge = '<span class="badge-info">해외·코인 · 추세 확인</span>' + shelter_badge
+            us_prefill = (
+                f' <a class="chip" href="{_holding_prefill_href(base, h)}">USD 가설 검증 채우기 →</a>'
+                if (ccy == "USD" and h["provider"] not in store.CRYPTO and h.get("price") is not None)
+                else ""
+            )
             if tech:
                 guide = (
                     f"{e(tech['label'])}. 20일 평균선({_fmt_num(tech['ma20'], ccy)}) 회복 전까지 성급한 물타기를 멈추고, "
-                    "20일선 안착 확인 후 비중 확대 여부를 결정하세요."
+                    "시초 30분(23:30~00:00 KST) 변동성 진정 및 20일선 안착 확인 후 비중을 결정하세요."
+                    + us_prefill
                 )
             else:
-                guide = "변동성이 큰 해외·디지털 자산입니다. 추가 물타기 없이 현 비중 내에서 추세 회복을 먼저 확인하세요."
+                guide = "변동성이 큰 해외·디지털 자산입니다. 추가 물타기 없이 현 비중 내에서 추세 회복을 먼저 확인하세요." + us_prefill
 
         cur_vs_be = f"현재 {_fmt_num(h['price'], ccy)}<br><small>본전 {_fmt_num(h['breakeven'], ccy)}</small>"
         pnl_txt = (f"<b>{_fmt_num(h['gain'], ccy)}</b> {e(ccy)}{_kor_unit(h['gain'], ccy)}<br>"
@@ -449,6 +464,38 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                 f"방어 버퍼 확보 완료 · 즉시 활용 가능한 초과 현금 <b>{_fmt_num(surplus, 'KRW')}원{_kor_unit(surplus, 'KRW')}</b></div>"
             )
         rebalance_html = f'<div class="rebalance-bar">{reb_main}</div>'
+
+    # US Evening Session Readiness Banner (live 24/7 xStocks lead indicators + USD cash check)
+    us_b = ccy_totals.get("USD")
+    x_rows = {r["symbol"].upper(): r for r in qb.rows_by_venue.get("KRAKEN_X", ())}
+    lead_parts = []
+    for x_sym, base_sym, lbl in (("SPYX", "SPY", "S&P500 선행(SPYx)"), ("QQQX", "QQQ", "나스닥100 선행(QQQx)"), ("NVDAX", "NVDA", "엔비디아 선행(NVDAx)")):
+        xr = x_rows.get(x_sym)
+        br = qb.match("kis", base_sym, "USD", (f"stock:US:{base_sym}",))
+        if xr and br and Decimal(br["price"]) > 0:
+            xp, bp = Decimal(xr["price"]), Decimal(br["price"])
+            gap = (xp / bp - 1) * 100
+            lead_parts.append(f"{lbl} <b>${xp:,.2f}</b> ({gap:+.2f}%)")
+    if us_b or lead_parts:
+        today_kst = datetime.now(intel.KST).date().isoformat()
+        session_tag = (
+            "오늘 밤 23:30 개장 ~ 익일 03:00 조기폐장 (추수감사절 익일 3.5시간 단축장 · 얇은 호가 주의)"
+            if today_kst == "2026-11-27"
+            else "정규장 23:30 개장 ~ 익일 06:00 마감 (KST)"
+        )
+        usd_cash_txt = ""
+        if us_b and us_b["val"] > 0:
+            u_pct = us_b["cash"] / us_b["val"] * 100
+            usd_cash_txt = f" · 내 달러(USD) 현금 <b>${_fmt_num(us_b['cash'], 'USD')} ({u_pct:.1f}%)</b>"
+        lead_line = ("24시간 토큰주가 직전 종가 대비 · " + " · ".join(lead_parts)) if lead_parts else "개장 전 선물·반도체(SOXX·NVDA) 호가 점검"
+        rebalance_html += (
+            '<div class="networth-banner">'
+            f'<div><b>저녁 미국장 실전 준비 ({session_tag}):</b> {lead_line}{usd_cash_txt}</div>'
+            '<small>① <b>23:30~00:00 시초 갭업 추격·투매 금지</b> → '
+            '② <b>00:30~02:00 장중 지지 확인</b> → '
+            '③ <b>마감 20분 전</b> 안전마진 미달 약세주 달러 현금화 및 '
+            f'<a href="{e(base)}/discover?market=US">미국 S급 대장주</a> 선발교체</small></div>'
+        )
 
     return (
         '<section id="action-cockpit" class="cockpit">'
