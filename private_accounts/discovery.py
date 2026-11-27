@@ -200,11 +200,11 @@ def _compute_tech(bars, cur_price, bench_ret20):
         entry_1, entry_2 = round(ma20, 2), round(ma20 * 0.96, 2)
     elif ma60 and cur >= ma20 and cur >= ma60:
         status = f"정배열 주도 추세 (시장대비 {rs20:+.1f}%p · RSI {rsi:.0f})"
-        entry_hint = f"20일선({ma20:,.0f}) 지지 확인 분할 진입"
+        entry_hint = f"15:15 수급확인 종가 선발(40%) + 20일선({ma20:,.0f}) 눌림(60%)"
         entry_1, entry_2 = round(cur, 2), round(ma20, 2)
     elif cur >= ma20:
         status = f"단기 추세 돌파 (20일선 +{pct20:.1f}% · 시장대비 {rs20:+.1f}%p)"
-        entry_hint = f"20일선({ma20:,.0f}) 안착 시 분할 매수"
+        entry_hint = f"15:15 수급확인 종가 선발(40%) + 20일선({ma20:,.0f}) 지지(60%)"
         entry_1, entry_2 = round(cur, 2), round(ma20, 2)
     elif rsi <= 36:
         status = f"과매도 변곡점 대기 (RSI {rsi:.0f} · 시장대비 {rs20:+.1f}%p)"

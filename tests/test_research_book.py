@@ -130,6 +130,7 @@ def test_stress_does_not_duplicate_overlapping_roles():
     assert "현금 35% 목표 시뮬레이터" in cockpit and "+58원" in cockpit
     assert "절세계좌 보호" in cockpit and "다계좌 2곳 합산" in cockpit
     assert "가설 미등록 주요 보유주" in cockpit and "원클릭 가설 검증 채우기" in cockpit
+    assert "준코어 · 반등 추세 유예" in cockpit
 
 
 def test_voc_prefill_crypto_form_url_and_networth_banner(journal, tmp_path):

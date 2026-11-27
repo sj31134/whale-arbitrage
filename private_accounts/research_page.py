@@ -270,12 +270,13 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
         )
         if kr_bench["pct20"] < 0:
             tech_bullets.append(
-                "<li><b>지금 취할 시장 전술:</b> 투매 공포는 진정됐으나 아직 20일·60일 추세선 아래입니다. "
-                "오늘 같은 강반등에 흥분해 추격 매수하지 마시고, <b>가격이 올라온 '축소 대상 종목'을 분할 매도해 현금 35%부터 채우는 날</b>로 쓰세요.</li>"
+                "<li><b>지금 취할 시장 전술 (11/27 장마감 복기 반영):</b> 투매 공포는 진정됐으나 아직 20일·60일 추세선 아래입니다. "
+                "① <b>장 초반(09:00~09:30) 흔들기 매도·칼손절은 금지</b>하고, ② 반등장에서도 탄력이 약한 '최우선 현금화 종목'부터 정리하되 "
+                "외국인·기관 수급이 오후까지 가속되는 추세일에는 <b>15:10~15:20 마감 동시호가 전후</b>에 매도 및 핵심주 동시교체(Switch)를 실행하세요.</li>"
             )
         else:
             tech_bullets.append(
-                "<li><b>지금 취할 시장 전술:</b> 단기 20일 추세선 위로 올라섰습니다. 비핵심주 정리 자금을 핵심 집중 종목에 실어 상승 추세를 타세요.</li>"
+                "<li><b>지금 취할 시장 전술:</b> 단기 20일 추세선 위로 올라섰습니다. 비핵심주 정리 자금을 15:15 수급 확인 종가 선발진입(40%)과 20일선 눌림(60%)으로 핵심 종목에 실으세요.</li>"
             )
     else:
         tech_bullets.append("<li><b>시장 차트 점검:</b> 지수 이동평균선 확인 전까지는 현금 버퍼 35%와 소수 핵심주 압축 원칙을 우선합니다.</li>")
@@ -286,21 +287,29 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
             + " · 해외·코인 자산도 20일선 안착 확인 전까지는 무리한 물타기보다 핵심주 유지가 유리합니다.</li>"
         )
 
-    # Classify each holding into 1 of 3 unmistakable action buckets + compute KRW cash rebalance bar
+    # Classify each holding into unmistakable action buckets (Core / Semi-Core Hold / Priority Trim / Watch)
     rows_html = []
-    counts = {"core": 0, "trim": 0, "watch": 0}
+    counts = {"core": 0, "semicore": 0, "trim": 0, "watch": 0}
     trim_general_krw = Decimal(0)
     trim_sheltered_krw = Decimal(0)
+
+    def _is_semicore(idea_obj):
+        if not idea_obj or idea_obj["m"]["qualifies"]:
+            return False
+        mi = idea_obj["m"]
+        return mi["expected"] >= Decimal("20") and mi["margin"] >= Decimal("15")
 
     def sort_key(h):
         if h["idea"] and h["idea"]["m"]["qualifies"]:
             tier = 0
-        elif h["idea"] and not h["idea"]["m"]["qualifies"]:
+        elif _is_semicore(h["idea"]):
             tier = 1
-        elif h["ccy"] == "KRW":
+        elif h["idea"] and not h["idea"]["m"]["qualifies"]:
             tier = 2
-        else:
+        elif h["ccy"] == "KRW":
             tier = 3
+        else:
+            tier = 4
         loss_rank = float(h["gain"]) if h["gain"] is not None else 0.0
         return (tier, loss_rank, h["symbol"])
 
@@ -322,12 +331,22 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
             counts["core"] += 1
             badge = '<span class="badge-pass">1순위 · 핵심 집중·보유</span>' + shelter_badge
             m_info, a_info = idea["m"], idea["a"]
-            pullback_note = (f"20일선({_fmt_num(tech['ma20'], ccy)}) 또는 눌림목" if tech else "장중 눌림목·조정일")
+            pullback_note = (f"20일선({_fmt_num(tech['ma20'], ccy)}) 눌림(60%) 또는 외인 수급일 15:15 종가 선발교체(40%)" if tech else "15:15 수급 확인 종가 또는 눌림목")
             guide = (
                 f"<b>팔지 말고 집중할 대장주.</b> 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 저평가"
                 f"(기대수익 <b>{m_info['expected']:+.1f}%</b>, "
                 f'<abbr title="내재가치 대비 현재 주가 할인율(20% 이상 권장)">안전마진</abbr> {m_info["margin"]:.0f}%). '
-                f"급등 호가 추격매수만 피하고, 비핵심주 판 현금으로 {pullback_note}에서 모아 수익을 극대화하세요."
+                f"장초반 급등 추격만 피하고, 비핵심주 정리 자금으로 {pullback_note}로 모아 수익을 극대화하세요."
+            )
+        elif _is_semicore(idea):
+            counts["semicore"] += 1
+            badge = '<span class="badge-info">준코어 · 반등 추세 유예</span>' + shelter_badge
+            m_info, a_info = idea["m"], idea["a"]
+            res_note = f"20일선({_fmt_num(tech['ma20'], ccy)}) 저항 구간" if tech else "단기 목표 저항 구간"
+            guide = (
+                f"<b>성급한 조기 매도 금지(11/27 복기 보정).</b> 기대수익(<b>{m_info['expected']:+.1f}%</b>)은 높으나 "
+                f"최근 급락 변동성 할인 때문에 안전마진({m_info['margin']:.1f}% vs 기준 20%)만 소폭 미달한 낙폭과대 탄력주입니다. "
+                f"외인·기관 수급 유입 시 강한 반등 탄력이 나오므로 2순위 약세주보다 뒤로 미루고, {res_note} 도달 시에만 일부 현금화·실적 목표가 재산정을 진행하세요."
             )
         elif idea and not idea["m"]["qualifies"]:
             counts["trim"] += 1
@@ -336,16 +355,16 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
                     trim_sheltered_krw += h["val"]
                 else:
                     trim_general_krw += h["val"]
-            badge = '<span class="badge-warn">2순위 · 반등 시 분할매도</span>' + shelter_badge
+            badge = '<span class="badge-warn">2순위 · 최우선 현금화</span>' + shelter_badge
             m_info, a_info = idea["m"], idea["a"]
             tax_tip = (
                 " <b>(절세계좌 유의: 계좌 밖 인출 시 비과세 한도가 줄어드니 출금 대신 계좌 내 핵심주·지수ETF로 교체하세요.)</b>"
                 if sheltered else ""
             )
             guide = (
-                f"<b>현금·교체 재원 만들기.</b> 기준 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 기대수익({m_info['expected']:+.1f}%)·"
-                f"안전마진({m_info['margin']:.0f}%)이 핵심주보다 낮습니다. 본전({_fmt_num(h['breakeven'], ccy)})만 기다리지 말고 "
-                "오늘 같은 장중 반등(오후장·20일선 부근)에 2~3회 나눠 팔아 현금 35%와 1순위 핵심주 자금으로 바꾸세요."
+                f"<b>현금 35% 버퍼 최우선 재원.</b> 기준 내재가치({_fmt_num(a_info['base'], ccy)}) 대비 기대수익({m_info['expected']:+.1f}%)·"
+                f"안전마진({m_info['margin']:.1f}%)이 모두 낮고 시장 반등 대비 탄력도 약합니다. 장 초반(09:00~09:30) 흔들기는 피하되, "
+                "반등일 오후장 또는 외인 수급 가속 시 <b>15:10~15:20 마감 동시호가</b>에 우선 매도해 현금 35%와 1순위 대장주 자금으로 바꾸세요."
                 + tax_tip
             )
         elif ccy == "KRW":
@@ -445,9 +464,10 @@ def action_cockpit(directory, package, base, quote_book=None, accounts=None):
         + "".join(tech_bullets)
         + '</ul></article></div>'
         '<div class="kpi-strip">'
-        f'<div class="kpi-box pass"><small>팔지 않고 모아갈 1순위 핵심주</small><strong>{counts["core"]}개 보유 행</strong></div>'
-        f'<div class="kpi-box warn"><small>반등 시 나눠 팔아 현금화할 행</small><strong>{counts["trim"]}개 보유 행</strong></div>'
-        f'<div class="kpi-box info"><small>추세 회복 확인할 해외·코인 행</small><strong>{counts["watch"]}개 보유 행</strong></div>'
+        f'<div class="kpi-box pass"><small>1순위 핵심 집중·보유</small><strong>{counts["core"]}개 보유 행</strong></div>'
+        f'<div class="kpi-box info"><small>준코어 · 반등 추세 유예</small><strong>{counts["semicore"]}개 보유 행</strong></div>'
+        f'<div class="kpi-box warn"><small>2순위 최우선 현금화 대상</small><strong>{counts["trim"]}개 보유 행</strong></div>'
+        f'<div class="kpi-box info"><small>추세 확인할 해외·코인 행</small><strong>{counts["watch"]}개 보유 행</strong></div>'
         '</div>'
         '<details open><summary>3. 내 보유 전 종목 행동 지침표 (위에서부터 순서대로 대응하세요)</summary>'
         '<div class="comparison"><table class="cockpit-table"><thead><tr>'

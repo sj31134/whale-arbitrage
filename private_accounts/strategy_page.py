@@ -11,6 +11,7 @@ from .strategy_catalog import (
     AQR,
     CATALOG,
     HISTORICAL_BACKTESTS,
+    INTRADAY_POSTMORTEM,
     REGIME_PLAYBOOK,
     SOURCE_LABELS,
     STRATEGY_GUIDES,
@@ -122,10 +123,33 @@ def playbook_section(base):
         '반토막(-55%~-74%)으로 복리가 깨집니다. 시장 온도에 따라 아래 두 단계로 나누어 운용하세요.</p>'
         f'<div class="chips"><a class="chip" href="{escape(base)}/research">가설 연구장에서 집중 후보 고르기</a>'
         f'<a class="chip" href="{escape(base)}/quant">내 보유 종목 권장 비중 보기</a>'
+        '<a class="chip" href="#postmortem-review">11/27 실전 장전 vs 마감 복기</a>'
         '<a class="chip" href="#historical-backtests">30년 4대 위기 백테스트 바로가기</a></div></div>'
-        '<section><h2>2단계 시장 레짐 운용 원칙</h2><div class="playbook-grid">'
+        '<section><h2>2단계 시장 레짐 운용 원칙 (실전 복기 반영)</h2><div class="playbook-grid">'
         + "".join(cards)
         + "</div></section>"
+        + postmortem_section()
+    )
+
+
+def postmortem_section():
+    pm = INTRADAY_POSTMORTEM
+    ok_rows = "".join(
+        f'<tr><td><span class="badge-pass">타당 · 유지</span> <b>{escape(item)}</b></td>'
+        f"<td>{escape(obs)}</td><td><b>{escape(rule)}</b></td></tr>"
+        for item, obs, rule in pm["validated"]
+    )
+    fix_rows = "".join(
+        f'<tr><td><span class="badge-warn">오류 · 보정</span> <b>{escape(item)}</b></td>'
+        f"<td>{escape(obs)}</td><td><b>{escape(rule)}</b></td></tr>"
+        for item, obs, rule in pm["corrected"]
+    )
+    return (
+        f'<section id="postmortem-review"><h2>실전 시나리오 대조 복기 &amp; 전략 업데이트 ({escape(pm["date"])} 개장 전 vs 장마감)</h2>'
+        f'<p><small>실측 기준 · {escape(pm["benchmark_summary"])}</small></p>'
+        '<div class="strategy-scroll"><table><thead><tr>'
+        '<th>개장 전 시나리오·가정</th><th>장중·마감 실제 시장 데이터 검증</th><th>전략·집행 규칙 업데이트</th>'
+        f'</tr></thead><tbody>{ok_rows}{fix_rows}</tbody></table></div></section>'
     )
 
 
