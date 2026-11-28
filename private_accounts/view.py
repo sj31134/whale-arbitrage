@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from agents import desk_variables, intelligence, research_chat
 from . import account_performance, chat_page, contrarian, contrarian_page, dashboard_launcher, desk_feedback, discovery, discovery_page, local_sources, live_panel, monitor, quant_page, research_archive, research_book, research_page
-from . import strategy_page, strategy_registry
+from . import strategy_page, strategy_registry, tournament, tournament_page
 from .store import CRYPTO, PROVIDERS, database, positions, profiles
 
 
@@ -87,7 +87,7 @@ def server(directory, port=8765, package=None, *, identity_key=None):
     posts = {path + "/variable": (desk, "variable") for path, desk in desks.items() if desk != "manager"}
     posts.update({path + "/feedback": (desk, "feedback") for path, desk in desks.items()})
     posts[route + "/desk/manager/feedback-state"] = ("manager", "feedback-state")
-    for action in ("strategy-run","strategy-state","discover-run","discover-sns","contrarian-run","contrarian-plan","mistake-note"):
+    for action in ("strategy-run","strategy-state","discover-run","discover-sns","contrarian-run","contrarian-plan","mistake-note","tournament-run"):
         posts[route + "/desk/manager/" + action] = ("manager",action)
     journal_actions = ("idea", "start", "assess", "snapshot", "recover", "market-note")
     for action in journal_actions:
@@ -177,8 +177,9 @@ def server(directory, port=8765, package=None, *, identity_key=None):
             strategies = self.allowed(parts.path, route + "/strategies")
             discover = self.allowed(parts.path, route + "/discover")
             contrarian_rt = self.allowed(parts.path, route + "/contrarian")
+            tournament_rt = self.allowed(parts.path, route + "/tournament")
             room = desks.get(parts.path)
-            if not (details or home or portfolio or journal or quant or strategies or discover or contrarian_rt or (room and self.allowed(parts.path, route + "/desk/" + room))):
+            if not (details or home or portfolio or journal or quant or strategies or discover or contrarian_rt or tournament_rt or (room and self.allowed(parts.path, route + "/desk/" + room))):
                 self.reply(404, ('<!doctype html><html lang="ko"><meta charset="utf-8"><title>대시보드 주소 확인</title>'
                                  '<h1>이 주소로는 대시보드를 열 수 없습니다</h1>'
                                  '<p>Mac의 프로젝트 폴더에서 <code>python3 -m private_accounts dashboard --open</code>을 '
@@ -206,6 +207,8 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                     data = discovery_page.render(directory, package, route, csrf, query, monitor.CSS)
                 elif contrarian_rt:
                     data = contrarian_page.render(directory, package, route, csrf, query, monitor.CSS)
+                elif tournament_rt:
+                    data = tournament_page.render(package, route, csrf, query, monitor.CSS)
                 elif quant:
                     data = quant_page.render(directory, package, route, query, monitor.CSS)
                 elif journal:
@@ -266,20 +269,29 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                     try:
                         if action == "strategy-run":
                             strategy_registry.refresh(package)
+                            tournament.run_tournament(package)
                         elif action == "discover-run":
                             discovery.refresh(package)
+                            tournament.run_tournament(package)
                         elif action == "discover-sns":
                             discovery.record_sns_note(package, fields)
                             discovery.refresh(package)
+                            tournament.run_tournament(package)
                         elif action == "contrarian-run":
                             contrarian.refresh(package)
+                            tournament.run_tournament(package)
                         elif action == "contrarian-plan":
                             contrarian.save_playbook(package, fields)
+                            tournament.run_tournament(package)
                         elif action == "mistake-note":
                             strategy_page.save_mistake_note(package, fields)
+                            tournament.run_tournament(package)
                         elif action == "strategy-state":
                             with strategy_registry.database(package) as db:
                                 strategy_registry.state(db,fields["strategy"],fields["state"])
+                            tournament.run_tournament(package)
+                        elif action == "tournament-run":
+                            tournament.run_tournament(package)
                         elif action == "variable":
                             desk_variables.save(package, room, fields)
                         elif action == "feedback":
@@ -330,6 +342,8 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                     target = route + "/contrarian?done=saved#my-playbooks"
                 if action == "mistake-note":
                     target = route + "/strategies?done=mistake#mistake-notes"
+                if action == "tournament-run":
+                    target = route + "/tournament?done=battled"
                 if action == "reconcile":
                     target = route + "/portfolio#performance"
                 if action in journal_actions:

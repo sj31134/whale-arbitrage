@@ -514,7 +514,7 @@
 </details>
 
 <details>
-<summary>주식 (74개)</summary>
+<summary>주식 (77개)</summary>
 
 - `agents/`
   - `equities/`
@@ -594,12 +594,15 @@
   - [strategy_catalog.py](<../private_accounts/strategy_catalog.py>)
   - [strategy_page.py](<../private_accounts/strategy_page.py>)
   - [strategy_registry.py](<../private_accounts/strategy_registry.py>)
+  - [tournament.py](<../private_accounts/tournament.py>)
+  - [tournament_page.py](<../private_accounts/tournament_page.py>)
 - `tests/`
   - [test_binance_daily.py](<../tests/test_binance_daily.py>)
   - [test_contrarian.py](<../tests/test_contrarian.py>)
   - [test_discovery.py](<../tests/test_discovery.py>)
   - [test_quant.py](<../tests/test_quant.py>)
   - [test_strategy_registry.py](<../tests/test_strategy_registry.py>)
+  - [test_tournament.py](<../tests/test_tournament.py>)
 
 </details>
 

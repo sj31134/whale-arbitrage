@@ -14,10 +14,11 @@ def e(value):
 
 
 def navigation(base, active):
-    core_rooms = {"manager", "portfolio", "discover", "contrarian"}
+    core_rooms = {"manager", "tournament", "portfolio", "discover", "contrarian"}
     lab_rooms = {"research", "strategies", "quant"}
     items = [
         ("manager", "★ 종합 상황판", f"{base}/desk/manager"),
+        ("tournament", "🏆 최종 우승", base + "/tournament"),
         ("portfolio", "내 계좌·포트폴리오", base + "/portfolio"),
         ("discover", "신규 대장주 발굴", base + "/discover"),
         ("contrarian", "역발상·1종목 비대칭", base + "/contrarian"),
@@ -28,7 +29,7 @@ def navigation(base, active):
     items.extend((room, name, f"{base}/desk/{room}") for room, name in research.NAMES.items() if room != "manager")
     links = []
     for idx, (room, name, link) in enumerate(items):
-        if idx in (4, 7):
+        if idx in (5, 8):
             links.append('<span class="nav-sep" aria-hidden="true">|</span>')
         cls = ' class="nav-core"' if room in core_rooms else (' class="nav-lab"' if room in lab_rooms else "")
         cur = ' aria-current="page"' if room == active else ""
@@ -287,14 +288,15 @@ def manager_research(board, ordered, base):
 
 
 def manager_sections(directory, package, base, screen, *, ordered=None, research_update=True, position=None, frame="day"):
-    from . import live_valuation, research_page
+    from . import live_valuation, research_page, tournament_page
     book = live_valuation.read(package)
     board = intel.board(directory, package, quote_book=book) if research_update else None
     accounts = board["accounts"] if board else live_panel.portfolio_accounts(directory, package, quote_book=book)
+    banner = tournament_page.champion_banner(package, base)
     cockpit = research_page.action_cockpit(directory, package, base, quote_book=book, accounts=accounts)
     panel = live_panel.panel(directory, package, book, accounts, manager_base=base)
     panel += history_panel.position_history(package, accounts, base, position, frame, manager=True, screen=screen)
-    panel = cockpit + '<div class="account-workspace">' + panel + "</div>"
+    panel = banner + cockpit + '<div class="account-workspace">' + panel + "</div>"
     if board is not None:
         if ordered is None:
             ordered = sorted(reports.read(package).values(), key=lambda r:(r["as_of"],r["published"]), reverse=True)
@@ -320,7 +322,8 @@ def render(directory, package, base, csrf, room, css, show_all=False, feedback_o
         f'<div class="desk-title"><h1>{e(research.NAMES[room])}</h1><details><summary>담당 역할·판단 기준</summary>'
         f'<b>{e(persona.role)}</b><p>{e(persona.lens)}</p>'
         f'<p>{e(persona.reconsider)}</p></details></div>',
-        ('<nav class="manager-jumps" aria-label="매니저 화면 섹션"><a href="#action-cockpit">오늘 행동 답안지</a>'
+        ('<nav class="manager-jumps" aria-label="매니저 화면 섹션"><a href="#tournament-champions">🏆 최종 우승</a>'
+         '<a href="#action-cockpit">오늘 행동 답안지</a>'
          f'<a href="{e(base)}/discover">포트폴리오 외 신규 대장주 발굴</a>'
          f'<a href="{e(base)}/contrarian">역발상·1종목 비대칭 설계</a>'
          f'<a href="{e(base)}/strategies#mistake-notes">실전 복기·오답노트</a>'
