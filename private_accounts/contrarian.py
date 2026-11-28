@@ -57,6 +57,16 @@ AGENT_COT_POSTMORTEM = (
         why_fatal="1년 내 자본 회전과 시드 점프가 목표인 투자자에게 ‘촉매 없이 3~5년 횡보하는 만년 저평가주(Dead Money)’에 자산 60%가 묶이는 시간함정은 치명적 실패임.",
         hard_guardrail="최대 호흡 12개월 하드캡(13개월 초과·장기보유 문구 입력 시 즉시 ValueError 거부) + 전 종목 ‘12개월 내 확정 촉매 일정(Dated Catalyst)’ 및 ‘2분기(6개월) 무반응 시 시간손절(Time-Stop)’ 의무화.",
     ),
+    dict(
+        code="COT-ERR-04",
+        bias_name="최근 버블정점 붕괴(낙하하는 칼날) 착시 & 억지 2슬롯 쿼터 채우기",
+        cot_trace=(
+            "G2 풍산 제외 후 ‘한국 1종목 슬롯’을 억지로 채우려다, 5개월 전 아틀라스 로봇 버블로 5년 저점 대비 4.34배(822,000원) 급등 뒤 "
+            "-58.8% 폭락 중이며 20·60·120·200일선을 전부 하회하고 ROIC 4~5%에 머문 현대모비스(012330)를 현재가/5년저점(1.79배)만 보고 선별함."
+        ),
+        why_fatal="고점 버블(4.3배)의 88% 회복을 1년 목표가로 착각해 2028년 양산(시계 초과)·완성차 단가 압박·중국 공세가 겹친 하락 추세 칼날을 잡는 결과를 낳음.",
+        hard_guardrail="52주 고점/5년 저점 >3.6배이면서 60일선 아래인 버블 후유증(bubble_hangover) 및 20·60일선 동시 하회 칼날(falling_knife) 자동 0% 차단 · 적격 국내주 없으면 현금 유보.",
+    ),
 )
 
 EX_TENBAGGER_GRADUATES = (
@@ -325,9 +335,9 @@ GOVERNANCE_AUDIT = {
         "G1",
         "장병규 총수 대기업집단(사익편취 비상장 계열사 없음·9,000억 직접 소각)이나 인도 BGMI 과거 규제 차단·중국 텐센트/판호·단일 IP 의존 및 3Q 영업익 -35.5% 유의",
     ),
-    "012330": (
-        "G1",
-        "현대차그룹 지배구조 정점 회사(지배구조 개편 시나리오·대미 관세 모니터링 유의), 단 오너 사익편취 퇴직금/승계장벽/화약중대재해/종전 리스크 없음 + TSR 30%+ 소각",
+    "035900": (
+        "G0",
+        "박진영 CCO 창작·전문경영인 분리 + 비상장 사익편취 계열사 ZERO 및 40개월 가격 조정 완료(현재 RSI 단기과열 해소·20일선 부근 눌림목 대기)",
     ),
     "240810": (
         "G1",
@@ -447,12 +457,12 @@ CONTRARIAN_UNIVERSE = (
      "비접촉 산업용 원자현미경(AFM) 전 세계 독점 지위(점유율 1위) · 미세화될수록 기존 광학계측을 대체하는 물리적 병목 (Piotroski 3/3)",
      "반도체 중소형 장비주 일괄 매도로 52주 고점 대비 -42% 하락 (5년 저점 대비 2.15배)",
      "글로벌 파운드리 선단 계측 공정 내 AFM 채택 지연 공시"),
-    ("012330", "KR", "KRX", "KRW", "현대모비스", "greenblatt_catalyst", "backlog_float", 34, 3, 6,
-     "3Q26 매출 15.7조(+4.6%)·영업이익 9,141억(+17.2% YoY)·모듈 2분기 연속 흑자 + A/S OPM 25.5% + 의왕 아틀라스 로봇 액추에이터 프로토 라인 가동 및 TSR 30%+ 잔여 자사주 소각",
-     "3M 1차 점검(2027-02-28): 4Q 모듈 흑자 유지 및 자사주 소각 공시 확인 / 6M 본 Time-Stop(2027-05-28): 영업익 성장 훼손 시 본전이어도 교체",
-     "Piotroski 3/3 + G1(오너사익·방산중대재해 ZERO) + SOXX ρ=+0.07·NVO ρ=-0.111로 기존 AI 56% 한도 초과를 완화하면서 6대 관문 전원 통과 (RSI 52.0 · 5년 저점 1.77배)",
-     "완성차 피크아웃·대미 관세 우려로 52주 고점 대비 -55.9% 폭락하며 A/S 고마진·자사주 소각·로보틱스 액추에이터 가치 소외",
-     "모듈/핵심부품 분기 적자 재전환 또는 대미 고율 관세 재부과·TSR 30%+ 주주환원 축소 시"),
+    ("035900", "KR", "KOSDAQ", "KRW", "JYP Ent.", "calm_compounder", "net_cash", 33, 3, 6,
+     "3Q26 사상 최대 실적 증명 위에서 스트레이 키즈/트와이스/신인 2027 글로벌 스타디움 투어·MD 레버리지 및 40개월 조정 완료 후 RSI<68 눌림목 진입 대기",
+     "3M 1차 점검: 분기 공연/MD 매출 및 수익성 유지 확인 / 6M 본 Time-Stop: 투어/음반 레버리지 둔화 시 본전이어도 교체",
+     "무차입 순현금 + G0 거버넌스 청정 + 고ROIC IP 해자(Piotroski 3/3) + 2023-07 고점 대비 40개월 충분히 소화 — 단 현재 RSI 71 과열 해소 눌림목 대기",
+     "단기 급등으로 RSI 71 과열 브레이크 작동(20일선 +15.5% 이격 축소 대기)",
+     "핵심 아티스트 재계약 불발 또는 분기 투어 마진 훼손 시"),
     ("259960", "KR", "KRX", "KRW", "크래프톤", "greenblatt_catalyst", "net_cash", 32, 2, 6,
      "누적 영업이익 1.2조 역대 최대 위에서 4Q 3,000억 추가 소각(연간 9,000억) 및 향후 2~3분기 신작 글로벌 출시로 ‘3Q 영업익 -35.5% 일시 감속’ 돌파",
      "3M 1차 점검: 4Q 영업익 정상화 및 신작 트래픽 데이터 점검 / 6M 본 Time-Stop: 신작 부진·실적 정체 시 본전이어도 교체",
@@ -512,7 +522,7 @@ CONTRARIAN_UNIVERSE = (
     ("NVO", "US", "NYSE", "USD", "Novo Nordisk", "pabrai_dhandho", "backlog_float", 35, 3, 9,
      "3Q26 조정 영업이익 +27%(DKK 31.7B)·경구용 위고비 필 DKK 5.39B(미국 신규 처방 80%)로 FY26 가이던스 상향 확인 + 2027 초 CagriSema 및 Catalent 3개 공장 가동 램프업",
      "3M 1차 점검: 경구용 위고비 필 미국 처방 및 2027 초 CagriSema 허가 진행 추적 / 6M 본 Time-Stop: Catalent 증설 출하 가속 미확인 시 교체",
-     "3Q 조정 영업이익 +27%·가이던스 상향·5년 최저점 1.16배 + 20·60일선 회복(w_down 0.39) + 풍산(방산)과 상관계수 -0.120인 최고 비대칭 축 (Piotroski 3/3)",
+     "3Q 조정 영업이익 +27%·가이던스 상향·2024년 고점 대비 29개월 소화 완료(5년 저점 1.17x) + 20·60일선 돌파 확인 + AI 비상관(+0.07) 청정 축 (Piotroski 3/3)",
      "과거 약가 노이즈와 경쟁 우려로 5년 고점 대비 -71% 투매 후 5년 최저점(1.16배)에서 막 60일선 돌파 시작",
      "세마글루타이드 글로벌 처방 점유율 급감 또는 CagriSema 규제 중대 지연"),
     ("CCJ", "US", "NYSE", "USD", "Cameco", "druckenmiller_inflection", "backlog_float", 33, 3, 9,
@@ -679,12 +689,15 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
     high5y = max(max(hist_5y), high52)
     mult_5y_low = round(cur / max(low5y, 1e-6), 2)
     dd5y = round((cur / max(high5y, 1e-6) - 1) * 100, 1)
-    ex_tenbagger = mult_5y_low > EX_TENBAGGER_CEILING
 
     ma20 = sum(closes[-20:]) / 20
     ma60 = sum(closes[-60:]) / 60 if len(closes) >= 60 else ma20
     pct20 = (cur / ma20 - 1) * 100
     pct60 = (cur / ma60 - 1) * 100
+    peak52_mult = round(high52 / max(low5y, 1e-6), 2)
+    bubble_hangover = bool(peak52_mult > EX_TENBAGGER_CEILING and pct60 < 0)
+    falling_knife = bool(pct20 < -1.5 and pct60 < -3.0)
+    ex_tenbagger = bool(mult_5y_low > EX_TENBAGGER_CEILING or bubble_hangover)
     diffs = [b - a for a, b in zip(closes[-15:], closes[-14:])]
     up = sum(d for d in diffs if d > 0) / 14
     dn = sum(-d for d in diffs if d < 0) / 14
@@ -717,8 +730,10 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
     else:
         gap_pts -= 14.0
 
-    if pct60 < -8:
+    if pct20 > 0 and pct60 > 0:
         gap_pts += 3.0
+    elif falling_knife:
+        gap_pts -= 6.0
     elif pct60 > 15:
         gap_pts -= 4.0
 
@@ -756,7 +771,7 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
 
     solv_meta = SOLVENCY_TIERS[solv_key]
     overheated = bool(rsi >= 68.0 or (-dd52 < 10.0 and -dd5y < 15.0))
-    blocked = bool(overheated or ex_tenbagger or not solv_meta["ok"] or int(piotroski_3) < 2)
+    blocked = bool(overheated or ex_tenbagger or falling_knife or not solv_meta["ok"] or int(piotroski_3) < 2)
     shield_ok = bool(
         not blocked
         and int(piotroski_3) >= 2
@@ -775,8 +790,12 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         piotroski_3=piotroski_3,
         blocked=blocked,
     )
-    if ex_tenbagger:
+    if bubble_hangover:
+        live_fear = f"[버블 후유증 차단: 52주 고점이 5년 저점 대비 {peak52_mult:.1f}배 후 60일선 하회 하락 중 — 제외] {fear_txt}"
+    elif ex_tenbagger:
         live_fear = f"[기성 급등주 차단: 5년 저점 대비 {mult_5y_low:.1f}배 상승 — 제외] {fear_txt}"
+    elif falling_knife:
+        live_fear = f"[낙하하는 칼날 차단: 20·60일선 동시 하회({pct20:+.1f}%/{pct60:+.1f}%) — 추세 전환 대기] {fear_txt}"
     elif overheated:
         live_fear = f"[단기 과열(RSI {rsi:.0f}) — 조정 대기] {fear_txt}"
     else:

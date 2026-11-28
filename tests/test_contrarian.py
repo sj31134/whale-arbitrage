@@ -24,7 +24,7 @@ def test_contrarian_half_kelly_piotroski_and_dual_time_stop(tmp_path):
     now = datetime(2026, 11, 28, 19, 35, tzinfo=intelligence.KST)
 
     # 1. Verify CoT Post-Mortem registry, 6 <=12M archetypes & literature-backed academic research
-    assert len(contrarian.AGENT_COT_POSTMORTEM) == 3
+    assert len(contrarian.AGENT_COT_POSTMORTEM) == 4
     assert len(contrarian.ARCHETYPES) == 6
     assert "greenblatt_catalyst" in contrarian.ARCHETYPES and "nomad_ses" not in contrarian.ARCHETYPES
     assert all(contrarian.parse_horizon_months(a["horizon"]) <= 12 for a in contrarian.ARCHETYPES.values())
@@ -34,9 +34,9 @@ def test_contrarian_half_kelly_piotroski_and_dual_time_stop(tmp_path):
     universe_syms = {s[0] for s in contrarian.CONTRARIAN_UNIVERSE}
     assert universe_syms.isdisjoint({
         "000660", "003230", "267260", "298040", "012450", "NVDA", "MSFT", "AVGO", "LLY", "TSM",
-        "111770", "086280", "241560", "383220", "DECK", "ENTG",
+        "111770", "086280", "241560", "383220", "DECK", "ENTG", "012330",
     })
-    assert {"214150", "058470", "240810", "000100", "012330", "ACLS", "ONTO", "CELH", "FOUR", "LULU", "MOH"} <= universe_syms
+    assert {"214150", "058470", "240810", "000100", "035900", "ACLS", "ONTO", "CELH", "FOUR", "LULU", "MOH"} <= universe_syms
 
     with store.database(directory, True) as db:
         store.save(db, "kis", "main", (now - timedelta(days=1)).isoformat(), [("214150", "KRW", "50", "1135000")])
@@ -61,11 +61,21 @@ def test_contrarian_half_kelly_piotroski_and_dual_time_stop(tmp_path):
     p3_top = [c for c in doc["candidates"] if c["trap_shield_ok"] and c["piotroski_3"] == 3]
     assert len(p3_top) >= 10
 
-    # 2. CoT-ERR-01 Guardrail: stock already >3.6x above 5Y low is blocked to 0%
+    # 2. CoT-ERR-01 & COT-ERR-04 Guardrails: >3.6x run-up, recent bubble hangover, AND falling knives are blocked to 0%
     bars_1y = [200.0 - 0.3 * i for i in range(150)] + [150.0 for _ in range(102)]
     bars_5y_run = [20.0] * 50 + [150.0] * 200  # 150 / 20 = 7.5x > 3.6x ceiling
     already_ran = contrarian._score_candidate(contrarian.CONTRARIAN_UNIVERSE[0], bars_1y, 150.0, five_yr_closes=bars_5y_run)
     assert already_ran["ex_tenbagger"] and not already_ran["trap_shield_ok"] and already_ran["sizing"]["recommended_pct"] == 0.0
+
+    # COT-ERR-04a: Spiked 4.5x above 5Y low in past 52W, then crashed below 60MA (bubble hangover, even if cur/5Y_low <= 3.6)
+    bars_bubble_1y = [90.0 - 0.25 * i for i in range(200)] + [40.0 for _ in range(52)]
+    bubble_hang = contrarian._score_candidate(contrarian.CONTRARIAN_UNIVERSE[0], bars_bubble_1y, 35.0, five_yr_closes=[20.0] * 100 + bars_bubble_1y)
+    assert bubble_hang["ex_tenbagger"] and not bubble_hang["trap_shield_ok"] and bubble_hang["sizing"]["recommended_pct"] == 0.0
+
+    # COT-ERR-04b: Falling knife strictly below both 20MA (-1.5%+) and 60MA (-3.0%+)
+    bars_knife = [160.0] * 120 + [140.0 - 0.45 * i for i in range(132)]
+    knife_res = contrarian._score_candidate(contrarian.CONTRARIAN_UNIVERSE[0], bars_knife, 75.0, five_yr_closes=[85.0] * 100 + bars_knife)
+    assert not knife_res["trap_shield_ok"] and knife_res["sizing"]["recommended_pct"] == 0.0 and "낙하하는 칼날" in knife_res["crowd_fear"]
 
     # 3. CoT-ERR-02 & Half-Kelly Guardrails: BOTH 5~8% dilution AND >50% Full-Kelly overbetting raise ValueError
     bad_diluted = dict(top, sizing=dict(top["sizing"], recommended_pct=8.0))
