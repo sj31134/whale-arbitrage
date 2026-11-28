@@ -385,17 +385,17 @@ CONTRARIAN_UNIVERSE = (
      "PepsiCo DSD 유통 점유(64.6%) + Alani Nu 급성장 합산 매출 $847M(+17% YoY) 달성, 단 3Q 총마진 -450bps 압축 구간 (Piotroski 2/3 · 마진 반전 확인 필수)",
      "본 브랜드(-6%) 감속과 4Q 가이던스 부담으로 5년 고점 대비 -68% 폭락 (5년 저점 2.1배)",
      "북미 소매 스캐너 점유율 2분기 연속 하락 및 총마진 45% 하회 고착 시"),
-    ("FOUR", "US", "NYSE", "USD", "Shift4 Payments", "greenblatt_catalyst", "backlog_float", 32, 3, 6,
-     "이미 계약 완료된 수십억 달러 규모 스타디움·호텔·글로벌 면세 통합결제 백로그가 향후 2~3분기 내 실제 가동(Go-Live) 수수료로 전환",
-     "3M 1차 점검: 순결제거래액(E2E Volume) 및 자사주 소각 집행 추적 / 6M 본 Time-Stop: FCF 가이던스 미달 시 즉시 시간손절",
-     "스포츠 경기장·고급 호텔 특화 통합 결제 독점력 + 창업자 교체 불확실성 해소 및 대규모 자사주 소각 (Piotroski 3/3)",
-     "CEO 공직 지명 헤드라인 소음과 핀테크 멀티플 압축으로 5년 고점 대비 -62% 급락 (5년 저점 1.4배)",
-     "대형 엔터프라이즈 가맹점 이탈 급증 또는 인수 차입 부담 악화"),
+    ("FOUR", "US", "NYSE", "USD", "Shift4 Payments", "greenblatt_catalyst", "backlog_float", 33, 3, 6,
+     "3Q26 조정 FCF $200M(+42% YoY) 사상 최대·$190M 자사주 소각 직후 2027-01-01 개시 신규 $1.0B 자사주 매입 프로그램(시총 ~25%) + Global Blue $70M 시너지 실현",
+     "3M 1차 점검: 1/1 개시 $1B 자사주 매입 속도 및 GRLNF 성장률 확인 / 6M 본 Time-Stop: 연간 FCF 가이던스($465~475M) 하회 시 전량 교체",
+     "3Q26 매출 $1.3B(+12%)·FCF $200M(+42% YoY) 및 20·60일선 정배열(+13.5% vs 60MA) 복귀 + 2027-01-01 $1B 소각 대기 (Piotroski 3/3 · SOXX 상관 0.00)",
+     "여행/FX 환율 가이던스 소폭 하향 소음으로 5년 고점 대비 -62% 급락 (5년 저점 1.43배)",
+     "대형 엔터프라이즈 가맹점 이탈 급증 또는 $1B 자사주 소각 프로그램 축소 시"),
     ("FSLR", "US", "NASDAQ", "USD", "First Solar", "druckenmiller_inflection", "net_cash", 33, 3, 6,
-     "향후 6~9개월 내 미국 신규 공장 램프업 물량 인도 + 동남아 우회 중국산 패널 고율 관세 부과로 북미 AI 데이터센터 전력 직납 마진 급증",
-     "3M 1차 점검: 미국 신규 라인 출하량 및 수주 단가(ASP) 방어 확인 / 6M 본 Time-Stop: 정책 법안 불확실성 해소 및 ASP 방어 실패 시 시간손절",
-     "비중국 박막형(CdTe) 유틸리티 태양광 미국 내 독점 공급사 · 기확정 장기 수주잔고 + 순현금 (Piotroski 3/3)",
-     "보조금 축소 정치 헤드라인 공포에 패시브 투매가 쏟아지며 52주 고점 대비 -53% 폭락",
+     "3Q26 총마진 58%(+20%p YoY)·순이익 $571M(+25%) 실증 위에서 44GW($13.5B) 장기 수주 인도 + $500M 자사주 매입 및 미 무역법 Section 232 반사수혜 본격화",
+     "3M 1차 점검: 4Q 미국 모듈 출하 및 45X 세액공제 현금 수령 확인 / 6M 본 Time-Stop: 수주 단가(ASP) 훼손 시 즉시 교체",
+     "미국 내 80% 생산기지 기반 45X 수혜(GPM 58%) + 44GW 백로그($13.5B) + 순현금 $500M 자사주 매입 (Piotroski 3/3)",
+     "인도·해외 출하 가이던스 소폭 조정(-1GW) 공포에 52주 고점 대비 -53% 폭락 (5년 저점 2.3배)",
      "미국 제조 세액공제(45X) 전면 폐지 확정 또는 대규모 수주 계약 해지"),
     ("MOH", "US", "NYSE", "USD", "Molina Healthcare", "greenblatt_catalyst", "backlog_float", 32, 2, 6,
      "3Q26 Adj EPS $0.89 서프라이즈·FY26 최소 $5.25 바닥 확인 후 2027년 1월 메디케이드 요율 ~6~7% 리셋 + MAPD 적자사업 철수(+$1/sh)·$4/sh 마진 수확",
@@ -403,10 +403,10 @@ CONTRARIAN_UNIVERSE = (
      "마이클 버리 집중 보유 · 2027년 $9.50+/sh 수익 기반 구축 중인 메디케이드 복점 + 자사주 소각 (Piotroski 2/3 · MCR 92.9% 바닥 통과 중)",
      "4Q 플로리다 계약 초기 손실과 높은 MCR(92.9%)을 영구 훼손으로 오인해 5년 고점 대비 -51% 폭락 (5년 저점 1.5배)",
      "핵심 주정부 메디케이드 재계약 탈락 또는 2027 요율 5% 미만 하향 시"),
-    ("LULU", "US", "NASDAQ", "USD", "Lululemon Athletica", "burry_asymmetry", "net_cash", 33, 3, 6,
-     "향후 2개 분기 북미 신제품 라인업 리프레시 성적표 + 시총 대비 대규모 자사주 매입·소각 집행으로 극단적 저평가(PER 10배대) 해소",
-     "3M 1차 점검: 미주 동일매장매출 감소폭 축소 및 자사주 소각 속도(Ikenberry 효과) 점검 / 6M 본 Time-Stop: 미주 매출 턴어라운드 실패 시 본전이어도 교체",
-     "무차입 순현금 + 고ROIC 브랜드 파워 + 해외 고성장 및 공격적 자사주 소각 (Piotroski 3/3)",
+    ("LULU", "US", "NASDAQ", "USD", "Lululemon Athletica", "burry_asymmetry", "net_cash", 28, 1, 6,
+     "2Q FY26 미주 동일매장매출 -12%·전체 매출 가이던스 -5~-7% 하향으로 펀더멘털 감속 중(신규 CEO 하이디 오닐 턴어라운드 및 3Q 실적 반전 확인 전 진입 보류)",
+     "3M 1차 점검: 미주 동일매장매출 감소폭 -5% 이내 축소 확인 전까지 진입 보류 / 진입 후 6M 본 Time-Stop 적용",
+     "무차입 순현금·국제 고성장에도 2Q FY26 미주 -12%·영업마진 18.8% 하락으로 Piotroski 기대오차 1/3점 하락(가치함정 경보로 자동 차단 대상)",
      "북미 성장 둔화 공포로 5년 고점 대비 -79% 폭락하며 5년 최저점(1.18배) 기록",
      "매출총이익률 55% 하회 또는 재고 덤핑 할인 고착화"),
     ("BABA", "US", "NYSE", "USD", "Alibaba Group", "burry_asymmetry", "net_cash", 32, 3, 6,
@@ -415,12 +415,12 @@ CONTRARIAN_UNIVERSE = (
      "마이클 버리 집중 보유 · 막대한 순현금 하방 방어막 + 주당가치 10% 끌어올리는 자사주 소각 엔진 (Piotroski 3/3)",
      "중국 매크로 혐오로 고점 대비 -49% 폭락 (5년 저점 대비 1.4배 청산가치 수준)",
      "자사주 소각 중단 또는 핵심 커머스 잉여현금흐름 급감"),
-    ("NVO", "US", "NYSE", "USD", "Novo Nordisk", "pabrai_dhandho", "backlog_float", 33, 3, 9,
-     "향후 6~9개월 내 신규 인수 충전 공장(Catalent) 본격 가동에 따른 위고비 공급 병목 해소 처방량 점프 및 후속 비만약 허가 모멘텀",
-     "3M 1차 점검: 미국 주간 GLP-1 신규 처방(NBRx) 반등 및 신규 공장 출하 점검 / 6M 본 Time-Stop: 공장 가동 후에도 처방 가속 미확인 시 교체",
-     "글로벌 GLP-1 원료의약품(API) 증설 장벽과 전 세계 당뇨·비만 복점 고마진 캐시카우 (Piotroski 3/3)",
-     "임상 수치 기대치 미달·약가 노이즈로 5년 고점 대비 -71% 폭락하며 5년 최저점(1.14배) 회귀",
-     "세마글루타이드 글로벌 처방 점유율 급감 또는 중대 안전성 결함"),
+    ("NVO", "US", "NYSE", "USD", "Novo Nordisk", "pabrai_dhandho", "backlog_float", 35, 3, 9,
+     "3Q26 조정 영업이익 +27%(DKK 31.7B)·경구용 위고비 필 DKK 5.39B(미국 신규 처방 80%)로 FY26 가이던스 상향 확인 + 2027 초 CagriSema 및 Catalent 3개 공장 가동 램프업",
+     "3M 1차 점검: 경구용 위고비 필 미국 처방 및 2027 초 CagriSema 허가 진행 추적 / 6M 본 Time-Stop: Catalent 증설 출하 가속 미확인 시 교체",
+     "3Q 조정 영업이익 +27%·가이던스 상향·5년 최저점 1.16배 + 20·60일선 회복(w_down 0.39) + 풍산(방산)과 상관계수 -0.120인 최고 비대칭 축 (Piotroski 3/3)",
+     "과거 약가 노이즈와 경쟁 우려로 5년 고점 대비 -71% 투매 후 5년 최저점(1.16배)에서 막 60일선 돌파 시작",
+     "세마글루타이드 글로벌 처방 점유율 급감 또는 CagriSema 규제 중대 지연"),
     ("CCJ", "US", "NYSE", "USD", "Cameco", "druckenmiller_inflection", "backlog_float", 33, 3, 9,
      "러시아 농축우라늄 수입 금지 본격 발효 및 향후 6~12개월 내 서방 유틸리티·빅테크 원전 장기 우라늄 구매계약(Term) 체결 집중",
      "3M 1차 점검: 분기 장기 계약 단가(Term Price) 상승 및 신규 계약량 확인 / 6M~9M 본 Time-Stop: 장기 계약 수주 확대 미확인 시 교체",
@@ -658,9 +658,10 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
 
     solv_meta = SOLVENCY_TIERS[solv_key]
     overheated = bool(rsi >= 68.0 or (-dd52 < 10.0 and -dd5y < 15.0))
-    blocked = bool(overheated or ex_tenbagger or not solv_meta["ok"])
+    blocked = bool(overheated or ex_tenbagger or not solv_meta["ok"] or int(piotroski_3) < 2)
     shield_ok = bool(
         not blocked
+        and int(piotroski_3) >= 2
         and essence >= 30
         and asymmetry_ratio >= arch["min_asymmetry"]
         and margin_pct >= 25.0
@@ -701,7 +702,11 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         piotroski_label=(
             "Piotroski 3/3 · 기대오차(수익성·현금·백로그 동시 개선)"
             if int(piotroski_3) >= 3
-            else "Piotroski 2/3 · 마진/수주 과도기 (3개월 1차 실적 반등 필수)"
+            else (
+                "Piotroski 2/3 · 마진/수주 과도기 (3개월 1차 실적 반등 필수)"
+                if int(piotroski_3) == 2
+                else "Piotroski 1/3 · 실적 감속 가치함정 경보 (신규 진입 차단)"
+            )
         ),
         catalyst_months=cat_months,
         catalyst_12m=catalyst_12m,

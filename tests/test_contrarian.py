@@ -47,8 +47,11 @@ def test_contrarian_half_kelly_piotroski_and_dual_time_stop(tmp_path):
         contrarian.validate_contrarian_invariants(cand)
         assert cand["catalyst_months"] <= contrarian.MAX_HORIZON_MONTHS
         assert cand["catalyst_12m"] and cand["time_stop"]
-        assert cand["piotroski_3"] in (2, 3)
+        assert cand["piotroski_3"] in (1, 2, 3)
+        if cand["symbol"] == "LULU":
+            assert not cand["trap_shield_ok"] and cand["sizing"]["recommended_pct"] == 0.0
         if cand["trap_shield_ok"]:
+            assert cand["piotroski_3"] >= 2
             assert 25.0 <= cand["sizing"]["recommended_pct"] <= 50.0
             assert 0.0 < cand["sizing"]["kelly_half_pct"] < cand["sizing"]["kelly_full_pct"]
     top = doc["candidates"][0]
