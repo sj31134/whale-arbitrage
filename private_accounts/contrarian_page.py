@@ -189,8 +189,16 @@ def _candidate_card(rank, item, is_held, base):
     p3_badge = (
         f'<span class="badge-pass">Piotroski {p3}/3 · 기대오차 우위</span>'
         if p3 >= 3
-        else f'<span class="badge-warn">Piotroski {p3}/3 · 3개월 확인 필수</span>'
+        else (
+            f'<span class="badge-warn">Piotroski {p3}/3 · 3개월 확인 필수</span>'
+            if p3 == 2
+            else '<span class="badge-warn">Piotroski 1/3 · 가치함정 차단</span>'
+        )
     )
+    gtier = item.get("gov_tier", "G1")
+    gbadge_cls = "badge-pass" if gtier == "G0" else ("badge-info" if gtier == "G1" else "badge-warn")
+    gov_badge = f'<span class="{gbadge_cls}">{e(gtier)} · {"청정(50%)" if gtier == "G0" else ("주의(≤35%)" if gtier == "G1" else "고위험(≤25%캡)")}</span>'
+    gnote = item.get("gov_note", "5대 비재무 리스크 점검 대상")
     cat_txt = item.get("catalyst_12m", "")
     tstop_txt = item.get("time_stop", "")
     prefill = _research_prefill(
@@ -203,8 +211,8 @@ def _candidate_card(rank, item, is_held, base):
         target=item["target_price"],
         bull=item["bull_price"],
         url=item["source_url"],
-        catalyst=f"[{cat_m}개월 내 촉매 · Piotroski {p3}/3] {cat_txt}",
-        kill_switch=f"[Time-Stop] {tstop_txt} / [본질훼손] {item['kill_switch']}",
+        catalyst=f"[{cat_m}개월 내 촉매 · Piotroski {p3}/3 · {gtier}] {cat_txt}",
+        kill_switch=f"[Time-Stop] {tstop_txt} / [거버넌스·본질훼손] {item['kill_switch']}",
         months=cat_m,
     )
     builder_params = urlencode(dict(
@@ -213,30 +221,31 @@ def _candidate_card(rank, item, is_held, base):
         pb_name=item["name"],
         pb_arch=item["archetype"],
         pb_solvency=item.get("solvency_tier", "backlog_float"),
+        pb_gov=gtier,
         pb_fscore=str(p3),
         pb_entry=str(item["price"]),
         pb_floor=str(item["floor_price"]),
         pb_target=str(item["target_price"]),
         pb_horizon=f"{max(3, cat_m - 3)}~{cat_m}개월",
-        pb_catalyst=cat_txt[:260],
-        pb_tstop=tstop_txt[:220],
-        pb_crowd=item["crowd_fear"][:240],
-        pb_insight=item["moat_essence"][:260],
-        pb_kill=item["kill_switch"][:220],
+        pb_catalyst=cat_txt[:240],
+        pb_tstop=tstop_txt[:200],
+        pb_crowd=item["crowd_fear"][:220],
+        pb_insight=item["moat_essence"][:240],
+        pb_kill=item["kill_switch"][:200],
         pb_url=item["source_url"],
     ))
     builder_href = e(base + "/contrarian?" + builder_params + "#playbook-builder")
     tranche_line = (
-        f'<b>⑤ 과열·기성급등 브레이크:</b> 지금 추격 금지 · 2차 조정선({_fmt_px(t2, ccy)}) 도달 대기'
-        if (overheated or ex_tb)
-        else f'<b>⑤ Half-Kelly 2축 압축 매집 ({e(item["horizon"])}):</b> '
-        f'단독 상한 50% 내 배정 비중 <b>{sz["recommended_pct"]:.0f}%</b> (Half-Kelly 수식 {sz.get("kelly_half_pct", 0):.1f}%) 3회 투입 — '
+        f'<b>⑥ 과열·함정·기성급등 브레이크:</b> 지금 추격 금지 · 재검토/조정선({_fmt_px(t2, ccy)}) 대기'
+        if (overheated or ex_tb or p3 < 2)
+        else f'<b>⑥ Half-Kelly · {e(gtier)} 상한 매집 ({e(item["horizon"])}):</b> '
+        f'상한 적용 배정 비중 <b>{sz["recommended_pct"]:.0f}%</b> (Half-Kelly 수식 {sz.get("kelly_half_pct", 0):.1f}%) 3회 투입 — '
         f'1차 {_fmt_px(t1, ccy)}(35%) &gt; 2차 투매 {_fmt_px(t2, ccy)}(40%) &gt; 3차 바닥 {_fmt_px(t3, ccy)}(25%)'
     )
     return (
         f'<article class="era-card">'
         f'<div class="spread"><div><span class="badge-info">#{rank} · {e(item["market"])}:{e(item["venue"])} · {cat_m}개월 내 승부</span> '
-        f'{shield_badge} {p3_badge}{held_badge}</div>'
+        f'{shield_badge} {p3_badge} {gov_badge}{held_badge}</div>'
         f'<strong>괴리·촉매 총점 {item["total"]:.1f} / 100</strong></div>'
         f'<h3>{e(item["name"])} <small>({e(item["symbol"])} · {e(item["archetype_badge"])})</small></h3>'
         f'<p><b>현재가 {_fmt_px(item["price"], ccy)}</b> '
@@ -245,17 +254,18 @@ def _candidate_card(rank, item, is_held, base):
         f'<b>12개월 내 목표가 {_fmt_px(item["target_price"], ccy)}</b>(+{item["upside_pct"]:.1f}%) · '
         f'강세 오버슈팅 <b>{_fmt_px(item["bull_price"], ccy)}</b> → '
         f'<b>비대칭 손익배수 {item["asymmetry"]:.2f}배</b> · 안전마진 <b>{item["margin_pct"]:.1f}%</b><br>'
-        f'<span class="badge-pass">권장 Half-Kelly 비중: <b>{e(sz["grade_label"])}</b></span> '
-        f'<small>(Half-Kelly 수식 {sz.get("kelly_half_pct", 0):.1f}% · Full {sz["kelly_full_pct"]:.1f}% · {e(sz["portfolio_guide"])})</small></p>'
+        f'<span class="badge-pass">권장 비중: <b>{e(sz["grade_label"])}</b></span> '
+        f'<small>(Half-Kelly {sz.get("kelly_half_pct", 0):.1f}% · 5대리스크 상한 {sz.get("cap_pct", 50):.0f}%)</small></p>'
         + _gap_bars(item["scores"])
         + '<div class="era-lesson">'
         f'<b>★ [필수] 향후 {cat_m}개월 내 강제 재평가 촉매:</b> {e(cat_txt)}<br>'
         f'<b>① 다수의 현재 편견·공포:</b> {e(item["crowd_fear"])}<br>'
         f'<b>② 대중이 놓친 독점 본질:</b> {e(item["moat_essence"])}<br>'
         f'<b>③ 무차입 집중 생존력:</b> {e(solv_lbl)}<br>'
-        f'<b>④ 시간손절(Time-Stop · 자금 묶임 방지):</b> {e(tstop_txt)}<br>'
+        f'<b>④ 5대 비재무 리스크(오너·승계·정부·산업·글로벌):</b> [{e(gtier)}] {e(gnote)}<br>'
+        f'<b>⑤ 시간손절(Time-Stop · 자금 묶임 방지):</b> {e(tstop_txt)}<br>'
         f'{tranche_line}<br>'
-        f'<b>⑥ 본질 훼손 즉시 철회(Kill-Switch):</b> {e(item["kill_switch"])}'
+        f'<b>⑦ 본질 훼손 즉시 철회(Kill-Switch):</b> {e(item["kill_switch"])}'
         '</div>'
         f'<div class="spread"><a href="{e(item["source_url"])}" target="_blank" rel="noreferrer noopener">원문 시세·공시 확인 ↗</a>'
         f'<div><a class="chip" href="{builder_href}">1년 승부 집중계약서 설계 ↓</a> '
@@ -275,6 +285,11 @@ def _builder_section(base, csrf, query, saved):
         f'<option value="{e(k)}"{" selected" if def_solv == k else ""}>{e(v["label"])}</option>'
         for k, v in contrarian.SOLVENCY_TIERS.items()
     )
+    def_gov = str(q.get("pb_gov", "G1"))
+    gov_opts = "".join(
+        f'<option value="{k}"{" selected" if def_gov == k else ""}>{e(v["label"])}</option>'
+        for k, v in contrarian.GOVERNANCE_TIERS.items()
+    )
     def_fscore = str(q.get("pb_fscore", "3"))
     fscore_opts = "".join(
         f'<option value="{v}"{" selected" if def_fscore == v else ""}>{lbl}</option>'
@@ -293,6 +308,8 @@ def _builder_section(base, csrf, query, saved):
         t1, t2, t3 = p["tranches"]
         solv_key = p.get("solvency", "backlog_float")
         p3_val = int(p.get("piotroski_3", 2))
+        gtier_p = p.get("gov_tier", "G1")
+        gnote_p = p.get("gov_note", contrarian.GOVERNANCE_AUDIT.get(p["symbol"], ("G1", "5대 비재무 리스크 점검 대상"))[1])
         solv_lbl = p.get("solvency_label", contrarian.SOLVENCY_TIERS.get(solv_key, contrarian.SOLVENCY_TIERS["backlog_float"])["label"])
         sz = p.get("sizing") or contrarian.compute_position_sizing(
             upside_pct=p["upside_pct"],
@@ -303,7 +320,7 @@ def _builder_section(base, csrf, query, saved):
         if solv_key == "distressed_block":
             status_badge = '<span class="badge-warn">집중 부적격 (시간함정·희석 위험 · 0% 기각)</span>'
         elif p["passes"]:
-            status_badge = '<span class="badge-pass">Half-Kelly 2축 적격 · 12M 촉매 통과</span>'
+            status_badge = f'<span class="badge-pass">Half-Kelly 2축 적격 · {e(gtier_p)} 통과</span>'
         else:
             status_badge = '<span class="badge-warn">기대오차/비대칭 우위 부족 · 추가 할인 대기</span>'
         grade_lbl = sz.get("grade_label") or f"{sz['recommended_pct']:.0f}%"
@@ -319,7 +336,7 @@ def _builder_section(base, csrf, query, saved):
             target=p["target"],
             bull=p["bull"],
             url=p["url"],
-            catalyst=f"[{p['horizon']} 촉매 · Piotroski {p3_val}/3] {cat_line}",
+            catalyst=f"[{p['horizon']} 촉매 · Piotroski {p3_val}/3 · {gtier_p}] {cat_line}",
             kill_switch=f"[Time-Stop] {tstop_line} / {p['kill_switch']}",
             months=p.get("horizon_months", 9),
         )
@@ -330,10 +347,11 @@ def _builder_section(base, csrf, query, saved):
             f'<p><b>진입 기준가 {_fmt_px(p["entry"], ccy)}</b> · 하방 바닥 <b>{_fmt_px(p["floor"], ccy)}</b>(-{p["downside_pct"]:.1f}%) · '
             f'<b>12개월 내 목표가 {_fmt_px(p["target"], ccy)}</b>(+{p["upside_pct"]:.1f}%) → '
             f'<b>비대칭 배수 {p["asymmetry"]:.2f}배</b> · 안전마진 <b>{p["margin_pct"]:.1f}%</b> · 승부 기한 <b>{e(p["horizon"])}</b> · <b>Piotroski {p3_val}/3</b><br>'
-            f'<span class="badge-pass">권장 Half-Kelly 비중: <b>{e(grade_lbl)}</b></span> '
-            f'<small>(Half-Kelly {sz.get("kelly_half_pct", 0):.1f}% · Full {sz.get("kelly_full_pct", 0):.1f}% · 재무생존: {e(solv_lbl)})</small></p>'
+            f'<span class="badge-pass">권장 비중: <b>{e(grade_lbl)}</b></span> '
+            f'<small>(Half-Kelly {sz.get("kelly_half_pct", 0):.1f}% · 상한 {sz.get("cap_pct", 50):.0f}% · 재무생존: {e(solv_lbl)})</small></p>'
             f'<p><b>내림차순 3단 집중매집표:</b> 1차 진입(35%) <b>{_fmt_px(t1, ccy)}</b> &gt; 2차 군중투매(40%) <b>{_fmt_px(t2, ccy)}</b> &gt; 3차 바닥완성(25%) <b>{_fmt_px(t3, ccy)}</b></p>'
             f'<p><b>★ 12개월 내 확정 촉매:</b> {e(cat_line)}<br>'
+            f'<b>5대 비재무 리스크([{e(gtier_p)}]):</b> {e(gnote_p)}<br>'
             f'<b>시간손절(Time-Stop):</b> {e(tstop_line)}<br>'
             f'<b>대중의 오해:</b> {e(p["crowd_view"])} / <b>독점 인사이트:</b> {e(p["variant_insight"])}<br>'
             f'<b>본질 훼손 철회 조건(Kill-Switch):</b> {e(p["kill_switch"])}</p>'
@@ -353,6 +371,7 @@ def _builder_section(base, csrf, query, saved):
         f'<label>종목명<input name="name" required maxlength="80" value="{e(q.get("pb_name", ""))}" placeholder="예: 리노공업, 원익IPS, Onto Innovation"></label>'
         f'<label>적용할 1년 승부 대가 아키타입 (6종)<select name="archetype">{arch_opts}</select></label>'
         f'<label>무차입 Half-Kelly 재무생존 등급<select name="solvency">{solv_opts}</select></label>'
+        f'<label>5대 비재무 리스크(오너·승계·정부·산업·글로벌)<select name="gov_tier">{gov_opts}</select></label>'
         f'<label>Piotroski 기대오차 관문 (가치함정 57% 차단)<select name="piotroski_3">{fscore_opts}</select></label>'
         f'<label>현재 진입 기준가격<input name="entry" type="number" min="0" step="any" required value="{e(q.get("pb_entry", ""))}"></label>'
         f'<label>하방 콘크리트 바닥가 (순현금·청산가치·수주 근거)<input name="floor" type="number" min="0" step="any" required value="{e(q.get("pb_floor", ""))}"></label>'

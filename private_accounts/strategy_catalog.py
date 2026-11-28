@@ -446,7 +446,15 @@ MISTAKE_NOTEBOOK = (
         category="선행연구 통합 · Half-Kelly & Piotroski 기대오차",
         mistake="Full Kelly(75% 단독) 적용 시 μ 추정오차(분산 대비 10~20배 치명적) 및 1종목 우측 왜도 패배(73% T-Bill 하회) 위험 + 3Q26 실적 미확인 편입",
         why_wrong="MacLean·Thorp·Ziemba(Half-Kelly: 성장률 75% 보존·분산 50% 축소)와 Piotroski(저PBR 중 57% 가치함정)에 따라 3Q26 실제 실적·수주 검증이 필수임",
-        system_patch="Half-Kelly 상한 ≤50%(서로 다른 촉매 2축 압축) + Piotroski 3점 기대오차 관문 도입 및 Q3 실증(리노공업·원익IPS·풍산·ONTO 3/3 vs 클래시스 2/3) 반영 완료",
+        system_patch="Half-Kelly 상한 ≤50%(서로 다른 촉매 2축 압축) + Piotroski 3점 기대오차 관문 도입 및 Q3 실증(LULU 1/3 · 휴젤 2/3 자동 하향) 반영 완료",
+    ),
+    dict(
+        id="GOV-20261128-05",
+        market="KR·US",
+        category="5대 비재무·거버넌스 리스크 누락",
+        mistake="풍산(103140)·리노공업(058470) 선별 시 오너리스크(388억 퇴직금·7천억 블록딜)·승계장벽(미국국적 장남/매각설)·방사청 규제·중대재해·종전 피크아웃을 정량 감점 없이 38~41%로 배정",
+        why_wrong="재무제표와 퀀트 상관계수가 좋아도 한국 특유의 지배주주 사익·승계 교착·정부 인허가/파업 리스크가 주가 재평가를 영구 억누르거나 급락 폭탄을 유발함",
+        system_patch="GOVERNANCE_TIERS(G0 청정 50% / G1 주의 -4점·35% 캡 / G2 고위험 -10점·25% 하드캡) 런타임 상한 강제 및 풍산(25% 캡) 즉시 하향 보정",
     ),
 )
 

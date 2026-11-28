@@ -72,8 +72,11 @@ def test_contrarian_half_kelly_piotroski_and_dual_time_stop(tmp_path):
     with pytest.raises(ValueError, match="분산 비중"):
         contrarian.validate_contrarian_invariants(bad_diluted)
     bad_overbet = dict(top, sizing=dict(top["sizing"], recommended_pct=65.0))
-    with pytest.raises(ValueError, match="Half-Kelly 단일 상한"):
+    with pytest.raises(ValueError, match="단일 상한"):
         contrarian.validate_contrarian_invariants(bad_overbet)
+    bad_g2_cap = dict(top, gov_tier="G2", sizing=dict(top["sizing"], recommended_pct=35.0))
+    with pytest.raises(ValueError, match="단일 상한"):
+        contrarian.validate_contrarian_invariants(bad_g2_cap)
 
     # 4. CoT-ERR-03 Guardrail: >12M multi-year buy-and-hold horizons are strictly rejected
     for bad_horizon in ("24개월", "36개월", "3년", "5~10년 존버", "장기보유"):
@@ -107,15 +110,15 @@ def test_contrarian_half_kelly_piotroski_and_dual_time_stop(tmp_path):
         ))
     saved = contrarian.save_playbook(pkg, dict(
         market="KR", symbol="058470", name="리노공업", archetype="hynix_bottleneck",
-        solvency="net_cash", piotroski_3="3", win_prob="65",
+        solvency="net_cash", gov_tier="G2", piotroski_3="3", win_prob="65",
         entry="52300", floor="44000", target="118000", horizon="6~9개월",
         catalyst_12m="파업 종료 후 4Q 출하 정상화 + 부산 에코델타시티(EDC) 2배 신공장 가동 및 AI 소켓 수주",
         time_stop="3M 1차 점검(4Q OPM 45%+ 정상화 미확인 시 조기 철수) / 6M 본 Time-Stop(EDC 매출 미확인 시 전량 교체)",
         crowd_view="스마트폰 업황 둔화·일회성 파업 감익으로 -59% 과매도", variant_insight="OPM 47.7% + 2배 증설 가동 임박",
         kill_switch="초미세 소켓 점유율 하락", url="https://dart.fss.or.kr/",
     ))
-    assert saved["passes"] and saved["horizon_months"] == 9 and saved["piotroski_3"] == 3
-    assert 38.0 <= saved["sizing"]["recommended_pct"] <= 50.0
+    assert saved["passes"] and saved["horizon_months"] == 9 and saved["piotroski_3"] == 3 and saved["gov_tier"] == "G2"
+    assert saved["sizing"]["recommended_pct"] == 25.0
     t1, t2, t3 = [float(x) for x in saved["tranches"]]
     assert t1 > t2 > t3 >= float(saved["floor"])
 

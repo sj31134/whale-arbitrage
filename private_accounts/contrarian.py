@@ -301,6 +301,96 @@ SOLVENCY_TIERS = {
     ),
 }
 
+# 5-Axis Non-Financial & Structural Risk Audit (Owner · Succession · Government/DAPA · Sector Peak · Global/Tariff/Debt)
+GOVERNANCE_TIERS = {
+    "G0": dict(label="G0 청정 · 오너·승계·정부 5대 리스크 낮음 (Half-Kelly 상한 50% 유지)", penalty=0.0, cap_pct=50.0),
+    "G1": dict(label="G1 주의 · 단일 거버넌스·규제·부채 유의 (-4점 · 단일 상한 35%)", penalty=4.0, cap_pct=35.0),
+    "G2": dict(label="G2 고위험 · 오너사익/승계장벽·정부규제/파업 중첩 (-10점 · 상한 25% 하드캡)", penalty=10.0, cap_pct=25.0),
+}
+
+GOVERNANCE_AUDIT = {
+    "103140": (
+        "G2",
+        "오너(류진 회장 풍산홀딩스 388억 퇴직금·지주사 중심 배당환류) · 승계(장남 미국 국적 유지·방위사업법 승계장벽·매각설) · 정부(방사청 원가통제·수출허가·화약공정 중대재해처벌법) · 방산(종전 시 155mm 피크아웃) · 글로벌(구리 메탈로스 120억·미 PMC 수요 변동)",
+    ),
+    "058470": (
+        "G2",
+        "오너/승계(창업주 1950년생 2026년 9.18% ~7천억 블록딜·2세 승계 불확실 및 매각설) · 노사/규제(창사 48년 첫 무기한 파업 11월 타결 후 성과급 불씨 잔존)",
+    ),
+    "000100": (
+        "G0",
+        "유한재단 공익법인(15~16%) 지배 및 1969년 이래 평사원 출신 전문경영인 내부승계로 오너·승계 리스크 ZERO (FDA/EMA 승인 완료)",
+    ),
+    "259960": (
+        "G1",
+        "장병규 총수 대기업집단(사익편취 비상장 계열사 없음·9,000억 직접 소각)이나 인도 BGMI 과거 규제 차단·중국 텐센트/판호·단일 IP 의존 유의",
+    ),
+    "240810": (
+        "G1",
+        "원익홀딩스 지주계열 구조 및 삼성·하이닉스 국내 메모리 Capex 단일 주기 편중 리스크 유의",
+    ),
+    "214150": (
+        "G1",
+        "최대주주 베인캐피탈(PEF) 지분 엑시트 오버행 및 중국·미국 미용의료기기 인허가/수입통관 규제 유의",
+    ),
+    "145020": (
+        "G1",
+        "사모펀드 컨소시엄 지배구조 + 미국 보툴리눔 톡신 유통 파트너(CSO) 전환 과정 3Q26 영업익 -61.8% 일시 감속(Piotroski 2/3)",
+    ),
+    "014680": (
+        "G1",
+        "범삼성 조동혁 회장 지배·승계 과제 및 전방 반도체/배터리 고객사 단가 협상력 유의",
+    ),
+    "140860": (
+        "G1",
+        "창업주 지배체제 승계 과제 및 선단 파운드리 장비 발주 시기 연동성 유의",
+    ),
+    "298380": (
+        "G1",
+        "글로벌 빅파마 기술이전 옵션 행사 타이밍 의존 및 바이오 R&D 자금조달(희석) 경계",
+    ),
+    "ONTO": (
+        "G0",
+        "미국 독립 상장·기관 분산 지배(오너/승계 리스크 없음 · 무차입), 단 미·중 반도체 장비 수출통제 정책 체크",
+    ),
+    "ACLS": (
+        "G0",
+        "미국 독립 상장·기관 분산 지배(오너/승계 리스크 없음 · 무차입), 단 SiC/중국향 장비 통제 유의",
+    ),
+    "CELH": (
+        "G0",
+        "미국 독립 상장·PepsiCo 전략 파트너(지배구조 깔끔), 단 유통사 재고 정책 변경 노출",
+    ),
+    "LULU": (
+        "G0",
+        "북미 전문경영 상장사(거버넌스 청정), 단 2Q FY26 미주 -12% 펀더멘털 감속으로 Piotroski 1/3 차단",
+    ),
+    "FOUR": (
+        "G1",
+        "창업자 J. Isaacman NASA 국장 취임 사임 및 의결권 정리 완료(승계 해소), 단 3.7x 순부채 레버리지·Global Blue M&A 통합 리스크 유의",
+    ),
+    "FSLR": (
+        "G1",
+        "재무·지배구조 청정하나 미국 IRA Section 45X 세액공제·Section 232 관세 등 미국 정권/의회 정책 직결",
+    ),
+    "MOH": (
+        "G1",
+        "전문경영 상장사이나 미국 주정부 메디케이드 요율·연방 CMS/ACA 정치 예산에 100% 직결",
+    ),
+    "BABA": (
+        "G1",
+        "중국 빅테크 규제·VIE 지배구조·미중 관세/상장폐지 지정학 헤드라인 리스크 상존",
+    ),
+    "NVO": (
+        "G1",
+        "Novo Nordisk 재단 안정 지배(행동주의 방패) · 미 관세 면제 교환 확보, 단 TrumpRx/Medicare 약가 인하 및 Eli Lilly 복점 경쟁 유의",
+    ),
+    "CCJ": (
+        "G1",
+        "캐나다 분산 상장·서방 에너지 안보 수혜, 단 원전 인허가 규제 및 광산 환경/침수 리스크 유의",
+    ),
+}
+
 # 20 High-Velocity 12-Month Catalyst Candidates verified against Q3 2026 filings & Piotroski Expectation Error (0..3)
 # (sym, market, venue, ccy, name, arch_id, solv_key, essence[0..35], piotroski_3[1..3], cat_months[<=12], catalyst_12m, time_stop, moat_essence, crowd_fear, kill_switch)
 CONTRARIAN_UNIVERSE = (
@@ -335,12 +425,12 @@ CONTRARIAN_UNIVERSE = (
      "TSMC·삼성·하이닉스 선단 공정 필수 초고순도 과산화수소·프리커서 과점 + 이차전지 기저 바닥 통과 (Piotroski 3/3)",
      "비주력 이차전지 소재 우려에 가려 52주 고점 대비 -43% 하락 (5년 저점 대비 2.1배)",
      "선단 파운드리향 핵심 소재 공급 점유율 축소 공시"),
-    ("145020", "KR", "KRX", "KRW", "휴젤", "calm_compounder", "net_cash", 33, 3, 6,
-     "미국 FDA 허가 이후 현지 파트너사 본판매 재주문(Re-order) 물량이 향후 2~3분기 수출 통관 데이터와 영업이익으로 본격 반영",
-     "3M 1차 점검: 월별 톡신 북미향 통관 수출 데이터 우상향 확인 / 6M 본 Time-Stop: 2개 분기 연속 북미 선적 증가 미확인 시 교체",
-     "국내 유일 미국·유럽·중국 3대 톡신 시장 동시 진입 완료 + 무차입 순현금 고마진 수출 구조 (Piotroski 3/3)",
-     "과거 소송 피로감과 내수 보톡스 경쟁 선입견으로 5년 고점 대비 -44% 아래 정체",
-     "미국·중국 분기 수출액 역성장 전환 또는 FDA 품질 이슈 발생"),
+    ("145020", "KR", "KRX", "KRW", "휴젤", "calm_compounder", "net_cash", 31, 2, 6,
+     "미국 FDA 허가 이후 현지 파트너(CSO) 개편·기존 재고 정산(3Q26 영업익 181억 -61.8% 일시 감속) 마무리 및 향후 2~3분기 북미 재주문 반등 확인",
+     "3M 1차 점검: 월별 톡신 북미향 통관 회복 및 4Q 영업익 정상화 확인(미확인 시 조기 철수) / 6M 본 Time-Stop: 연속 정체 시 교체",
+     "국내 유일 미국·유럽·중국 3대 톡신 허가 완료 + 무차입 순현금 구조이나 3Q26 미국 파트너 개편 일시 감속 통과 중 (Piotroski 2/3 · 4Q 반전 필수)",
+     "3Q26 북미 유통 개편 일시 감익과 소송 피로감으로 5년 고점 대비 -44% 아래 정체",
+     "미국·중국 분기 수출액 역성장 고착 또는 FDA 품질 이슈 발생"),
     ("000100", "KR", "KRX", "KRW", "유한양행", "pabrai_dhandho", "backlog_float", 32, 3, 9,
      "향후 3~9개월 내 J&J 폐암 1차 치료제(렉라자+리브리반트) 글로벌 상업 처방 확대에 따른 단계별 출시 마일스톤 및 분기 로열티 현금 유입",
      "3M 1차 점검: J&J 분기별 리브리반트/라즈클루즈 글로벌 매출 트래킹 / 6M 본 Time-Stop: 로열티 유입 증가세 둔화 시 본전이어도 교체",
@@ -470,15 +560,18 @@ def validate_contrarian_invariants(record_or_cand, *, is_playbook=False):
     rec_w = float(sz.get("recommended_pct", 0.0))
     if 0.0 < rec_w < MIN_SINGLE_WEIGHT_PCT:
         raise ValueError(f"CoT 불변식 위반: 한 자릿수·분산 비중({rec_w}%) 오염 감지. 통과 종목은 Half-Kelly 25~50%, 미달은 0% 기각이어야 합니다.")
-    if rec_w > MAX_SINGLE_WEIGHT_PCT:
-        raise ValueError(f"Half-Kelly 단일 상한({MAX_SINGLE_WEIGHT_PCT:.0f}%) 초과 비중({rec_w}%) 금지: 추정오차·왜도 리스크 방어를 위해 2종목 압축(각 ≤50%)만 허용됩니다.")
+    gov_tier = record_or_cand.get("gov_tier")
+    gov_cap = GOVERNANCE_TIERS[gov_tier]["cap_pct"] if gov_tier in GOVERNANCE_TIERS else MAX_SINGLE_WEIGHT_PCT
+    eff_limit = min(MAX_SINGLE_WEIGHT_PCT, gov_cap)
+    if rec_w > eff_limit:
+        raise ValueError(f"Half-Kelly/거버넌스 단일 상한({eff_limit:.0f}%) 초과 비중({rec_w}%) 금지: 5대 비재무 리스크·추정오차 상한을 준수해야 합니다.")
     if not is_playbook and record_or_cand.get("trap_shield_ok"):
         if record_or_cand.get("ex_tenbagger") or float(record_or_cand.get("mult_5y_low", 99.0)) > EX_TENBAGGER_CEILING:
             raise ValueError("CoT 불변식 위반: 기성 급등주(5년 저점 대비 >3.6배)가 통과 목록에 포함되었습니다.")
 
 
 def compute_position_sizing(*, upside_pct, downside_pct, win_prob=0.60, cap_pct=50.0, min_pct=30.0, piotroski_3=3, blocked=False):
-    """Half-Kelly 2-Pick Compression Sizing (25% ~ 50% per uncorrelated axis; retains 75% growth at 50% lower variance)."""
+    """Half-Kelly 2-Pick Compression Sizing capped by solvency AND 5-axis governance risk tier (25%~50%, or <=25%/35% for G2/G1)."""
     eff_cap = min(MAX_SINGLE_WEIGHT_PCT, float(cap_pct))
     if blocked or eff_cap <= 0 or upside_pct <= 0 or downside_pct <= 0:
         return dict(
@@ -505,10 +598,9 @@ def compute_position_sizing(*, upside_pct, downside_pct, win_prob=0.60, cap_pct=
             grade_label="0% · 1년 기대 우위 부족 (어중간한 분산 진입 금지)",
             portfolio_guide="추가 할인 또는 촉매 임박 대기",
         )
-    # In a 2-pick concentrated conviction sleeve, lift discrete slot cleanly within [max(25%, min_pct), min(50%, cap_pct)]
-    # while scaling continuously with Half-Kelly edge and Piotroski 3/3 expectation-error strength.
+    eff_min = min(eff_cap, max(MIN_SINGLE_WEIGHT_PCT, float(min_pct)))
     blend_alpha = 0.55 if int(piotroski_3) >= 3 else 0.25
-    slot_target = _clamp(half_kelly + max(0.0, eff_cap - half_kelly) * blend_alpha, max(MIN_SINGLE_WEIGHT_PCT, float(min_pct)), eff_cap)
+    slot_target = _clamp(half_kelly + max(0.0, eff_cap - half_kelly) * blend_alpha, eff_min, eff_cap)
     rec = round(min(slot_target, eff_cap), 1)
     if rec >= 43.0:
         grade = f"최선호 압축(Half-Kelly) · {rec:.0f}% (한·미 2종목 중 1축)"
@@ -647,7 +739,9 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
     asym_pts = _clamp(asymmetry_ratio * 4.4, 3.0, 30.0)
     asym_score = round(asym_pts, 1)
 
-    variant_total = round(essence + gap_score + asym_score, 1)
+    gov_tier, gov_note = GOVERNANCE_AUDIT.get(sym, ("G1", "개별 거버넌스·규제·글로벌 공급망 리스크 표준 점검 대상"))
+    gov_meta = GOVERNANCE_TIERS[gov_tier]
+    variant_total = round(max(1.0, essence + gap_score + asym_score - gov_meta["penalty"]), 1)
     arch = ARCHETYPES[arch_id]
 
     rnd = (lambda v: round(v)) if ccy == "KRW" else (lambda v: round(v, 2))
@@ -666,13 +760,14 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         and asymmetry_ratio >= arch["min_asymmetry"]
         and margin_pct >= 25.0
     )
+    eff_cap_pct = min(solv_meta["cap_pct"], gov_meta["cap_pct"])
     win_p = 0.64 if (piotroski_3 >= 3 and essence >= 33 and cat_months <= 6) else (0.59 if piotroski_3 >= 3 else 0.55)
     sizing = compute_position_sizing(
         upside_pct=upside_pct,
         downside_pct=downside_pct,
         win_prob=win_p,
-        cap_pct=solv_meta["cap_pct"],
-        min_pct=solv_meta["min_pct"],
+        cap_pct=eff_cap_pct,
+        min_pct=min(solv_meta["min_pct"], eff_cap_pct),
         piotroski_3=piotroski_3,
         blocked=blocked,
     )
@@ -733,6 +828,9 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         overheated=overheated,
         solvency_tier=solv_key,
         solvency_label=solv_meta["label"],
+        gov_tier=gov_tier,
+        gov_label=gov_meta["label"],
+        gov_note=gov_note,
         sizing=sizing,
         trap_shield_ok=shield_ok,
         moat_essence=moat_txt,
@@ -855,9 +953,15 @@ def save_playbook(package, fields):
 
     default_solv = next((s[6] for s in CONTRARIAN_UNIVERSE if s[0] == symbol), "backlog_float")
     default_fscore = next((s[8] for s in CONTRARIAN_UNIVERSE if s[0] == symbol), 2)
+    default_gov, default_gov_note = GOVERNANCE_AUDIT.get(symbol, ("G1", "5대 비재무 리스크 표준 점검 대상"))
     solvency = str(fields.get("solvency", "")).strip() or default_solv
     if solvency not in SOLVENCY_TIERS:
         raise ValueError("재무생존·확신 등급을 확인하세요.")
+    gov_tier = str(fields.get("gov_tier", "")).strip().upper() or default_gov
+    if gov_tier not in GOVERNANCE_TIERS:
+        raise ValueError("5대 비재무·거버넌스 리스크 등급(G0/G1/G2)을 확인하세요.")
+    gov_note = str(fields.get("gov_note", "")).strip() or default_gov_note
+    gov_meta = GOVERNANCE_TIERS[gov_tier]
     try:
         piotroski_3 = int(str(fields.get("piotroski_3", default_fscore)).strip() or default_fscore)
     except ValueError as exc:
@@ -878,12 +982,13 @@ def save_playbook(package, fields):
     margin_pct = round(float((1 - entry / target) * 100), 1)
     min_req = ARCHETYPES[archetype]["min_asymmetry"]
     solv_meta = SOLVENCY_TIERS[solvency]
+    eff_cap_pct = min(solv_meta["cap_pct"], gov_meta["cap_pct"])
     sizing = compute_position_sizing(
         upside_pct=upside_pct,
         downside_pct=downside_pct,
         win_prob=win_prob_pct / 100.0,
-        cap_pct=solv_meta["cap_pct"],
-        min_pct=solv_meta["min_pct"],
+        cap_pct=eff_cap_pct,
+        min_pct=min(solv_meta["min_pct"], eff_cap_pct),
         piotroski_3=piotroski_3,
         blocked=not solv_meta["ok"],
     )
@@ -893,7 +998,7 @@ def save_playbook(package, fields):
         and horizon_months <= MAX_HORIZON_MONTHS
         and asymmetry >= min_req
         and margin_pct >= 25.0
-        and MIN_SINGLE_WEIGHT_PCT <= sizing["recommended_pct"] <= MAX_SINGLE_WEIGHT_PCT
+        and MIN_SINGLE_WEIGHT_PCT <= sizing["recommended_pct"] <= min(MAX_SINGLE_WEIGHT_PCT, gov_meta["cap_pct"])
     )
 
     rnd = (lambda v: str(round(float(v)))) if ccy == "KRW" else (lambda v: f"{float(v):.2f}")
@@ -912,6 +1017,9 @@ def save_playbook(package, fields):
         archetype_badge=ARCHETYPES[archetype]["badge"],
         solvency=solvency,
         solvency_label=solv_meta["label"],
+        gov_tier=gov_tier,
+        gov_label=gov_meta["label"],
+        gov_note=gov_note,
         piotroski_3=piotroski_3,
         win_prob=round(win_prob_pct, 1),
         sizing=sizing,
