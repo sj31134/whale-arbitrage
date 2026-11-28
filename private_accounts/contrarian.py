@@ -1,6 +1,9 @@
-"""Public contrarian variant-perception scanner and 1-stock high-conviction concentrated strategy engine.
+"""Public contrarian variant-perception scanner and 12-month catalyst-driven 1-stock concentrated engine.
 Never accepts personal portfolio holdings in public collection.
-Excludes ex-post tenbagger consensus mega-caps to discover uncrowded next-inflection gems."""
+Enforces 3 hard anti-regression invariants from CoT post-mortem:
+  1. Zero single-digit diversification bleed (passing conviction weights must be 30% ~ 75%, else 0% pass).
+  2. Zero ex-post tenbagger hindsight bias (5-year trough multiple <= 3.6x).
+  3. Zero multi-year 'buy & hope' dead-money traps (target horizon strictly <= 12 months with dated catalyst & Time-Stop)."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -17,363 +20,410 @@ from . import live_valuation, price_history
 FILE = "contrarian_radar.json"
 PLAYBOOK_FILE = "contrarian_playbooks.json"
 
-# Anti-Hindsight Guardrail: Stocks already >= 3.6x above 5-year trough have already re-rated; block from fresh tenbagger radar
 EX_TENBAGGER_CEILING = 3.6
+MAX_HORIZON_MONTHS = 12
+
+# Forensic CoT Self-Audit: Why previous agent iterations failed & how code invariants permanently block recurrence
+AGENT_COT_POSTMORTEM = (
+    dict(
+        code="COT-ERR-01",
+        bias_name="가용성 휴리스틱 & 사후 확증편향 (Availability & Hindsight Bias)",
+        cot_trace=(
+            "최초 메뉴 구축 시 ‘검증된 해자 기업’을 빠르게 채우려다 기존 스킬 문서(SKILL.md)에 적혀 있던 과거 대박 성공 명단"
+            "(SK하이닉스·삼양식품·HD현대일렉·NVDA 등)을 신규 발굴 유니버스에 그대로 복사함."
+        ),
+        why_fatal="과거에 10~70배 올라 이미 시총 수십조~수천조 원이 된 ‘졸업생’을 미래 텐베거 후보로 착각해 뒷북 매매를 유도함.",
+        hard_guardrail="5년 최저점 대비 3.6배 초과(mult_5y_low > 3.6) 종목은 코드에서 자동으로 ex_tenbagger=True · 비중 0% 차단 및 유니버스 등록 금지 불변식 강제.",
+    ),
+    dict(
+        code="COT-ERR-02",
+        bias_name="LLM 다수결 타협 편향 & 목적함수 오염 (Sycophantic Averaging / Objective Bleed)",
+        cot_trace=(
+            "6대 페르소나 점검 당시 ‘모든 페르소나 불만을 동시에 만족시켜야 한다’는 평균화 사고에 빠져, 은행 여신역·연기금·초보자의 "
+            "분산 한도(5~10% 캡, 1/4 켈리, 1.2R)를 ‘1종목 초집중 메뉴(/contrarian)’에 교집합으로 덮어씌워 비중을 5%~8%로 깎아내림."
+        ),
+        why_fatal="다수결 평균에서 벗어나 소수 인사이트로 승부하려는 메뉴의 존재 이유를 파괴하고 과잉분산 드래그(맞혀도 계좌 +10% 정체)를 유발함.",
+        hard_guardrail="메뉴 목적함수 격리 불변식: /contrarian 통과 종목의 권장 비중이 25% 미만(한 자릿수 등)으로 계산되면 런타임 불변식 위반 에러 발생(확신 미달은 5% 정찰 대신 즉시 0% 기각).",
+    ),
+    dict(
+        code="COT-ERR-03",
+        bias_name="고전 가치투자 클리셰 답습 & 시간함정 불감증 (Multi-Year Buy-and-Hold Cliché / Time-Trap Blindness)",
+        cot_trace=(
+            "집중투자를 리서치하며 버핏·노마드식 ‘3~5년(24~60개월) 묻어두기’ 문구를 무비판적으로 차용하고, "
+            "1년 내 강제 촉매 일정 검증 없이 단순 저PBR·저PER 종목(영원무역·두산밥캣 등)을 후보에 섞어 넣음."
+        ),
+        why_fatal="1년 내 자본 회전과 시드 점프가 목표인 투자자에게 ‘촉매 없이 3~5년 횡보하는 만년 저평가주(Dead Money)’에 자산 60%가 묶이는 시간함정은 치명적 실패임.",
+        hard_guardrail="최대 호흡 12개월 하드캡(13개월 초과·장기보유 문구 입력 시 즉시 ValueError 거부) + 전 종목 ‘12개월 내 확정 촉매 일정(Dated Catalyst)’ 및 ‘2분기(6개월) 무반응 시 시간손절(Time-Stop)’ 의무화.",
+    ),
+)
 
 EX_TENBAGGER_GRADUATES = (
-    ("HD현대일렉트릭 (267260)", "5년 저점 대비 최고 71.7배 (현재 ~24배)", "2021년 시총 6천억 적자 탈출기에 선점했어야 할 종목 · 현재는 전 시장 컨센서스"),
-    ("효성중공업 (298040)", "5년 저점 대비 35.1배", "변압기 병목 리레이팅 기완성 · 조정 시 매수해도 재차 10배 불가"),
-    ("SK하이닉스 (000660)", "2022년 적자 바닥 대비 최고 35.3배", "2022.11 적자 공포(7.5만 원) 때가 역발상 구간 · 현재는 대형 컨센서스 코어"),
-    ("삼양식품 (003230)", "5년 저점 대비 최고 18.5배", "내수 라면주 편견이 깨지기 전(8만 원대)이 선점 구간 · 현재 고멀티플 안착"),
-    ("한화에어로스페이스 (012450) · LIG넥스원", "5년 저점 대비 7.2배~20배+", "방산 수출 리레이팅 1차 사이클 기분출 (/discover 추세 영역으로 이관)"),
-    ("NVIDIA · Broadcom · Eli Lilly", "시총 $1T~$3.5T 메가캡 기등극", "물리적 시가총액 한계상 향후 5~10배 텐베거 불가능 · 역발상 발굴 풀에서 제외"),
+    ("HD현대일렉트릭 (267260) · 효성중공업", "5년 저점 대비 35배~71배", "2021년 수주 전환 직전(시총 6천억)이 타격 시점 · 현재는 기성 컨센서스"),
+    ("SK하이닉스 (000660) · 한화에어로 (012450)", "5년 저점 대비 20배~35배", "이미 대형 리레이팅 완료 (/discover 추세 메뉴 영역)"),
+    ("삼양식품 (003230) · 실리콘투 (257720)", "5년 저점 대비 16배~18배", "해외 수출 1차 폭발 기반영 · 신규 역발상 씨앗 대상 제외"),
+    ("NVIDIA · Broadcom · Eli Lilly", "시총 $1T~$3.5T 초대형주", "시가총액 물리적 한계로 1년 내 2~4배 비대칭 점프 불가능"),
+    ("촉매 없는 단순 저PBR 지주·전통 OEM (영원무역 등)", "만년 저평가 시간함정(Dead Money)", "싸 보이지만 12개월 내 시선 괴리를 깨뜨릴 강제 촉매가 없어 3~5년 자금 묶임 위험으로 제외"),
 )
 
 ARCHETYPES = {
     "calm_compounder": dict(
         id="calm_compounder",
-        badge="이호걸형 · 무차입 초집중 복리",
+        badge="이호걸형 · 1년 내 수출·이익 폭발 집중",
         master="캄투자일임 이호걸 대표 아키타입 (질의 ‘김호걸’ → 공시 대표명 이호걸)",
-        track_record="2023.03 자본금 17억 원 설립 → 차입 없이 고유재산 상장주식 1~3종목 Long-Only 초집중 복리로 2026 상반기 자기자본 4,467억 원(반기 순이익 3,303억 원) 달성",
-        core_quote="“관세·금리 같은 매크로에 질 회사는 애초에 사지 않는다. 어설픈 20종목 분산 대신 흔들리지 않는 1등 사업 지분을 통째로 소유한다.”",
-        crowd_blindspot="대중은 내수·전통 업종 선입견이나 단기 매크로 노이즈에 갇혀 중형 1등 기업의 해외 직판·소모품 영업레버리지 폭발 초입을 놓침",
-        edge_formula="글로벌 가격결정력(ROIC > WACC) + 해외 확장 초입 중형 독점주를 매크로 급락기에 무차입 현물 40%~75% 초집중 매집 후 18~36개월 복리 동행",
-        execution_rule="집중자본의 40~75%를 1~2종목에 압축 · 차트 노이즈 무손절 · 오직 해외 확장률·가격결정력 훼손 공시 때만 철회",
+        track_record="2023.03 17억 원 → 2026 상반기 4,467억 원 (10년 존버가 아니라 단 3년 만에 260배 달성! 매 분기 수출·영업레버리지가 즉시 찍히는 1~3종목 초집중 회전)",
+        core_quote="“막연히 5년 뒤를 기다리지 않는다. 당장 이번~다음 분기 수출 통관과 영업이익률이 폭발하는데 시장만 편견으로 못 보는 1등 사업에 집중한다.”",
+        crowd_blindspot="대중은 내수·과거 선입견에 갇혀 이미 해외 인허가·채널 진입이 끝나 향후 2~4분기 내 고마진 매출이 찍히기 직전인 중형 독점주를 외면함",
+        edge_formula="향후 3~12개월 내 해외 본판매·소모품 레버리지 확정 + 무차입 순현금 1등 기업에 집중자본 40%~75% 투입",
+        execution_rule="집중자본 40~75% 압축 · 분기 수출/출하 데이터 매월 대조 · 2개 분기(6개월) 내 이익 레버리지 미확인 시 시간손절(Time-Stop) 회전",
         min_asymmetry=3.5,
-        target_weight_range="40% ~ 75% (1~2종목 초집중)",
-        horizon="18~36개월",
+        target_weight_range="40% ~ 75% (1~2종목 승부)",
+        max_months=12,
+        horizon="6~12개월",
         sources=(
-            ("캄투자일임 자기자본·운용 구조 보도 (딜사이트)", "https://dealsite.co.kr/"),
+            ("캄투자일임 3년 고속 복리 운용 구조 보도 (딜사이트)", "https://dealsite.co.kr/"),
             ("한국경제 집중투자 인터뷰 원문", "https://www.hankyung.com/"),
-        ),
-    ),
-    "hynix_bottleneck": dict(
-        id="hynix_bottleneck",
-        badge="병목 선점형 · 적자/업황 착시 돌파",
-        master="적자·불황 바닥 물리적 병목 선점 아키타입 (사용자 지칭 ‘한유백’ 유형 · 실명 공시 미특정 단서 명시)",
-        track_record="2021~2022년 업황 적자·굴뚝주 멸시 바닥(PBR 0.6~0.9배)에서 차세대 독점 병목(소켓·특수소재·탄약·패키징 장비)을 남들보다 2~3분기 앞서 집중 선점",
-        core_quote="“다수결 통계는 백미러(지난 분기 감익·역배열)를 보고 팔지만, 선구자는 앞유리(대체 불가능한 물리적 병목 E_s ≈ 0)를 보고 공포 바닥에서 승부를 건다.”",
-        crowd_blindspot="레거시 사업부 둔화(과거 껍데기 V_Shell)에 가려 차세대 필수 병목 공정·소재(V_Core)의 독점 점유율과 이익 체질 전환을 보지 못함",
-        edge_formula="아직 텐베거가 안 터진 중형 병목 독점주(5년 저점 대비 <3.5배)가 전방 업황 우려로 반토막 났을 때 집중자본 35%~60% 시간분할 매집",
-        execution_rule="역배열 공포 구간 3회 분할 매집(기계적 -10% 손절 금지) · 병목 쇼티지 현실화 및 대중 만장일치 환호 구간에서 수확",
-        min_asymmetry=4.0,
-        target_weight_range="35% ~ 60% (1~3종목 집중)",
-        horizon="12~24개월",
-        sources=(
-            ("금융감독원 DART 정기공시·수주잔고 원문", "https://dart.fss.or.kr/"),
-            ("SEC EDGAR 반도체·산업재 설비 공시", "https://www.sec.gov/edgar/searchedgar/companysearch"),
-        ),
-    ),
-    "burry_asymmetry": dict(
-        id="burry_asymmetry",
-        badge="마이클 버리형 · Roadkill 볼록성 집중",
-        master="마이클 버리 (Michael Burry · Scion Asset Management)",
-        track_record="패시브·알고리즘 강제투매로 길가에 버려진 자산(Roadkill) 중 순현금·자사주 소각 하방이 잠긴 소수 종목에 13F 포트폴리오 상위 25~45%씩 집중 베팅",
-        core_quote="“나는 군중이 혐오하며 길가에 버린 자산(Roadkill)에서 사냥한다. 하방은 순현금으로 잠그고 상방은 4~10배 열려 있을 때 크게 베팅한다.”",
-        crowd_blindspot="국가·섹터 혐오나 패시브 지수 리밸런싱이 기업의 막대한 순현금·잉여현금흐름(FCF)·연 8~10% 자사주 소각 능력을 무시하고 청산가치 이하로 짓누름",
-        edge_formula="고점 대비 -40%~-75% 폭락 + 순현금/FCF 생존력 검증 종목에 집중자본 30%~50% 스나이퍼 투입",
-        execution_rule="청산가치·역사적 지지선 매복 · 내재가치 평균회귀(+80%~+200%) 달성 시 미련 없이 수확해 다음 미개화 괴리로 회전",
-        min_asymmetry=4.5,
-        target_weight_range="30% ~ 50% (2~3종목 집중)",
-        horizon="9~24개월",
-        sources=(
-            ("SEC EDGAR Scion Asset Management 13F 원문", "https://www.sec.gov/edgar/searchedgar/companysearch"),
-            ("Moreira & Muir 변동성 강제청산 미시구조 논문", "https://amoreira2.github.io/alan-moreira.github.io/VolPortfolios_published.pdf"),
         ),
     ),
     "druckenmiller_inflection": dict(
         id="druckenmiller_inflection",
-        badge="드러큰밀러·스타인하트형 · 한 바구니 변곡점",
+        badge="드러큰밀러·스타인하트형 · 6~12개월 변곡점 올인",
         master="스탠리 드러큰밀러 (Duquesne) & 마이클 스타인하트 (Variant Perception 창시자)",
-        track_record="드러큰밀러 30년 연평균 30% 수익률(연간 손실 0회) · 스타인하트 28년 연복리 24.5% — 확신이 서면 자산의 40%~80%+를 단일 테마·종목에 집중(‘Be a Pig’)",
-        core_quote="“분산투자는 가장 잘못된 교리다. 남들이 못 보는 18개월 뒤의 변곡점이 명확히 보이면 모든 달걀을 한 바구니에 담고 그 바구니를 목숨 걸고 지켜봐라.”",
-        crowd_blindspot="월스트리트와 대중은 ‘오늘의 나쁜 뉴스(금리·규제·재고 조정)’에 매몰돼 12~18개월 뒤 정책·공급부족이 만들 폭발적 이익 변곡점을 가격에 전혀 반영하지 못함",
-        edge_formula="현재 뉴스는 최악이나 18개월 뒤 수주·전력·규제 변곡점이 확정적인 독점주에 집중자본 40%~80% 과감한 집중 베팅",
-        execution_rule="소액 정찰병 분산 금지 · 변곡점 논리가 맞으면 비중 극대화, 만약 전제 가설이 틀린 공시가 나오면 주저 없이 전량 철회",
+        track_record="드러큰밀러 30년 연평균 30%(무손실) · 스타인하트 연 24.5% — 현재 최악의 악재 직후 ‘6~12개월 뒤 수급·실적 변곡점’에 40~80% 한 바구니 집중",
+        core_quote="“현재 실적은 최악이지만 6~12개월 뒤 산업 수급이 정반대로 뒤집히는 순간이 보이면 한 바구니에 담고, 예상 시점에 안 터지면 미련 없이 시간손절하라.”",
+        crowd_blindspot="대중은 직전 분기 재고조정·정책 루머를 영구적 재앙으로 착각해 투매하지만, 실제 재고 소진·정책 확정 변곡점은 2~3분기 안에 도래함",
+        edge_formula="재고조정 종료·관세/규제 확정 등 6~12개월 내 방향 전환 촉매가 명확한 독점주에 집중자본 40%~75% 선제 타격",
+        execution_rule="소액 정찰 금지 · 예상 촉매 시점(6개월) 경과 후에도 펀더멘털 반전이 없으면 본전이어도 즉시 시간손절(Time-Stop)",
         min_asymmetry=4.0,
-        target_weight_range="40% ~ 80% (단독 1종목 승부)",
-        horizon="12~24개월",
+        target_weight_range="40% ~ 75% (단독 1종목 승부)",
+        max_months=12,
+        horizon="6~12개월",
         sources=(
-            ("NBER ‘Best Ideas’ 최고 확신 집중투자 논문", "https://www.nber.org/papers/w15012"),
+            ("NBER ‘Best Ideas’ 최고 확신 1종목 알파 논문", "https://www.nber.org/papers/w15012"),
             ("Morgan Stanley ‘Expectations Investing & Variant Perception’", "https://www.morganstanley.com/im/"),
         ),
     ),
-    "nomad_ses": dict(
-        id="nomad_ses",
-        badge="노마드(닉 슬립)·리루형 · 3종목 영구해자",
-        master="닉 슬립 (Nomad Investment Partnership) & 리루 (Himalaya Capital · 멍거 가문 운용)",
-        track_record="노마드 투자조합(2001~2013) 누적 +921.1%(연 20.8% vs 지수 6.5%), 포트폴리오 80%를 단 3종목에 집중 · 리루 아시아 위기 바닥 3~4종목 초집중",
-        core_quote="“진정 위대한 기업은 극히 드물다. 단기 마진을 고객에게 돌려주며 경쟁자를 말려 죽이는 기업을 찾았다면 분산은 무지에 대한 변명일 뿐이다.”",
-        crowd_blindspot="기업이 장기 시장 장악을 위해 단기 가격을 낮추거나 선제 투자할 때 월가는 ‘마진 둔화·성장 피크’로 오해해 반토막 투매함",
-        edge_formula="규모의 경제 공유(SES)·압도적 고객 재구매율(소모품/플랫폼)·무차입 ROIC 25%+ 기업이 단기 성장통으로 급락할 때 35%~65% 집중",
-        execution_rule="매수 후 3~5년 이상 무회전 장기 복리 보유 · 기업 문화와 고객 락인 플라이휠이 깨질 때만 매도",
-        min_asymmetry=3.5,
-        target_weight_range="35% ~ 65% (2~3종목 영구보유)",
-        horizon="24~60개월",
+    "greenblatt_catalyst": dict(
+        id="greenblatt_catalyst",
+        badge="그린블란트·테퍼형 · 확정 이벤트 특수상황 집중",
+        master="조엘 그린블란트 (Gotham Capital 연 50%) & 데이비드 테퍼 (Appaloosa)",
+        track_record="그린블란트 고담캐피탈 10년(1985~1994) 연복리 50% 달성 · 만년 저평가 단순 가치주 대신 ‘날짜가 박힌 강제 재평가 촉매(Special Situations)’에 소수 초집중",
+        core_quote="“촉매 없는 저평가주는 5년 동안 쌀 수 있다. 기관 강제투매 종료·요율 자동 인상·신제품 승인처럼 1년 안에 시장이 재평가할 수밖에 없는 이벤트에만 집중하라.”",
+        crowd_blindspot="합병 일회성 비용·정부 요율 반영 시차·인덱스 리밸런싱 등 ‘일시적 제도/회계 왜곡’으로 폭락한 주식을 구조적 쇠퇴로 오인함",
+        edge_formula="일시적 회계/제도 왜곡 해소 날짜가 향후 3~12개월 내로 확정된 순현금·고ROIC 기업에 35%~65% 집중",
+        execution_rule="이벤트 발효 분기까지 집중 보유 · 이벤트 발효 후 +60%~+150% 리레이팅 달성 즉시 현금화해 다음 이벤트로 자본 고속 회전",
+        min_asymmetry=4.0,
+        target_weight_range="35% ~ 65% (2종목 압축)",
+        max_months=12,
+        horizon="3~12개월",
         sources=(
-            ("Cremers & Petajisto (2009) Active Share 실증 논문", "https://academic.oup.com/rfs/article-abstract/22/9/3329/1563727"),
-            ("Himalaya Capital 집중 가치투자 원칙", "https://www.himcap.com/"),
+            ("Gotham Funds · 특수상황 및 촉매 가치투자 아카이브", "https://www.gothamfunds.com/"),
+            ("Cremers & Petajisto (2009) 집중 스톡피커 알파 논문", "https://academic.oup.com/rfs/article-abstract/22/9/3329/1563727"),
+        ),
+    ),
+    "hynix_bottleneck": dict(
+        id="hynix_bottleneck",
+        badge="병목 선점형 · 신규 라인·장비 반입 2분기 선취매",
+        master="차세대 공정·병목 스케줄 선점 아키타입 (사용자 지칭 ‘한유백’ 유형 · 실명 공시 미특정 단서 명시)",
+        track_record="레거시 업황 침체로 주가가 반토막 난 바닥에서 ‘향후 2~4분기 내 확정된 고객사 신규 팹·선단공정 반입(PO) 스케줄’을 보고 독점 병목 소켓·장비·소재 집중 선점",
+        core_quote="“5년을 기다리는 게 아니다. 고객사 신규 라인 장비·소재 발주 시점보다 딱 2분기 앞서 공포 바닥에서 모으면 1년 안에 실적이 주가를 강제로 끌어올린다.”",
+        crowd_blindspot="전방 레거시 감익 백미러만 보고 투매하느라 6~9개월 뒤 시작될 차세대 선단공정(2nm·HBM4·CoWoS·800V SiC) 필수 병목 발주를 놓침",
+        edge_formula="미개화 중형 병목 독점주(5년 저점 ≤3.6배) + 12개월 내 고객사 양산/발주 일정 확정 종목에 집중자본 35%~60% 투입",
+        execution_rule="발주 1~2분기 전 역배열 바닥 3단 매집 · 고객사 양산 지연 공시 시 즉시 철회, 쇼티지 뉴스 헤드라인 폭발 시 수확",
+        min_asymmetry=4.0,
+        target_weight_range="35% ~ 60% (1~3종목 집중)",
+        max_months=12,
+        horizon="6~12개월",
+        sources=(
+            ("금융감독원 DART 설비투자·수주 공시 원문", "https://dart.fss.or.kr/"),
+            ("SEC EDGAR 반도체 장비·소재 백로그 공시", "https://www.sec.gov/edgar/searchedgar/companysearch"),
+        ),
+    ),
+    "burry_asymmetry": dict(
+        id="burry_asymmetry",
+        badge="마이클 버리형 · 과매도 극점 + 자사주 소각 단기 회귀",
+        master="마이클 버리 (Michael Burry · Scion Asset Management — 실제 평균 보유 2~4분기)",
+        track_record="마이클 버리 13F 실증 분석 결과 5~10년 장기보유가 아니라, 패시브 투매 극점 진입 후 6~12개월 내 자사주 소각·실적 반전으로 +50%~+150% 튀면 즉시 수확·교체",
+        core_quote="“길가에 버려진 순현금 자산을 사되 영원히 끌어안지 않는다. 자사주 소각과 공포 소멸로 1년 안에 평균회귀가 일어나면 즉시 차익을 확정한다.”",
+        crowd_blindspot="극단적 혐오 투매로 주가가 순현금·청산가치까지 밀렸는데 회사가 매년 유통주식의 8~12%를 소각하며 주당순이익(EPS)을 강제로 끌어올리는 효과를 무시함",
+        edge_formula="고점 대비 -45%~-75% 투매 + 대규모 자사주 소각·순현금 방어막 가동 종목에 30%~55% 스나이퍼 투입",
+        execution_rule="3~12개월 단기 평균회귀 타깃 · 목표 리레이팅 도달 즉시 전량 현금화, 9개월 내 소각·현금흐름 정체 시 교체",
+        min_asymmetry=4.5,
+        target_weight_range="30% ~ 55% (2~3종목 회전)",
+        max_months=12,
+        horizon="6~12개월",
+        sources=(
+            ("SEC EDGAR Scion Asset Management 분기별 13F 회전 기록", "https://www.sec.gov/edgar/searchedgar/companysearch"),
+            ("Moreira & Muir 변동성 강제청산 미시구조 논문", "https://amoreira2.github.io/alan-moreira.github.io/VolPortfolios_published.pdf"),
         ),
     ),
     "pabrai_dhandho": dict(
         id="pabrai_dhandho",
-        badge="파브라이(단도)·애크먼형 · 켈리 스나이퍼",
-        master="모니시 파브라이 (Dhandho Funds) & 빌 애크먼 (Pershing Square · GGP 27배)",
-        track_record="빌 애크먼 GGP 파산 공포 바닥 단일 종목 집중으로 $60M → $1.6B(27배+) 회수 · 파브라이 ‘Few Bets, Big Bets, Infrequent Bets’ 켈리 집중 운용",
-        core_quote="“동전 앞면이 나오면 크게 이기고, 뒷면이 나와도 거의 잃지 않는다(Heads I win; tails I don't lose much). 적게, 크게, 가끔 베팅하라.”",
-        crowd_blindspot="시장은 ‘높은 불확실성(뉴스 공포)’과 ‘높은 원금 손실 위험’을 혼동해 순현금·유형자산 가치가 시총에 육박하는 흑자 기업을 파산가처럼 던짐",
-        edge_formula="시총 대비 순현금·FCF 하방이 콘크리트처럼 막혀 손실폭은 -10~-15% 이내인데 오해 해소 시 +100~+300% 열리는 기회에 켈리 비중(30~55%) 투입",
-        execution_rule="어중간한 기회는 수개월간 100% 패스(현금 대기) · 연 1~2회 확실한 Fat Pitch 출현 시에만 30~55% 집중 타격",
+        badge="애크먼·파브라이형 · 불확실성 해소 데드라인 켈리 타격",
+        master="빌 애크먼 (Pershing Square) & 모니시 파브라이 (Dhandho Kelly Funds)",
+        track_record="소송·임상/FDA 허가·단기 유동성 오해 등 ‘불확실성이 걷히는 날짜(Deadline ≤ 12개월)’가 정해진 하방 고정 기회에 켈리 공식으로 30~55% 집중 타격",
+        core_quote="“안개가 영원히 끼어 있을 주식은 사지 마라. 1년 안에 안개가 걷히는 확정 이벤트가 있고 하방이 막혀 있을 때 켈리 공식대로 크게 베팅하라.”",
+        crowd_blindspot="규제·임상·수주 전환 결과를 기다리기 싫어하는 단기 펀드들이 확정 이벤트 직전 1~2분기에 최저가로 주식을 던짐",
+        edge_formula="하방 순현금·기존 캐시카우로 손실폭 -12% 이내 고정 + 12개월 내 인허가·로열티·온보딩 데드라인 존재 종목에 30%~55% 베팅",
+        execution_rule="이벤트 데드라인 전후 승부 · 데드라인 지연·기각 공시 시 당일 즉시 철회(장기 비자발적 홀딩 절대 금지!)",
         min_asymmetry=4.5,
-        target_weight_range="30% ~ 55% (연 1~2회 스나이퍼)",
-        horizon="12~30개월",
+        target_weight_range="30% ~ 55% (이벤트 스나이퍼)",
+        max_months=12,
+        horizon="3~12개월",
         sources=(
             ("J.L. Kelly Jr. (1956) 최적 정보·집중 베팅 원전 논문", "https://www.princeton.edu/~wbialek/rome/refs/kelly_56.pdf"),
-            ("Pershing Square 집중 행동주의·가치 연구", "https://pershingsquareholdings.com/"),
+            ("Pershing Square 집중 카탈리스트 연구", "https://pershingsquareholdings.com/"),
         ),
     ),
 }
 
 ACADEMIC_RESEARCH = (
     dict(
-        title="Best Ideas (최고 확신 1종목 알파 실증)",
+        title="Best Ideas (최고 확신 1종목 알파와 과잉분산의 해악)",
         authors="Randolph Cohen (Harvard) · Christopher Polk (LSE) · Bernhard Silli (2010, NBER Working Paper 15012)",
         finding=(
-            "미국 액티브 펀드매니저 수천 명의 1991~2009년 보유 종목을 전수 분석한 결과, 매니저가 가장 확신해 최대 비중을 실은 ‘단 1위 종목(Best Idea #1)’만 모은 포트폴리오는 "
-            "시장 지수 및 나머지 분산 종목들을 연 +2.8%~+4.5%p(고확신 구간 +6~9%p) 압도했다. 대부분의 펀드가 시장을 못 이기는 이유는 실력 부족이 아니라 "
-            "커리어 리스크 방어용으로 끼워 넣은 20~100번째 어중간한 분산 종목들이 최고 아이디어의 수익률을 갉아먹기(Over-diversification Drag) 때문임이 실증됐다."
+            "펀드매니저의 ‘단 1위 최고 확신 종목(Best Idea #1)’은 향후 12개월간 시장 및 나머지 분산 보유 종목을 연 +2.8%~+4.5%p(고확신 구간 +6~9%p) 압도했다. "
+            " 특히 초과수익의 대부분은 편입 후 첫 6~12개월 구간에 집중 발현되었으며, 20~100종목 분산은 알파를 희석하는 주범임이 입증됐다."
         ),
         url="https://www.nber.org/papers/w15012",
     ),
     dict(
-        title="Kelly Criterion · 정보 우위와 기하복리 극대화 수학 정리",
-        authors="John L. Kelly Jr. (1956, Bell System Technical Journal) & Edward O. Thorp (MIT/Princeton)",
+        title="Small-Seed Capital Velocity & Kelly Criterion (복리 회전속도 f × 집중비중 L)",
+        authors="John L. Kelly Jr. (1956, Bell System Technical Journal) & Edward O. Thorp",
         finding=(
-            "남들이 모르는 정보 우위(Variant Perception Edge, 승률 p)와 비대칭 손익배수(b)가 존재할 때 장기 복리 자산 성장률을 수학적으로 극대화하는 유일한 비중은 "
-            "1/N 균등 분산(5%씩 20종목)이 아니라 우위에 비례한 집중 베팅 f* = (b·p - q) / b 이다. 예컨대 손익배수 4.5배·승률 60%인 무차입 현물 기회의 최적 집중 비중은 51.1%에 달한다."
+            "자산 증식 공식 Π(T) = Seed₀ · (1 + f* · R)^(회전수 f · T)에서 5~10년 동안 촉매 없는 주식에 묶여 회전수(f)가 0.2로 떨어지면 복리가 멈춘다. "
+            "반대로 6~12개월 내 결과물이 나오는 비대칭 기회(연 회전수 f ≥ 1.0)에 켈리 최적 집중 비중(30%~75%)을 실어 연속 회전할 때 기하성장이 극대화된다."
         ),
         url="https://www.princeton.edu/~wbialek/rome/refs/kelly_56.pdf",
     ),
     dict(
-        title="Active Share · 옷장 인덱스(분산)의 패배와 집중 스톡피커의 승리",
-        authors="Martijn Cremers & Antti Petajisto (2009, Review of Financial Studies, Yale School of Management)",
+        title="Active Share & Catalyst Special Situations (촉매 있는 집중투자의 연 50% 실증)",
+        authors="Joel Greenblatt (Gotham Capital, 1985~1994) & Cremers·Petajisto (2009, Review of Financial Studies)",
         finding=(
-            "벤치마크 지수와 비슷하게 수십 종목을 5% 이하로 나눠 담는 분산형 펀드(Closet Indexers)는 수수료 차감 후 구조적으로 시장에 패배하며, "
-            "지수 구성과 무관하게 소수 핵심 종목에 고비중으로 집중하는 ‘Concentrated Stock Pickers(Active Share ≥ 80%)’ 집단만이 유의미한 초과수익을 창출한다."
+            "단순히 PBR이 낮은 만년 저평가주(촉매 부재)는 수년간 시장 대비 언더퍼폼할 수 있으나, 강제 매도 종료·사업 분할·신규 인허가 등 "
+            "12개월 내 가치 재평가를 강제하는 촉매(Catalyst)와 소수 종목 초집중(High Active Share)이 결합될 때 폭발적 단기 리레이팅이 발생한다."
         ),
         url="https://academic.oup.com/rfs/article-abstract/22/9/3329/1563727",
     ),
     dict(
-        title="Expectations Investing & Variant Perception (기대치 역산과 시선 괴리)",
-        authors="Michael Steinhardt (Steinhardt Partners) & Michael Mauboussin (Morgan Stanley Counterpoint Global)",
+        title="Variant Perception & Time-Stop Discipline (시선 괴리와 시간 손절 규율)",
+        authors="Michael Steinhardt (Steinhardt Partners) & Stanley Druckenmiller (Duquesne)",
         finding=(
-            "이미 전 세계가 극찬하며 최근 5년 내 10~30배 오른 인기 대장주에는 미래의 장밋빛 기대가 주가에 100% 반영되어 비대칭 초과수익이 나오지 않는다. "
-            "진정한 텐베거는 ‘현재 주가에 반영된 대중의 비관적 암묵 기대치’와 ‘실제 진행 중인 수출·병목 현금흐름’ 사이의 간극이 가장 큰 미개화 중형 독점주에서 탄생한다."
+            "1년 내 승부를 보는 집중투자에서 가장 위험한 적은 ‘주가가 안 빠지지만 오르지도 않는 시간함정(Dead Money)’이다. "
+            "따라서 진입 시 반드시 ‘언제까지(예: 2개 분기·6개월 내) 어떤 숫자가 찍혀야 하는가’를 못 박고, 기한 내 미발생 시 가격과 무관하게 철수하는 Time-Stop이 필수다."
         ),
         url="https://www.morganstanley.com/im/",
     ),
 )
 
-# Historical Hall-of-Fame Lessons (Kept STRICTLY as educational past blueprints — excluded from live radar!)
 VALIDATION_MATRIX = dict(
     summary=(
-        "아래 종목들은 과거 역발상 1종목 집중 전략이 어떻게 6~71배 수익을 냈는지를 보여주는 ‘졸업한 역사적 교본’입니다. "
-        "이미 텐베거를 달성해 시가총액이 수십조~수천조 원이 된 이 주식들을 지금 뒤늦게 조정받았다고 사면 다시 10배가 되지 않습니다. "
-        "따라서 실시간 발굴 레이더(3장)에서는 이 기성 텐베거들을 전면 퇴출하고, ‘2021년의 삼양식품·HD현대일렉트릭, 2022년의 Meta’와 똑같은 초기 DNA를 가진 새로운 미개화 종목만 추적합니다."
+        "5~10년 막연히 기다리는 투자를 배제합니다. 역사적 대박 사례들 역시 매수 후 10년을 기다린 것이 아니라, "
+        "‘신공장 가동·HBM 수주 폭발·비용 구조조정 선언’이라는 명확한 6~12개월 촉매 직전에 진입해 첫 1년 안에 +100%~+300% 1차 폭발이 일어났습니다. "
+        "반면 기성 텐베거나 촉매 없는 만년 저PBR 주식(시간함정)은 1년 내 승부가 불가능하므로 실시간 발굴 레이더에서 전면 제외합니다."
     ),
     cases=(
         dict(
-            name="HD현대일렉트릭 (267260) · [졸업 교본]",
-            archetype="병목 선점형 · 2021년 미개화 시총 6천억 시절",
-            verdict="역사적 성공 · 최고 71.7배 (레이더 졸업)",
-            trough="2021-12 · 17,450원 (중공업 적자 선입견 바닥)",
-            peak_or_now="최고 1,252,000원 (+7,075%) → 기성 대형주 전환으로 신규 발굴 제외",
-            crowd_then="과거 조선·중공업 구조조정 굴뚝주 편견으로 무관심",
-            variant_edge="발굴 DNA 교훈: 전통 제조업 껍데기 속에 북미 필수 인프라 병목 수주가 시작될 때 시총 1조 미만~수조 원 초입에서 50% 집중해야 텐베거가 됨",
+            name="삼양식품 (003230) · [졸업 교본: 밀양 1공장 가동 직전 12개월]",
+            archetype="이호걸형 · 수출 캐파 가동 촉매",
+            verdict="촉매 적중 · 가동 후 1년 내 +180% 1차 폭발",
+            trough="수출 전용 공장 가동 및 미국 월마트/코스트코 본입점 직전 분기",
+            peak_or_now="5년 기다린 것이 아니라 ‘수출 통관 급증 분기’ 포착 직후 12개월 내 1차 리레이팅 완성 (현재는 기성주 제외)",
+            crowd_then="원맥 원가 부담·내수 라면 한계 편견",
+            variant_edge="1년 승부 교훈: 이미 해외 수요는 꽉 찼는데 신규 인허가·신공장 가동이 향후 2~3분기 내 시작되는 종목을 노려야 1년 안에 터짐",
         ),
         dict(
-            name="삼양식품 (003230) · [졸업 교본]",
-            archetype="이호걸형 · 2021년 시총 6천억 시절",
-            verdict="역사적 성공 · 최고 18.5배 (레이더 졸업)",
-            trough="2021-12 · 84,800원 (내수 라면 저멀티플 소외)",
-            peak_or_now="최고 1,566,000원 (+1,747%) → 이미 리레이팅 완료로 신규 발굴 제외",
-            crowd_then="원맥 가격 상승 우려와 ‘일시적 매운맛 유행’ 편견으로 PER 8배 방치",
-            variant_edge="발굴 DNA 교훈: 내수 소비재인 줄 알았는데 미국·중국 주류 채널 재구매율과 해외 영업이익률이 폭발하기 직전인 중형 브랜드를 찾아야 함",
+            name="Meta Platforms (META) · [졸업 교본: ‘효율성의 해’ 선언 직후 12개월]",
+            archetype="그린블란트·버리형 · 비용 절감·소각 촉매",
+            verdict="촉매 적중 · 2022.11 $93 → 2023.11 $330 (+254% / 1년)",
+            trough="2022-10 · $93.16 (-76% 투매 극점)",
+            peak_or_now="단 12개월 만에 +254%(3.5배) 수직 복원! (현재는 메가캡 복귀로 제외)",
+            crowd_then="메타버스 지출 과잉 비난으로 PER 9배 투매",
+            variant_edge="1년 승부 교훈: 본업 현금흐름이 막강한 기업에서 일회성 비용/재고조정이 끝나는 확정 분기 + 대규모 자사주 소각이 맞물리면 1년 안에 2~3배 복원됨",
         ),
         dict(
-            name="SK하이닉스 (000660) · [졸업 교본]",
-            archetype="병목 선점형 · 2022년 적자 공포 바닥",
-            verdict="역사적 성공 · 최고 35.3배 (레이더 졸업)",
-            trough="2022-11 · 75,000원 (7.7조 적자 공포 · PBR 0.9배)",
-            peak_or_now="최고 2,650,000원 (+3,433%) → 컨센서스 코어 전환으로 신규 발굴 제외",
-            crowd_then="레거시 D램 적자 백미러만 보고 기관·외인 투매",
-            variant_edge="발굴 DNA 교훈: 전방 레거시 둔화로 주가가 반토막 났지만 차세대 AI 필수 공정·소켓·소재 독점 점유율을 쥔 기업을 공포 바닥에서 선점해야 함",
+            name="SK하이닉스 (000660) · [졸업 교본: HBM3 독점 공급 시작 12개월]",
+            archetype="병목 선점형 · 신규 라인 납품 촉매",
+            verdict="촉매 적중 · 2023.01 7.5만 → 2024.01 14만+ (1년 +90% 후 가속)",
+            trough="2022 말 적자 바닥이나 HBM3 양산 납품 스케줄 확정 시점",
+            peak_or_now="고객사 AI 가속기 출하 스케줄과 동시에 12개월 내 흑자전환·리레이팅 직행 (현재는 기성주 제외)",
+            crowd_then="레거시 D램 적자 공포 매도",
+            variant_edge="1년 승부 교훈: 고객사의 차세대 칩/라인 양산 일정(PO 반입)이 6~9개월 내로 박혀 있는 독점 소켓·장비·소재만 타격해야 시간함정을 피함",
         ),
         dict(
-            name="Meta Platforms (META) · [졸업 교본]",
-            archetype="버리·노마드 결합형 · 2022년 -76% 혐오 바닥",
-            verdict="역사적 성공 · 최고 8.3배 (레이더 졸업)",
-            trough="2022-10 · $93.16 (군중 조롱 투매 · PER 9배)",
-            peak_or_now="최고 $773.44 (+730%) → 메가캡 복귀로 신규 발굴 제외",
-            crowd_then="단기 투자비 지출 비난 속 패시브 투매로 FCF 대비 청산급 할인",
-            variant_edge="발굴 DNA 교훈: ROIC 30%+ 현금창출 본업이 멀쩡한데 일시적 성장 둔화·비용 노이즈로 5년 최저점(PER 5~10배)에 추락한 기업이 최고의 스나이퍼 타깃",
-        ),
-        dict(
-            name="카카오 (035720) · [반증: 1종목 집중 금지 함정]",
-            archetype="가치함정 경보 · 해자·주주환원 미충족",
-            verdict="실패(함정) · 바닥 후 +5.4% 장기 정체",
-            trough="4년 연속 하락 후 2026-09 · 29,450원",
-            peak_or_now="현재 31,050원 (+5.4% · 집중 시 막대한 기회비용)",
-            crowd_then="‘고점 대비 -80% 빠졌으니 싸다’는 개인 저가매수 유입",
-            variant_edge="반증 교훈: 안 올랐다고 다 차세대 텐베거가 아니다! 글로벌 가격결정력·순현금 소각·물리적 병목이 없는 단순 낙폭주는 1주도 집중 금지!",
+            name="촉매 없는 만년 저PBR 가치주 · [반증: 시간함정(Time Trap) 금지]",
+            archetype="시간함정 경보 · 12개월 촉매 부재",
+            verdict="실패(시간함정) · 3~5년간 PBR 0.4배 그대로 횡보",
+            trough="순현금이 시총만 한데도 3년 내내 주가 제자리(기회비용 파괴)",
+            peak_or_now="1년 내 자본 회전 목표 실패 · 집중자본 장기 동결",
+            crowd_then="‘자산가치 대비 싸니까 언젠가 오르겠지’라는 막연한 장기 가치투자 희망",
+            variant_edge="반증 교훈: 12개월 안에 시장을 강제로 흔들 ‘확정 촉매(인허가·증설가동·요율인상·대규모 소각)’가 없으면 아무리 싸도 1종목 집중 대상에서 즉시 탈락!",
         ),
     ),
     comparison=(
-        ("목표 종목군", "이미 추세가 터져 모두가 아는 현재 주도 대형주 (/discover)", "아직 5년 저점 대비 1~3배에 머문 ‘차세대 미개화 독점·병목 중형/괴리주’ (/contrarian)"),
-        ("포지션 비중 철학", "분산 리스크 관리 (종목당 10~20% · 여러 종목 분산)", "백화점식 한 자릿수(5~8%) 분산 거부! 확신 검증 통과 시 집중자본의 30%~75% 승부 (1~3종목 압축)"),
-        ("리스크 통제 방식", "가격 손절선(-8%) 및 변동성 캡으로 사후 방어", "진입 전 ‘무차입 순현금·FCF 바닥가’로 하방을 원천 잠그고 단기 가격 흔들림은 무손절 돌파"),
-        ("기성 텐베거 처리", "추세가 살아 있으면 계속 보유·추적", "이미 5~70배 오른 기성 텐베거는 ‘졸업’ 처리해 배제하고 제2·제3의 신규 씨앗만 발굴"),
+        ("목표 보유 호흡", "추세 꺾일 때까지 보유 (/discover)", "5~10년 존버 절대 금지! 반드시 ‘3~12개월 이내’ 승부 + 6개월 무반응 시 시간손절(Time-Stop)"),
+        ("종목 선정 필수 관문", "현재 수급·차트 정배열 우위", "미개화 바닥(5년저점 ≤3.6배) + ‘향후 12개월 내 날짜가 박힌 강제 재평가 촉매’ 필수"),
+        ("포지션 비중 철학", "종목당 10~20% 분산", "전용 집중자본의 30%~75% 초집중 (확신·촉매 미달 시 5% 정찰도 금지하고 0% 패스)"),
+        ("가장 경계할 실패", "고점 추격 후 눌림 손실", "① 기성 텐베거 뒷북 매수, ② 촉매 없이 3~5년 묶이는 ‘만년 저평가 시간함정(Dead Money)’"),
     ),
 )
 
-# Conviction & Balance-Sheet Solvency Tiers — Calibrated for TRUE 1-Stock Concentrated Investing (30% ~ 75%, NEVER 5~8%!)
 SOLVENCY_TIERS = {
     "net_cash": dict(
-        label="S급 재무요새 · 무차입 순현금·초고마진 FCF (단독 50~75% 초집중 적격)",
+        label="S급 재무요새 · 무차입 순현금·고마진 FCF (단독 50~75% 초집중 적격)",
         cap_pct=75.0,
         min_pct=40.0,
-        portfolio_guide="집중계좌 1~2종목 압축 승부 (이호걸·드러큰밀러급)",
+        portfolio_guide="집중계좌 1~2종목 12개월 승부 (이호걸·드러큰밀러급)",
         ok=True,
     ),
     "backlog_float": dict(
-        label="A급 현금흐름 · 수주 선수금(Float)·영업흑자 건전 (주력 35~55% 집중 적격)",
+        label="A급 확정수주·현금흐름 · 선수금·영업흑자 건전 (주력 35~55% 집중 적격)",
         cap_pct=55.0,
         min_pct=30.0,
-        portfolio_guide="집중계좌 2~3종목 핵심 집중 (노마드·리루·파브라이급)",
+        portfolio_guide="집중계좌 2~3종목 12개월 승부 (그린블란트·테퍼급)",
         ok=True,
     ),
     "turnaround_watch": dict(
-        label="B급 설비전환 · 영업흑자 유지·차입 점검 병행 (선발 25~35% 집중 적격)",
+        label="B급 턴어라운드 · 12개월 내 흑자/레버리지 촉매 임박 (선발 25~35% 집중 적격)",
         cap_pct=35.0,
-        min_pct=20.0,
-        portfolio_guide="집중계좌 3~4종목 이내 배치 (버리 13F 상위권 방식)",
+        min_pct=25.0,
+        portfolio_guide="집중계좌 3종목 이내 · 6개월 Time-Stop 엄수",
         ok=True,
     ),
     "distressed_block": dict(
-        label="집중 부적격 · 이자보상 <2배 또는 유상증자·CB 희석 위험 (5% 정찰도 금지 · 0% 기각)",
+        label="집중 부적격 · 유상증자·차환 위험 또는 12개월 내 촉매 부재 (0% 기각)",
         cap_pct=0.0,
         min_pct=0.0,
-        portfolio_guide="베팅 기각 (Pass — 올인할 수 없는 종목은 소액으로도 사지 않는다)",
+        portfolio_guide="베팅 기각 (Pass — 시간함정·희석 위험 종목은 1주도 사지 않음)",
         ok=False,
     ),
 }
 
-# Brand-New 20 Uncrowded Next-Inflection Universe (Zero Ex-Post 10x Consensus Mega-Caps!)
-# (symbol, market, venue, currency, name, archetype, solvency_key, essence_score[0..35], seed_analogy, moat_essence, crowd_fear, kill_switch)
+# 20 High-Velocity 12-Month Catalyst Candidates (Zero Ex-Tenbaggers AND Zero Catalyst-less Dead-Money Value Traps!)
+# (sym, market, venue, ccy, name, arch_id, solv_key, essence[0..35], cat_months[<=12], catalyst_12m, time_stop, moat_essence, crowd_fear, kill_switch)
 CONTRARIAN_UNIVERSE = (
-    # --- KOREA: 10 Uncrowded Pre-Tenbagger Monopoly / Export-Inflection / Deep-Value Gems ---
-    ("214150", "KR", "KOSDAQ", "KRW", "클래시스", "nomad_ses", "net_cash", 34,
-     "2021년 밀양 공장 가동 전 삼양식품(시총 1조대 미개화) 초기 수출·소모품 레버리지 DNA",
-     "미용의료기기 설치 대수가 누적될수록 영업이익률 ~50% 고마진 카트리지 소모품이 무한 반복 소비되는 면도날 해자 + 브라질 이어 미·중 인허가 본진입 초입(무차입 순현금)",
-     "합병 통합 비용과 국내 미용 소비 둔화 우려로 52주 고점 대비 -69% 폭락하며 5년 저점 대비 1.7배 수준으로 회귀",
-     "주력 장비 글로벌 시술 건수(카트리지 출하량) 2분기 연속 역성장 또는 미국·유럽 인허가 무산 공시"),
-    ("058470", "KR", "KOSDAQ", "KRW", "리노공업", "hynix_bottleneck", "net_cash", 35,
-     "빅테크 커스텀 AI 칩 춘추전국시대 R&D 톨게이트 독점 (무차입 영업이익률 40%+ 요새)",
-     "엔비디아뿐 아니라 구글·아마존·메타·애플이 자체 AI/NPU 칩을 설계·검증할 때 대체재가 없는 초미세 리노핀·IC 테스트 소켓 글로벌 독점 과점",
-     "레거시 스마트폰 업황 둔화와 묶여 52주 고점 대비 -59% 급락 (5년 저점 대비 불과 2.1배 미개화 구간)",
-     "선단 피치 테스트 소켓 독점 점유율 이탈 또는 영업이익률 30% 하회 공시"),
-    ("103140", "KR", "KRX", "KRW", "풍산", "hynix_bottleneck", "backlog_float", 32,
-     "2021년 HD현대일렉트릭처럼 ‘전통 굴뚝주(구리) 껍데기’에 가려진 서방권 탄약 공급 병목",
-     "PBR ~0.6배 신동(구리 가공) 자산 하방 방어막 + 글로벌 재무장 속에서 물리적 증설이 가장 느린 155mm 대구경 포탄·탄약 핵심 공급 병목(E_s ≈ 0)",
-     "구리 가격 변동성 민감 굴뚝주라는 오랜 편견과 종전 헤드라인 노이즈로 고점 대비 -63% 폭락(5년 저점 대비 2.0배)",
-     "방산 부문 수출 수주잔고 감소 전환 또는 대구경 탄약 장기계약 해지 공시"),
-    ("014680", "KR", "KRX", "KRW", "한솔케미칼", "hynix_bottleneck", "backlog_float", 32,
-     "이차전지 우려 껍데기에 가려진 2nm 파운드리·차세대 HBM 초고순도 소재 독점 병목",
-     "TSMC·삼성·하이닉스 선단 미세공정 필수 초고순도 과산화수소 및 차세대 프리커서 과점 해자 + 반도체 가동률 회복 시 즉각적 영업레버리지",
-     "비주력 이차전지 바인더 기대감 소멸로 52주 고점 대비 -43% 하락(5년 저점 대비 2.1배 박스권 하단)",
-     "반도체용 초고순도 과산화수소·프리커서 핵심 고객사 내 점유율 축소"),
-    ("241560", "KR", "KRX", "KRW", "두산밥캣", "pabrai_dhandho", "net_cash", 31,
-     "고금리 재고조정 공포와 지배구조 노이즈가 만든 PER 6~7배·순현금 북미 1등 브랜드 단도(Dhandho) 기회",
-     "북미 소형 건설장비(스키드로더·컴팩트 트랙터) 압도적 점유율 1위 딜러망 해자 + 순현금 재무구조 + 북미 인프라·리쇼어링 교체 수요 대기",
-     "북미 고금리 딜러 재고 조정 및 과거 지배구조 개편 피로감으로 고점 대비 -36% 하락·PBR 0.7배 수준 방치",
-     "북미 소형장비 시장점유율 1위 상실 또는 주주가치 훼손 합병·유상증자 재추진 공시"),
-    ("145020", "KR", "KRX", "KRW", "휴젤", "calm_compounder", "net_cash", 33,
-     "소송 불확실성 완전 해소 후 미국·유럽·중국 3대 보툴리눔 톡신 시장을 모두 뚫은 초기 수출 복리주",
-     "국내 톡신 기업 중 유일하게 미국 FDA·유럽·중국 허가를 모두 획득해 북미 직판·파트너십 고마진 수출 비중이 급증하는 무차입 순현금 기업",
-     "과거 균주 소송 트라우마와 내수 보톡스 저가 경쟁 선입견으로 5년 고점 대비 -44% 아래(5년 저점 대비 2.1배) 정체",
-     "미국·중국 분기 톡신 수출액 역성장 전환 또는 FDA 품질 경고 발생"),
-    ("111770", "KR", "KRX", "KRW", "영원무역", "burry_asymmetry", "net_cash", 31,
-     "시총에 육박하는 순현금성 자산(PBR ~0.45배·PER 4~5배) 위에서 글로벌 럭셔리 아웃도어를 독점 생산하는 Roadkill",
-     "아크테릭스·룰루레몬·파타고니아 등 초고가 기능성 특수원단 봉제 기술 글로벌 과점 1위 + 수조 원대 현금성 자산으로 하방 청산가치 완벽 잠금",
-     "단순 의류 하청업 편견과 자회사(스캇) 자전거 재고 일시 상각 노이즈로 고점 대비 -28% 소외",
-     "핵심 기능성 아웃도어 고객사 이탈 또는 대규모 비핵심 적자 인수 반복"),
-    ("383220", "KR", "KRX", "KRW", "F&F", "burry_asymmetry", "net_cash", 30,
-     "중국 소비 혐오 투매로 PER 4~5배·ROE 20%+까지 압축된 아시아 브랜드 현금창출기",
-     "중국·동남아 900개+ 매장 네트워크에서 연간 수천억 원 잉여현금흐름을 뽑아내는 고마진 브랜드 라이선스 모델",
-     "중국 내수 경기 비관론 극점으로 5년 고점 대비 -68% 폭락(5년 저점 대비 1.2배 바닥)",
-     "중국 내 점포당 매출 구조적 붕괴 또는 핵심 라이선스 재계약 실패"),
-    ("086280", "KR", "KRX", "KRW", "현대글로비스", "calm_compounder", "backlog_float", 31,
-     "‘그룹 내부물류’ 편견 뒤에 숨은 글로벌 완성차 해상운송(PCTC) 선박 부족 병목 독식주",
-     "전 세계 자동차운반선(PCTC) 공급 부족 병목 속에서 비계열 글로벌 완성차 장기 고운임 계약 비중 급증 + 배당·밸류업 확대",
-     "완성차 관세 우려와 지배구조 개편용 주식이라는 편견으로 고점 대비 -30% 조정(5년 저점 대비 2.6배)",
-     "글로벌 PCTC 선박 공급과잉 전환에 따른 장기 용선료 급락"),
-    ("259960", "KR", "KRX", "KRW", "크래프톤", "nomad_ses", "net_cash", 32,
-     "수조 원 순현금 요새 + 글로벌·인도 독점 트래픽이 매년 최대 영업이익을 찍는 오해받은 캐시카우",
-     "출시 8년 차에도 글로벌·인도 플랫폼화(UGC)로 연간 1조 원+ 영업이익을 경신하는 독점 IP 현금흐름 + 막대한 순현금 하방 방어막",
-     "‘신작 흥행 불확실성’과 단일 IP 편견에 갇혀 5년 고점 대비 -58% 아래(5년 저점 대비 1.4배) 저평가",
-     "글로벌 핵심 IP 월간활성사용자(MAU) 및 분기 매출 2분기 연속 15%+ 급감"),
+    # --- KOREA: 10 Uncrowded Gems with Hard 3~12 Month Catalysts ---
+    ("214150", "KR", "KOSDAQ", "KRW", "클래시스", "calm_compounder", "net_cash", 34, 6,
+     "향후 2~3분기 내 유럽 CE 인증 장비 본선적 매출 인식 + 합병 일회성 비용 소멸에 따른 분기 영업이익률 50% 복원 및 미국 FDA 임상/허가 단계 진입",
+     "진입 후 2개 분기(6개월) 내 카트리지 수출액 분기 최고치 미경신 시 주가 무관 즉시 교체",
+     "장비 설치 후 영업이익률 ~50% 카트리지 소모품이 반복 소비되는 무차입 순현금 면도날 모델 (5년 저점 대비 1.7배 미개화)",
+     "단기 합병 통합 비용과 내수 미용 둔화 우려로 52주 고점 대비 -69% 과매도",
+     "주력 소모품 분기 수출 역성장 또는 미국·유럽 인허가 무산 공시"),
+    ("058470", "KR", "KOSDAQ", "KRW", "리노공업", "hynix_bottleneck", "net_cash", 35, 6,
+     "향후 2~3분기 빅테크 자체 AI 추론칩(ASIC)·차세대 모바일 AP 신규 테이프아웃 집중에 따른 고단가 R&D 테스트 소켓 수주·분기 사상 최대 실적 구간",
+     "진입 후 6개월 내 분기 영업이익 전년동기비 플러스 전환·마진 38%+ 미확인 시 시간손절",
+     "글로벌 빅테크 AI/NPU 샘플 검증 필수 초미세 리노핀·소켓 독점 과점 · 무차입 영업이익률 40%+ 요새",
+     "레거시 스마트폰 출하 둔화와 묶여 52주 고점 대비 -59% 급락 (5년 저점 대비 2.1배)",
+     "선단 피치 소켓 독점 점유율 이탈 또는 분기 영업이익률 30% 하회 공시"),
+    ("103140", "KR", "KRX", "KRW", "풍산", "hynix_bottleneck", "backlog_float", 33, 6,
+     "155mm 대구경 포탄 증설 캐파(2배 확장) 본격 가동 물량이 향후 2~3분기 고마진 방산 수출 매출·영업이익으로 직접 계상",
+     "향후 2개 분기 내 방산 수출 매출 비중 및 분기 영업이익 서프라이즈 미발생 시 시간손절",
+     "서방권 재고 고갈 속 증설이 가장 느린 대구경 탄약 물리적 공급 병목(E_s ≈ 0) + PBR 0.6배 자산 하방",
+     "구리 가격에 흔들리는 단순 비철금속 굴뚝주 편견으로 고점 대비 -63% 폭락 (5년 저점 대비 2.0배)",
+     "방산 수출 수주잔고 감소 전환 또는 장기 공급계약 해지 공시"),
+    ("240810", "KR", "KOSDAQ", "KRW", "원익IPS", "hynix_bottleneck", "turnaround_watch", 31, 9,
+     "향후 6~9개월 내 삼성·하이닉스 차세대 HBM4 및 선단 D램/낸드 전환 라인용 핵심 증착장비 발주(PO)·반입 스케줄 본격화",
+     "향후 2개 분기 내 반도체 장비 신규 수주 반등 및 영업이익 흑자폭 확대 미확인 시 즉시 철수",
+     "국내 메모리 양사 선단 공정 전환 시 설비 반입 1순위로 실적이 수직 반등하는 핵심 전공정 증착장비 과점",
+     "직전 메모리 감산·설비투자 공백기 후행 실적 탓에 고점 대비 -62% 폭락",
+     "주요 고객사 선단 라인 증설 전면 연기 또는 경쟁사 장비 점유율 잠식"),
+    ("014680", "KR", "KRX", "KRW", "한솔케미칼", "druckenmiller_inflection", "backlog_float", 32, 6,
+     "향후 2~3분기 내 파운드리 2nm GAA 초기 양산 돌입 및 HBM 가동률 상승으로 초고순도 과산화수소·프리커서 출하량 즉각 반등",
+     "진입 후 6개월 내 반도체 소재 부문 분기 영업이익 반등 미확인 시 시간손절",
+     "TSMC·삼성·하이닉스 선단 공정 필수 초고순도 과산화수소·프리커서 과점 (이차전지 감익 기저 종료)",
+     "비주력 이차전지 소재 우려에 가려 52주 고점 대비 -43% 하락 (5년 저점 대비 2.1배)",
+     "선단 파운드리향 핵심 소재 공급 점유율 축소 공시"),
+    ("145020", "KR", "KRX", "KRW", "휴젤", "calm_compounder", "net_cash", 33, 6,
+     "미국 FDA 허가 이후 현지 파트너사 본판매 재주문(Re-order) 물량이 향후 2~3분기 수출 통관 데이터와 영업이익으로 본격 반영",
+     "향후 2개 분기 연속 북미향 톡신 수출 통관액 증가 미확인 시 시간손절 회전",
+     "국내 유일 미국·유럽·중국 3대 톡신 시장 동시 진입 완료 + 무차입 순현금 고마진 수출 구조",
+     "과거 소송 피로감과 내수 보톡스 경쟁 선입견으로 5년 고점 대비 -44% 아래 정체",
+     "미국·중국 분기 수출액 역성장 전환 또는 FDA 품질 이슈 발생"),
+    ("000100", "KR", "KRX", "KRW", "유한양행", "pabrai_dhandho", "backlog_float", 32, 9,
+     "향후 3~9개월 내 J&J 폐암 1차 치료제(렉라자+리브리반트) 글로벌 상업 처방 확대에 따른 단계별 출시 마일스톤 및 분기 로열티 현금 유입",
+     "향후 2개 분기 내 글로벌 파트너사 처방 매출 및 로열티 유입 증가세 둔화 시 즉시 교체",
+     "국내 전통 제약 본업이 하방을 지지하는 가운데 글로벌 블록버스터 순수 로열티(원가 거의 0%)가 영업이익에 직결",
+     "단기 차익매물과 바이오 섹터 변동성으로 52주 고점 대비 -29% (5년 고점 대비 -48%) 조정",
+     "병용요법 글로벌 처방 점유율 부진 또는 중대 부작용 권고 변경"),
+    ("140860", "KR", "KOSDAQ", "KRW", "파크시스템스", "hynix_bottleneck", "net_cash", 33, 9,
+     "향후 6~9개월 내 2nm 이하 게이트올어라운드(GAA) 및 HBM 하이브리드 본딩 수율 검사용 산업용 원자현미경(AFM) 신규 수주 집중",
+     "향후 2개 분기 내 수주잔고 성장률 둔화 시 시간손절",
+     "비접촉 산업용 원자현미경(AFM) 전 세계 독점 지위(점유율 1위) · 미세화될수록 기존 광학계측을 대체하는 물리적 병목",
+     "반도체 중소형 장비주 일괄 매도로 52주 고점 대비 -42% 하락 (5년 저점 대비 2.15배)",
+     "글로벌 파운드리 선단 계측 공정 내 AFM 채택 지연 공시"),
+    ("298380", "KR", "KOSDAQ", "KRW", "에이비엘바이오", "pabrai_dhandho", "backlog_float", 30, 9,
+     "향후 6~12개월 내 뇌혈관장벽(BBB) 투과 셔틀 플랫폼(Grabody-B) 글로벌 빅파마 추가 기술이전 및 기존 파트너 임상 단계 마일스톤 도래",
+     "향후 9개월 내 신규 기술이전·임상 진전 마일스톤 부재 시 지체 없이 시간손절",
+     "사노피 등에 검증된 퇴행성 뇌질환 BBB 셔틀 원천 플랫폼 보유 · 계약금·마일스톤 기반 현금 확보",
+     "코스닥 바이오 투심 붕괴로 52주 고점 대비 -77% 폭락 (5년 저점 대비 2.9배)",
+     "핵심 파트너사 임상 중단·권리 반환 공시 또는 주주배정 유상증자"),
+    ("259960", "KR", "KRX", "KRW", "크래프톤", "greenblatt_catalyst", "net_cash", 32, 6,
+     "향후 2~3분기 대형 신작 글로벌 정식 출시 성적표 확인 + 기존 PUBG 분기 사상 최대 영업이익 경신으로 ‘단일 IP 할인’ 강제 해소",
+     "신작 출시 분기 후 트래픽 부진 및 영업이익 정체 시 본전이어도 즉시 시간손절",
+     "수조 원 순현금 하방 요새 위에서 연간 1조 원+ 영업이익을 창출하며 신작 옵션을 공짜로 가진 비대칭 구조",
+     "신작 출시 전 막연한 우려로 5년 고점 대비 -58% 아래(5년 저점 대비 1.4배) 저평가",
+     "핵심 IP 분기 매출 15%+ 역성장 또는 대규모 적자 M&A 강행"),
 
-    # --- US: 10 Uncrowded Mid-Cap Bottlenecks & Deep-Dislocation Conviction Targets ---
-    ("ACLS", "US", "NASDAQ", "USD", "Axcelis Technologies", "hynix_bottleneck", "net_cash", 33,
-     "시총 $3B대 미개화 중형 독점주 · EV 캐즘 공포 반토막 속에 숨은 800V AI 데이터센터·SiC 장비 과점",
-     "고전압 SiC(실리콘카바이드) 전력반도체 제조의 핵심 병목인 고온 이온주입 장비(Purion) 글로벌 독점 과점 + 무차입 순현금 재무요새",
-     "단기 전기차 재고 조정 공포에 휩쓸려 52주 고점 대비 -45% 폭락(5년 저점 대비 2.4배 중형주)",
-     "SiC 이온주입 장비 시장 내 경쟁사 점유율 역전 또는 수주잔고 급감"),
-    ("ONTO", "US", "NYSE", "USD", "Onto Innovation", "hynix_bottleneck", "net_cash", 34,
-     "NVDA($3.5T) 대신 시총 $8B대에서 HBM·CoWoS 첨단 패키징 병목을 직접 독식하는 중형 장비주",
-     "TSMC CoWoS 및 HBM 다단 적층의 치명적 수율 결함을 잡아내는 3D 광학 계측·검사(Dragonfly) 핵심 병목 과점 + 무차입 순현금",
-     "반도체 장비 업종 일괄 차익매물로 52주 고점 대비 -46.5% 급락(5년 저점 대비 3.0배)",
-     "첨단 AI 패키징 검사 공정 내 핵심 파운드리·메모리 고객사 발주 중단"),
-    ("FSLR", "US", "NASDAQ", "USD", "First Solar", "druckenmiller_inflection", "net_cash", 33,
-     "정책 폐지 과장 공포로 반토막(-51%) 난 미국 AI 데이터센터 전력난 직납 독점 수혜주",
-     "중국산 폴리실리콘을 쓰지 않는 미국 내 유일 대규모 박막형(CdTe) 태양광 모듈 독점 공급사 · 수주잔고 70GW+ 장기 고정가 계약 + 순현금",
-     "정치적 신재생 보조금 축소 헤드라인 공포에 패시브 자금이 투매하며 52주 고점 대비 -51% 폭락(5년 저점 대비 2.3배)",
-     "기존 체결된 유틸리티 장기 공급계약 대량 해지 또는 미국 제조 세액공제 소급 폐지 법안 가결"),
-    ("LULU", "US", "NASDAQ", "USD", "Lululemon Athletica", "nomad_ses", "net_cash", 33,
-     "2022년 Meta(-76%)와 판박이 · 북미 둔화 공포로 5년 최저점(1.14배)에 처박힌 ROIC 30%+ 무차입 브랜드",
-     "무차입 순현금 + ROIC 30%+ 압도적 가격결정력 + 중국·글로벌 연 20~30% 고성장 + 저점 대규모 자사주 매입·소각 복리 엔진",
-     "북미 매장 성장률 둔화와 신흥 경쟁사 과장 공포로 5년 고점 대비 -79% 폭락(5년 저점 대비 1.14배 극단적 바닥)",
-     "글로벌 매출총이익률(58%대) 구조적 붕괴 또는 중국·해외 성장률 한 자릿수 추락"),
-    ("BABA", "US", "NYSE", "USD", "Alibaba Group", "burry_asymmetry", "net_cash", 32,
-     "마이클 버리(Scion) 실제 13F 최대 집중 베팅 · 시총 상당 부분이 순현금인 자사주 소각 기계",
-     "막대한 순현금 보유 + 연간 수백억 달러 FCF로 매년 유통주식의 8~10%를 자사주 매입·소각 + 중국 최대 AI 클라우드(Qwen) 독점 인프라",
-     "중국 매크로·지정학 혐오로 글로벌 기관이 ‘투자 불가’ 낙인을 찍으며 고점 대비 반토막(-48%, 5년 저점 대비 1.4배)",
-     "연간 자사주 매입·소각 중단 또는 핵심 커머스·클라우드 잉여현금흐름 적자 전환"),
-    ("MOH", "US", "NYSE", "USD", "Molina Healthcare", "pabrai_dhandho", "backlog_float", 32,
-     "마이클 버리 실제 집중 보유 · 정부 요율 반영 시차가 만든 전형적인 ‘앞면 대박·뒷면 본전’ 단도 베팅",
-     "미국 저소득층 필수 공적 의료보험(Medicaid) 특화 최저 관리비율 운영자 · 의료비 상승 시 다음 연도 주정부 요율이 자동 인상 보정되는 구조 + 공격적 자사주 소각",
-     "단기 의료비율(MCR) 상승과 정책 예산 삭감 과장 공포로 5년 고점 대비 -51% 폭락(5년 저점 대비 1.5배)",
-     "핵심 주정부 메디케이드 대규모 재계약 탈락 또는 구조적 요율 보정 메커니즘 폐지"),
-    ("NVO", "US", "NYSE", "USD", "Novo Nordisk", "druckenmiller_inflection", "backlog_float", 34,
-     "임상 기대치·약가 노이즈로 -71% 폭락해 5년 최저점(1.14배)으로 되돌아온 글로벌 대사질환 원료 설비 복점주",
-     "수백억 달러를 선투자한 글로벌 GLP-1 원료의약품(API)·충전 생산설비 물리적 진입장벽 및 전 세계 당뇨·비만 처방 캐시카우",
-     "후속 파이프라인 수치 실망과 미국 약가 인하 정치 노이즈가 겹쳐 5년 고점 대비 -71% 투매(5년 저점 대비 1.14배)",
-     "주력 세마글루타이드 계열 글로벌 처방 물량 역성장 또는 치명적 안전성 결함 발생"),
-    ("DECK", "US", "NYSE", "USD", "Deckers Outdoor", "nomad_ses", "net_cash", 32,
-     "무차입 순현금($1.5B+) + ROIC 40%+ 러닝화 생태계 확장 중 소비 공포로 -60% 급락한 복리 기계",
-     "HOKA 전문 러닝화 커뮤니티 충성도와 고마진 직판(DTC) 비중 확대 · 차입금 제로 상태에서 공격적 자사주 소각",
-     "미국 소비 둔화 우려와 가이던스 보수적 제시로 5년 고점 대비 -60% 급락(5년 저점 대비 2.1배)",
-     "HOKA 브랜드 글로벌 매출 역성장 또는 재고 급증에 따른 상시 할인 판매 전환"),
-    ("ENTG", "US", "NASDAQ", "USD", "Entegris", "hynix_bottleneck", "turnaround_watch", 31,
-     "장비주와 달리 2nm·HBM 팹이 돌아가는 한 매일 소모되는 초고순도 오염제어 필터 톨게이트 독점",
-     "선단 반도체 수율을 좌우하는 나노급 오염제어 필터·특수화학소재 독점(매출의 70%+ 반복성 소모품) + 인수 후 차입금 축소 진행",
-     "레거시 웨이퍼 가동률 회복 지연 우려로 고점 대비 -24% 눌림(5년 저점 대비 2.1배)",
-     "선단 2nm 공정용 필터 점유율 하락 또는 잉여현금흐름 차입 상환 지연"),
-    ("CCJ", "US", "NYSE", "USD", "Cameco", "druckenmiller_inflection", "backlog_float", 33,
-     "AI 원전 르네상스의 유일한 서방권 고품위 우라늄 광산·연료주기(Westinghouse) 물리적 독점 병목",
-     "카자흐스탄·러시아 공급 리스크 속에서 신규 광산 개발에 10~15년이 걸리는 절대 공급 비탄력성(E_s ≈ 0) + 유틸리티 장기 계약 단가 상승",
-     "단기 원전 테마 차익실현 매물로 52주 고점 대비 -48% 급락(5년 저점 대비 3.36배, 상한 이내)",
-     "글로벌 원전 가동 중단 사고 또는 서방 유틸리티 장기 우라늄 계약 단가 하락 전환"),
+    # --- US: 10 Uncrowded Gems with Hard 3~12 Month Catalysts ---
+    ("ONTO", "US", "NYSE", "USD", "Onto Innovation", "hynix_bottleneck", "net_cash", 34, 6,
+     "향후 2~3분기 TSMC CoWoS 증설 및 HBM 다단 적층 라인향 Dragonfly 3D 광학 검사장비 출하·매출 가속",
+     "향후 2개 분기 내 AI 패키징 검사 매출 가이던스 상향 미확인 시 시간손절",
+     "시총 $8B대 중형 체급에서 AI 첨단 패키징 수율 병목을 독식하는 무차입 순현금 장비주",
+     "반도체 장비 섹터 일괄 조정으로 52주 고점 대비 -53% 폭락 (5년 저점 대비 3.0배)",
+     "핵심 파운드리·HBM 고객사 패키징 검사장비 발주 중단"),
+    ("ACLS", "US", "NASDAQ", "USD", "Axcelis Technologies", "hynix_bottleneck", "net_cash", 33, 9,
+     "향후 6~12개월 내 800V AI 데이터센터 전력장치 및 200mm SiC 웨이퍼 팹 전환용 고온 이온주입 장비 수주 턴어라운드",
+     "향후 2개 분기 내 수주잔고(Backlog) 바닥 반전 미확인 시 시간손절 교체",
+     "SiC 전력반도체 고온 이온주입(Purion) 독점 과점 + 무차입 순현금 재무요새(시총 $3B 중형주)",
+     "단기 전기차 재고 조정 공포로 52주 고점 대비 -45% 반토막 (5년 저점 대비 2.4배)",
+     "SiC 이온주입 시장 내 점유율 이탈 또는 분기 적자 전환"),
+    ("CELH", "US", "NASDAQ", "USD", "Celsius Holdings", "druckenmiller_inflection", "net_cash", 32, 6,
+     "최대 유통망(펩시코) 재고 감축 사이클 종료 + Alani Nu 인수 결합 매대 확장이 향후 2~3분기 매출 성장률 급반전으로 직접 반영",
+     "향후 2개 분기 내 북미 스캐너 판매율 및 매출 성장 재가속 미확인 시 즉시 시간손절",
+     "무차입급 재무구조 + 북미 무설탕 기능성 에너지드링크 점유율 3강 체제 장악",
+     "유통사 일회성 재고 축소를 브랜드 붕괴로 오해한 군중 투매로 5년 고점 대비 -68% 폭락 (5년 저점 2.1배)",
+     "북미 소매 스캐너 점유율 2분기 연속 하락 전환"),
+    ("FOUR", "US", "NYSE", "USD", "Shift4 Payments", "greenblatt_catalyst", "backlog_float", 32, 6,
+     "이미 계약 완료된 수십억 달러 규모 스타디움·호텔·글로벌 면세 통합결제 백로그가 향후 2~3분기 내 실제 가동(Go-Live) 수수료로 전환",
+     "향후 2개 분기 내 순결제거래액(E2E Volume) 및 FCF 가이던스 미달 시 시간손절",
+     "스포츠 경기장·고급 호텔 특화 통합 결제 독점력 + 창업자 교체 불확실성 해소 및 대규모 자사주 소각",
+     "CEO 공직 지명 헤드라인 소음과 핀테크 멀티플 압축으로 5년 고점 대비 -62% 급락 (5년 저점 1.4배)",
+     "대형 엔터프라이즈 가맹점 이탈 급증 또는 인수 차입 부담 악화"),
+    ("FSLR", "US", "NASDAQ", "USD", "First Solar", "druckenmiller_inflection", "net_cash", 33, 6,
+     "향후 6~9개월 내 미국 신규 공장 램프업 물량 인도 + 동남아 우회 중국산 패널 고율 관세 부과로 북미 AI 데이터센터 전력 직납 마진 급증",
+     "향후 2개 분기 내 정책 법안 불확실성 해소 및 수주 단가(ASP) 방어 실패 시 시간손절",
+     "비중국 박막형(CdTe) 유틸리티 태양광 미국 내 독점 공급사 · 70GW+ 기확정 장기 수주잔고 + 순현금",
+     "보조금 축소 정치 헤드라인 공포에 패시브 투매가 쏟아지며 52주 고점 대비 -53% 폭락",
+     "미국 제조 세액공제(45X) 전면 폐지 확정 또는 대규모 수주 계약 해지"),
+    ("MOH", "US", "NYSE", "USD", "Molina Healthcare", "greenblatt_catalyst", "backlog_float", 32, 6,
+     "주정부 메디케이드 신규 연도 요율 인상(Rate Reset) 발효 시점이 도래해 향후 2~3분기 내 의료비율(MCR) 정상화 및 EPS 급반등 확정",
+     "신규 요율 적용 분기에도 의료비율(MCR) 악화가 지속되면 즉시 시간손절",
+     "마이클 버리 집중 종목 · 정부 계약상 원가 상승분이 차기 요율에 자동 전가되는 구조 + 공격적 자사주 소각",
+     "요율 반영 시차로 인한 단기 마진 압박을 영구 훼손으로 오인해 5년 고점 대비 -51% 폭락 (5년 저점 1.5배)",
+     "핵심 주정부 메디케이드 재계약 탈락 또는 연방 보조금 구조 개편"),
+    ("LULU", "US", "NASDAQ", "USD", "Lululemon Athletica", "burry_asymmetry", "net_cash", 33, 6,
+     "향후 2개 분기 북미 신제품 라인업 리프레시 성적표 + 시총 대비 대규모 자사주 매입·소각 집행으로 PER 10배 극단적 저평가 해소",
+     "향후 2개 분기 내 미주 동일매장매출 감소폭 축소 실패 시 본전이어도 시간손절",
+     "무차입 순현금 + ROIC 30%+ 브랜드 파워 + 중국 연 25%+ 고성장 (2022년 Meta급 과매도 바닥)",
+     "북미 성장 둔화 공포로 5년 고점 대비 -79% 폭락하며 5년 최저점(1.18배) 기록",
+     "매출총이익률 55% 하회 또는 재고 덤핑 할인 고착화"),
+    ("BABA", "US", "NYSE", "USD", "Alibaba Group", "burry_asymmetry", "net_cash", 32, 6,
+     "향후 2~3분기 내 AI 클라우드(Qwen) 기업향 매출 가속 + 연간 유통주식 8~10% 규모 자사주 소각·특별배당 현금 집행",
+     "향후 2개 분기 내 자사주 소각 속도 둔화 또는 클라우드 마진 역전 시 즉시 교체",
+     "마이클 버리 최대 집중 베팅 · 시총 대비 막대한 순현금 하방 방어막과 매년 주당가치를 10%씩 올리는 소각 엔진",
+     "중국 매크로 혐오로 고점 대비 -49% 폭락 (5년 저점 대비 1.4배 청산가치 수준)",
+     "자사주 소각 중단 또는 핵심 커머스 잉여현금흐름 급감"),
+    ("NVO", "US", "NYSE", "USD", "Novo Nordisk", "pabrai_dhandho", "backlog_float", 34, 9,
+     "향후 6~9개월 내 신규 인수 충전 공장(Catalent) 본격 가동에 따른 위고비 공급 병목 해소 처방량 점프 및 후속 비만약 허가 모멘텀",
+     "향후 2개 분기 내 신규 공장 가동 후에도 처방 물량 가속이 없으면 시간손절",
+     "글로벌 GLP-1 원료의약품(API) 증설 장벽과 전 세계 당뇨·비만 복점 캐시카우",
+     "임상 수치 기대치 미달·약가 노이즈로 5년 고점 대비 -71% 폭락하며 5년 최저점(1.14배) 회귀",
+     "세마글루타이드 글로벌 처방 점유율 급감 또는 중대 안전성 결함"),
+    ("CCJ", "US", "NYSE", "USD", "Cameco", "druckenmiller_inflection", "backlog_float", 33, 9,
+     "러시아 농축우라늄 수입 금지 본격 발효 및 향후 6~12개월 내 서방 유틸리티·빅테크 원전 장기 우라늄 구매계약(Term) 체결 집중",
+     "향후 9개월 내 장기 우라늄 계약 단가 상승 및 수주량 확대 미확인 시 시간손절",
+     "서방권 유일 대형 고품위 우라늄 광산 + Westinghouse 연료주기 지분 결합 절대 공급 병목(E_s ≈ 0)",
+     "원전 테마 단기 차익실현으로 52주 고점 대비 -52% 급락 (5년 저점 대비 3.36배)",
+     "주력 광산 침수·가동 중단 또는 장기 우라늄 계약 단가 하락 전환"),
 )
 
 
@@ -387,44 +437,76 @@ def _clamp(val, lo, hi):
     return max(lo, min(hi, val))
 
 
-def compute_position_sizing(*, upside_pct, downside_pct, win_prob=0.60, cap_pct=60.0, min_pct=30.0, blocked=False, risk_budget_pct=None):
-    """High-Conviction Concentrated Kelly Sizing (30% ~ 75% of dedicated conviction capital — NEVER single-digit closet indexing!)."""
+def parse_horizon_months(horizon_text):
+    """Enforce strictly <= 12 months target inflection horizon. Reject multi-year (e.g. 24개월, 3년, 5년) buy-and-hope."""
+    s = str(horizon_text or "").strip()
+    if not s:
+        raise ValueError("목표 승부 기한(12개월 이내, 예: 6~12개월)을 입력하세요.")
+    yr_matches = [float(x) for x in re.findall(r"(\d+(?:\.\d+)?)\s*년", s)]
+    if any(y > 1.0 for y in yr_matches) or any(tok in s for tok in ("장기", "영구", "존버", "무기한")):
+        raise ValueError("5~10년 장기 홀딩 배제 원칙: 1년(12개월) 이내에 승부 날 촉매 시나리오만 허용됩니다.")
+    mo_matches = [int(x) for x in re.findall(r"(\d+)\s*개?월", s)]
+    q_matches = [int(x) * 3 for x in re.findall(r"(\d+)\s*분기", s)]
+    vals = mo_matches + q_matches + [int(round(y * 12)) for y in yr_matches]
+    if not vals:
+        raise ValueError("목표 승부 기한에 개월/분기 숫자를 명시하세요 (최대 12개월 이내, 예: 6~12개월).")
+    max_m = max(vals)
+    if max_m > MAX_HORIZON_MONTHS or max_m < 1:
+        raise ValueError(f"1년 내 승부 원칙 위반: 입력 기한({max_m}개월)이 상한(12개월)을 초과했습니다. 3~12개월 내 확정 촉매 종목만 설계하세요.")
+    return max_m
+
+
+def validate_contrarian_invariants(record_or_cand, *, is_playbook=False):
+    """Hard runtime harness preventing recurrence of CoT-ERR-01 (ex-tenbaggers), CoT-ERR-02 (5~8% dilution), and CoT-ERR-03 (>12M dead money)."""
+    h_months = parse_horizon_months(record_or_cand.get("horizon", ""))
+    if h_months > MAX_HORIZON_MONTHS:
+        raise ValueError("CoT 불변식 위반: 12개월 초과 보유 호흡은 허용되지 않습니다.")
+    if not str(record_or_cand.get("catalyst_12m", "")).strip() or not str(record_or_cand.get("time_stop", "")).strip():
+        raise ValueError("CoT 불변식 위반: 12개월 내 확정 촉매 일정과 시간손절(Time-Stop) 기준이 누락되었습니다.")
+    sz = record_or_cand.get("sizing", {})
+    rec_w = float(sz.get("recommended_pct", 0.0))
+    if 0.0 < rec_w < 25.0:
+        raise ValueError(f"CoT 불변식 위반: 한 자릿수·분산 비중({rec_w}%) 오염 감지. 통과 종목은 25~75%, 미달은 0% 기각이어야 합니다.")
+    if not is_playbook and record_or_cand.get("trap_shield_ok"):
+        if record_or_cand.get("ex_tenbagger") or float(record_or_cand.get("mult_5y_low", 99.0)) > EX_TENBAGGER_CEILING:
+            raise ValueError("CoT 불변식 위반: 기성 급등주(5년 저점 대비 >3.6배)가 통과 목록에 포함되었습니다.")
+
+
+def compute_position_sizing(*, upside_pct, downside_pct, win_prob=0.60, cap_pct=60.0, min_pct=30.0, blocked=False):
+    """High-Conviction Concentrated Kelly Sizing (25% ~ 75% of dedicated conviction capital — NEVER 5~8%!)."""
     if blocked or cap_pct <= 0 or upside_pct <= 0 or downside_pct <= 0:
         return dict(
             kelly_full_pct=0.0,
             kelly_quarter_pct=0.0,
             recommended_pct=0.0,
             cap_pct=max(0.0, float(cap_pct)),
-            grade_label="0% · 베팅 기각 (확신·생존 미달 시 소액 정찰도 금지)",
+            grade_label="0% · 베팅 기각 (촉매·확신 미달 시 5% 정찰도 금지)",
             portfolio_guide="매수 보류 (Pass)",
         )
     p = _clamp(float(win_prob), 0.25, 0.85)
     q = 1.0 - p
     b = max(float(upside_pct) / max(float(downside_pct), 1.0), 0.1)
-    # Classic Kelly fraction on asymmetric payoff odds b: f* = (p*b - q) / b
     full_kelly = max(0.0, (p * b - q) / b) * 100.0
-    if full_kelly < 15.0:
+    if full_kelly < 18.0:
         return dict(
             kelly_full_pct=round(full_kelly, 1),
             kelly_quarter_pct=round(full_kelly * 0.25, 1),
             recommended_pct=0.0,
             cap_pct=round(float(cap_pct), 1),
-            grade_label="0% · 기대 우위 부족 (어중간한 5~10% 분산 진입 금지)",
-            portfolio_guide="진입가 추가 하락 대기 (Fat Pitch 아님)",
+            grade_label="0% · 1년 기대 우위 부족 (어중간한 분산 진입 금지)",
+            portfolio_guide="추가 할인 또는 촉매 임박 대기",
         )
-    # Unlevered spot concentration: downside is bounded by structural floor (not -100% wipeout),
-    # so conviction allocation scales between [min_pct, cap_pct] driven by Full Kelly edge
-    conv_raw = _clamp(full_kelly * 1.10, float(min_pct), float(cap_pct))
+    conv_raw = _clamp(full_kelly * 1.10, max(25.0, float(min_pct)), float(cap_pct))
     rec = round(min(conv_raw, float(cap_pct)), 1)
     if rec >= 50.0:
-        grade = f"단독 초집중 · {rec:.0f}% (1~2종목 승부)"
-        guide = "집중계좌 1~2종목 압축 (이호걸·드러큰밀러급 확신)"
+        grade = f"단독 초집중 · {rec:.0f}% (1~2종목 1년 승부)"
+        guide = "집중계좌 1~2종목 압축 · 6개월 Time-Stop"
     elif rec >= 35.0:
-        grade = f"주력 집중 · {rec:.0f}% (2~3종목 핵심)"
-        guide = "집중계좌 2~3종목 압축 (노마드·리루·파브라이급)"
+        grade = f"주력 집중 · {rec:.0f}% (2~3종목 1년 승부)"
+        guide = "집중계좌 2~3종목 압축 · 6개월 Time-Stop"
     else:
-        grade = f"선발 집중 · {rec:.0f}% (3~4종목 이내)"
-        guide = "집중계좌 3~4종목 이내 (버리 13F 상위권 집중)"
+        grade = f"선발 집중 · {rec:.0f}% (3종목 이내)"
+        guide = "집중계좌 3종목 이내 · 6개월 Time-Stop"
     return dict(
         kelly_full_pct=round(full_kelly, 1),
         kelly_quarter_pct=round(full_kelly * 0.25, 1),
@@ -436,7 +518,6 @@ def compute_position_sizing(*, upside_pct, downside_pct, win_prob=0.60, cap_pct=
 
 
 def _monotonic_tranches(entry_val, floor_val, rnd):
-    """Guarantee strictly decreasing 3-tranche prices: entry (35%) > t2 (40%) > t3 (25%) >= floor."""
     span = max(0.0, float(entry_val) - float(floor_val))
     t1 = rnd(float(entry_val))
     t2 = rnd(float(entry_val) - span * 0.45)
@@ -467,7 +548,12 @@ def _yahoo_series(symbol, market, venue, rng, interval, get_bytes):
 
 
 def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
-    sym, market, venue, ccy, name, arch_id, solv_key, essence, seed_txt, moat_txt, fear_txt, kill_txt = spec
+    (
+        sym, market, venue, ccy, name, arch_id, solv_key, essence,
+        cat_months, catalyst_12m, time_stop, moat_txt, fear_txt, kill_txt
+    ) = spec
+    if cat_months > MAX_HORIZON_MONTHS:
+        return None
     closes = list(db_bars)
     if cur_price and cur_price > 0 and (not closes or abs(cur_price - closes[-1]) / closes[-1] > 1e-5):
         closes.append(float(cur_price))
@@ -479,7 +565,6 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
     low52 = min(window_1y)
     dd52 = (cur / high52 - 1) * 100
 
-    # 5-Year Trough Multiple Check (Anti-Hindsight / Ex-Tenbagger Filter!)
     hist_5y = list(five_yr_closes) if five_yr_closes else window_1y
     low5y = min(min(hist_5y), low52)
     high5y = max(max(hist_5y), high52)
@@ -496,56 +581,57 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
     dn = sum(-d for d in diffs if d < 0) / 14
     rsi = 100.0 if dn == 0 else 100.0 - (100.0 / (1.0 + up / dn))
 
-    # Axis 2: Uncrowded Early-Stage Dislocation Score (0..35)
-    # Rewards deep drawdown + pre-tenbagger 5y trough proximity; penalizes already-run stocks!
-    gap_pts = 8.0
+    # Axis 2: Uncrowded Dislocation + 12M Catalyst Velocity Score (0..35)
+    gap_pts = 6.0
     drop = max(-dd52, -dd5y * 0.85)
-    if 30 <= drop <= 75:
-        gap_pts += 14.0
+    if 30 <= drop <= 78:
+        gap_pts += 13.0
     elif 20 <= drop < 30:
+        gap_pts += 9.0
+    elif drop > 78:
         gap_pts += 10.0
-    elif drop > 75:
-        gap_pts += 11.0
     elif drop < 10:
         gap_pts -= 5.0
 
-    # Bonus for true uncrowded 5-year base (1.0x ~ 2.5x above 5Y low); heavy penalty if > 3.6x!
-    if mult_5y_low <= 2.2:
+    # Reward imminent 3~6 month catalysts over 9~12 month catalysts!
+    if cat_months <= 6:
         gap_pts += 6.0
-    elif mult_5y_low <= EX_TENBAGGER_CEILING:
-        gap_pts += 3.0
+    elif cat_months <= 9:
+        gap_pts += 4.0
     else:
-        gap_pts -= 12.0
+        gap_pts += 2.0
+
+    if mult_5y_low <= 2.2:
+        gap_pts += 5.0
+    elif mult_5y_low <= EX_TENBAGGER_CEILING:
+        gap_pts += 2.5
+    else:
+        gap_pts -= 14.0
 
     if pct60 < -8:
-        gap_pts += 5.0
-    elif pct60 < 0:
         gap_pts += 3.0
     elif pct60 > 15:
         gap_pts -= 4.0
 
-    if rsi <= 38:
-        gap_pts += 4.0
-    elif rsi <= 50:
-        gap_pts += 2.0
+    if rsi <= 42:
+        gap_pts += 2.5
     elif rsi >= 70:
         gap_pts -= 6.0
     gap_score = round(_clamp(gap_pts, 2.0, 35.0), 1)
 
-    # Structural Downside Floor & Multi-Year Re-Rating Target (2x~4x inflection potential, anchored by 5Y high & moat)
+    # Realistic 12-Month Catalyst Re-Rating Target (60%~160% 1-year re-rating, NOT fantasy 10-year price!)
     sorted_1y = sorted(window_1y)
     p10_floor = sorted_1y[max(0, int(0.08 * (len(sorted_1y) - 1)))]
-    floor_px = min(cur * 0.86, max(low52 * 0.94, min(cur * 0.88, p10_floor)))
-    target_px = max(cur * 1.65, high52 * 0.95, min(cur * 2.8, high5y * 0.88))
-    bull_px = max(target_px * 1.35, high5y * 1.15)
+    floor_px = min(cur * 0.87, max(low52 * 0.94, min(cur * 0.88, p10_floor)))
+    target_px = max(cur * 1.55, min(cur * 2.35, max(high52 * 0.88, high5y * 0.72)))
+    bull_px = max(target_px * 1.25, min(cur * 3.0, high52 * 1.05))
 
     downside_pct = max(5.0, (1.0 - floor_px / cur) * 100)
     upside_pct = (target_px / cur - 1.0) * 100
     asymmetry_ratio = round(upside_pct / downside_pct, 2)
     margin_pct = round((1.0 - cur / target_px) * 100, 1)
 
-    # Axis 3: Asymmetric Convexity Score (0..30)
-    asym_pts = _clamp(asymmetry_ratio * 4.2, 3.0, 30.0)
+    asym_pts = _clamp(asymmetry_ratio * 4.4, 3.0, 30.0)
     asym_score = round(asym_pts, 1)
 
     variant_total = round(essence + gap_score + asym_score, 1)
@@ -566,7 +652,7 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         and asymmetry_ratio >= arch["min_asymmetry"]
         and margin_pct >= 25.0
     )
-    win_p = 0.62 if essence >= 33 else 0.58
+    win_p = 0.63 if (essence >= 33 and cat_months <= 6) else 0.58
     sizing = compute_position_sizing(
         upside_pct=upside_pct,
         downside_pct=downside_pct,
@@ -576,9 +662,9 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         blocked=blocked,
     )
     if ex_tenbagger:
-        live_fear = f"[기성 급등주 차단: 5년 저점 대비 {mult_5y_low:.1f}배 상승 이력 — 신규 텐베거 발굴 대상 제외] {fear_txt}"
+        live_fear = f"[기성 급등주 차단: 5년 저점 대비 {mult_5y_low:.1f}배 상승 — 제외] {fear_txt}"
     elif overheated:
-        live_fear = f"[단기 과열 구간(RSI {rsi:.0f}) — 조정 대기 후 집중 타격] {fear_txt}"
+        live_fear = f"[단기 과열(RSI {rsi:.0f}) — 조정 대기] {fear_txt}"
     else:
         live_fear = fear_txt
 
@@ -587,7 +673,7 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         if market == "KR"
         else f"https://stockanalysis.com/stocks/{sym.lower()}/"
     )
-    return dict(
+    item = dict(
         symbol=sym,
         market=market,
         venue=venue,
@@ -596,7 +682,10 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         archetype=arch_id,
         archetype_badge=arch["badge"],
         target_weight_range=arch["target_weight_range"],
-        horizon=arch["horizon"],
+        horizon=f"{max(3, cat_months - 3)}~{cat_months}개월 (1년 내 승부)",
+        catalyst_months=cat_months,
+        catalyst_12m=catalyst_12m,
+        time_stop=time_stop,
         price=rnd(cur),
         high52=rnd(high52),
         dd52=round(dd52, 1),
@@ -621,17 +710,18 @@ def _score_candidate(spec, db_bars, cur_price, five_yr_closes=None):
         solvency_label=solv_meta["label"],
         sizing=sizing,
         trap_shield_ok=shield_ok,
-        seed_analogy=seed_txt,
         moat_essence=moat_txt,
         crowd_fear=live_fear,
         execution_rule=arch["execution_rule"],
         kill_switch=kill_txt,
         source_url=src_url,
     )
+    validate_contrarian_invariants(item, is_playbook=False)
+    return item
 
 
 def refresh(package, *, fetcher=None, now=None):
-    """Scan uncrowded pre-tenbagger moat universe for Variant-Perception Dislocation. Zero portfolio input."""
+    """Scan uncrowded 12-month catalyst universe. Zero portfolio input."""
     get_bytes = fetcher or _default_get
     stamp_dt = now or datetime.now(intel.KST)
     stamp = stamp_dt.astimezone(intel.KST).isoformat(timespec="seconds")
@@ -656,7 +746,6 @@ def refresh(package, *, fetcher=None, now=None):
         q = qb.match("kis", sym, ccy, (tag,))
         cur_px = float(q["price"]) if q else None
         bars = db_series.get(sym, [])
-        bars_5y = None
         if len(bars) < 60:
             try:
                 bars = _yahoo_series(sym, market, venue, "1y", "1d", get_bytes)
@@ -672,7 +761,7 @@ def refresh(package, *, fetcher=None, now=None):
         if scored is not None:
             candidates.append(scored)
 
-    candidates.sort(key=lambda r: (not r["trap_shield_ok"], -r["total"], -r["asymmetry"], r["symbol"]))
+    candidates.sort(key=lambda r: (not r["trap_shield_ok"], r["catalyst_months"], -r["total"], -r["asymmetry"], r["symbol"]))
     doc = dict(updated=stamp, count=len(candidates), candidates=candidates)
     if package is not None:
         intel.update_json(package, FILE, {}, lambda _: doc)
@@ -687,32 +776,46 @@ def read(package):
 
 
 def save_playbook(package, fields):
-    """Validate and save a bespoke 1-Stock High-Conviction Concentrated Playbook locally."""
+    """Validate and save a bespoke 12-Month Catalyst 1-Stock High-Conviction Playbook locally."""
     market = str(fields.get("market", "KR")).strip().upper()
     symbol = str(fields.get("symbol", "")).strip().upper()
     name = str(fields.get("name", "")).strip() or symbol
     archetype = str(fields.get("archetype", "calm_compounder")).strip()
     crowd_view = str(fields.get("crowd_view", "")).strip()
     variant_insight = str(fields.get("variant_insight", "")).strip()
+    catalyst_12m = str(fields.get("catalyst_12m", "")).strip() or variant_insight
+    time_stop = (
+        str(fields.get("time_stop", "")).strip()
+        or "진입 후 2개 분기(6개월) 내 예상 촉매·영업이익 반전이 숫자로 확인되지 않으면 본전이어도 즉시 전량 교체"
+    )
     kill_switch = str(fields.get("kill_switch", "")).strip()
-    horizon = str(fields.get("horizon", "18~36개월")).strip()[:40]
+    horizon = str(fields.get("horizon", "6~12개월")).strip()[:40]
     url = str(fields.get("url", "")).strip()
 
     if market not in ("KR", "US") or not re.fullmatch(r"[A-Z0-9.\-]{1,12}", symbol):
         raise ValueError("시장(KR/US)과 종목코드·티커 형식을 확인하세요.")
     if archetype not in ARCHETYPES:
         raise ValueError("역발상 집중투자 아키타입을 선택하세요.")
-    if not (0 < len(name) <= 80 and 0 < len(crowd_view) <= 300 and 0 < len(variant_insight) <= 400 and 0 < len(kill_switch) <= 300):
-        raise ValueError("대중의 시선·나만의 독점 인사이트·가설 철회 조건을 모두 입력하세요.")
+    if not (
+        0 < len(name) <= 80
+        and 0 < len(crowd_view) <= 300
+        and 0 < len(variant_insight) <= 400
+        and 0 < len(catalyst_12m) <= 320
+        and 0 < len(time_stop) <= 260
+        and 0 < len(kill_switch) <= 300
+    ):
+        raise ValueError("대중 시선·독점 인사이트·12개월 내 확정 촉매·시간손절·철회 조건을 모두 확인하세요.")
+
+    horizon_months = parse_horizon_months(horizon)
 
     try:
         entry = Decimal(str(fields.get("entry", "")).strip())
         floor = Decimal(str(fields.get("floor", "")).strip())
         target = Decimal(str(fields.get("target", "")).strip())
     except Exception as exc:
-        raise ValueError("기준가·하방 바닥가·목표 가치를 숫자로 입력하세요.") from exc
+        raise ValueError("기준가·하방 바닥가·1년 내 목표 가치를 숫자로 입력하세요.") from exc
     if not (Decimal(0) < floor < entry < target):
-        raise ValueError("하방 바닥가 < 현재 진입 기준가 < 본질 복원 목표가 순서를 확인하세요.")
+        raise ValueError("하방 바닥가 < 현재 진입 기준가 < 1년 내 복원 목표가 순서를 확인하세요.")
 
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
@@ -751,13 +854,19 @@ def save_playbook(package, fields):
         min_pct=solv_meta["min_pct"],
         blocked=not solv_meta["ok"],
     )
-    passes = bool(solv_meta["ok"] and asymmetry >= min_req and margin_pct >= 25.0 and sizing["recommended_pct"] >= 20.0)
+    passes = bool(
+        solv_meta["ok"]
+        and horizon_months <= MAX_HORIZON_MONTHS
+        and asymmetry >= min_req
+        and margin_pct >= 25.0
+        and sizing["recommended_pct"] >= 25.0
+    )
 
     rnd = (lambda v: str(round(float(v)))) if ccy == "KRW" else (lambda v: f"{float(v):.2f}")
     t1, t2, t3 = _monotonic_tranches(entry, floor, rnd)
 
     now = datetime.now(intel.KST).isoformat(timespec="seconds")
-    pid = hashlib.sha256(f"{market}:{symbol}:{archetype}:{entry}:{target}".encode()).hexdigest()[:16]
+    pid = hashlib.sha256(f"{market}:{symbol}:{archetype}:{entry}:{target}:{horizon}".encode()).hexdigest()[:16]
     record = dict(
         id=pid,
         created=now,
@@ -774,7 +883,7 @@ def save_playbook(package, fields):
         entry=rnd(entry),
         floor=rnd(floor),
         target=rnd(target),
-        bull=rnd(target * Decimal("1.30")),
+        bull=rnd(target * Decimal("1.25")),
         tranches=[t1, t2, t3],
         upside_pct=round(upside_pct, 1),
         downside_pct=round(downside_pct, 1),
@@ -782,11 +891,15 @@ def save_playbook(package, fields):
         margin_pct=margin_pct,
         passes=passes,
         horizon=horizon,
+        horizon_months=horizon_months,
+        catalyst_12m=catalyst_12m,
+        time_stop=time_stop,
         crowd_view=crowd_view,
         variant_insight=variant_insight,
         kill_switch=kill_switch,
         url=url,
     )
+    validate_contrarian_invariants(record, is_playbook=True)
 
     def _upsert(old):
         items = [r for r in old.get("items", []) if r.get("id") != pid]

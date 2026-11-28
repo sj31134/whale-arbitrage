@@ -1,8 +1,10 @@
-"""Authenticated Contrarian Variant-Perception & High-Conviction 1-Stock Concentrated Strategy Workbench."""
+"""Authenticated Contrarian Variant-Perception & 12-Month Catalyst 1-Stock Concentrated Workbench."""
 
+from datetime import datetime, timedelta
 from html import escape
 from urllib.parse import urlencode
 
+from agents import intelligence as intel
 from agents.portfolio import normalize, portfolio_accounts
 from . import chat_page, contrarian, live_valuation
 
@@ -32,8 +34,9 @@ def _held_keys(directory, package):
     return codes, names
 
 
-def _research_prefill(base, *, name, symbol, ccy, entry, floor, target, bull, url, catalyst, kill_switch):
+def _research_prefill(base, *, name, symbol, ccy, entry, floor, target, bull, url, catalyst, kill_switch, months=9):
     fmt = (lambda v: str(round(float(v)))) if ccy == "KRW" else (lambda v: f"{float(v):.2f}")
+    due_day = (datetime.now(intel.KST).date() + timedelta(days=min(365, max(90, int(months) * 30)))).isoformat()
     params = dict(
         asset=f"{name} ({symbol})" if symbol not in name else name,
         currency=ccy,
@@ -44,8 +47,27 @@ def _research_prefill(base, *, name, symbol, ccy, entry, floor, target, bull, ur
         price_source=url,
         catalyst=catalyst[:220],
         invalidate=kill_switch[:200],
+        due=due_day,
     )
     return e(base + "/research?" + urlencode(params) + "#create")
+
+
+def _cot_guardrail_section():
+    rows = "".join(
+        f'<tr><td><code>{e(r["code"])}</code><br><b>{e(r["bias_name"])}</b></td>'
+        f'<td>{e(r["cot_trace"])}</td>'
+        f'<td>{e(r["why_fatal"])}</td>'
+        f'<td><span class="badge-pass">코드 불변식 잠금</span> <b>{e(r["hard_guardrail"])}</b></td></tr>'
+        for r in contrarian.AGENT_COT_POSTMORTEM
+    )
+    return (
+        '<details><summary>에이전트 Chain-of-Thought(사고과정) 오류 복기 &amp; 3중 재발 방지 코드 하네스</summary>'
+        '<p>이전 버전에서 왜 5~8% 분산 비중·기성 텐베거 재활용·3~5년 장기 홀딩 문구가 잘못 생성되었는지 에이전트의 실제 추론 로그(CoT)를 감사하여, '
+        '동일 오류가 다시는 발생하지 않도록 <b>런타임 불변식(Invariant Assertion)</b>으로 영구 잠갔습니다.</p>'
+        '<div class="comparison"><table><thead><tr>'
+        '<th>CoT 오류 코드 · 인지 편향</th><th>이전 에이전트 CoT 추론 과정 원인</th><th>실전 투자에 미친 악영향</th><th>영구 재발 방지 코드 하네스</th>'
+        f'</tr></thead><tbody>{rows}</tbody></table></div></details>'
+    )
 
 
 def _archetype_section():
@@ -58,14 +80,14 @@ def _archetype_section():
         cards.append(
             f'<article class="era-card">'
             f'<div class="spread"><span class="badge-info">{e(a["badge"])}</span>'
-            f'<span class="badge-pass">권장 집중도 {e(a["target_weight_range"])}</span></div>'
+            f'<span class="badge-pass">집중 {e(a["target_weight_range"])} · 호흡 {e(a["horizon"])}</span></div>'
             f'<h3>{e(a["master"])}</h3>'
             f'<p><small><b>실증 트랙레코드:</b> {e(a["track_record"])}</small></p>'
             f'<div class="era-lesson">'
             f'<b>핵심 철학:</b> {e(a["core_quote"])}<br>'
             f'<b>① 대중의 시선 착시:</b> {e(a["crowd_blindspot"])}<br>'
-            f'<b>② 독점 인사이트 공식:</b> {e(a["edge_formula"])}<br>'
-            f'<b>③ 초집중 집행 규칙 ({e(a["horizon"])}):</b> {e(a["execution_rule"])} · 최소 손익배수 <b>{a["min_asymmetry"]:.1f}배+</b>'
+            f'<b>② 12개월 내 승부 공식:</b> {e(a["edge_formula"])}<br>'
+            f'<b>③ 초집중·시간손절 규칙 ({e(a["horizon"])}):</b> {e(a["execution_rule"])} · 최소 손익배수 <b>{a["min_asymmetry"]:.1f}배+</b>'
             f'</div><small>{srcs}</small></article>'
         )
 
@@ -76,14 +98,16 @@ def _archetype_section():
         for p in contrarian.ACADEMIC_RESEARCH
     )
     return (
-        '<section><h2>1. 조사·이론 · 백화점식 분산을 거부하고 ‘1~3종목 초집중’으로 거부를 일군 6대 대가 &amp; 학술 원전</h2>'
-        '<p>기관형 메뉴가 추적오차를 줄이기 위해 5~10%씩 쪼개 담는다면, <b>이 메뉴는 분산투자 프레임을 철저히 배제합니다.</b> '
-        '남들이 보지 못하는 시선 괴리(Variant Perception)와 무차입 순현금·독점 병목 하방이 확인되었을 때, '
-        '<b>최고 확신 1~3개 종목(Best Ideas)에 집중자본의 30%~75%를 묵직하게 싣는 승부 전략실</b>입니다.</p>'
+        '<section><h2>1. 조사·이론 · ‘5~10년 존버’와 ‘5% 백화점 분산’을 모두 거부하는 1년 승부형 6대 대가 &amp; 학술 원전</h2>'
+        '<p>시드를 빠르게 점프시켜야 할 때 <b>촉매 없이 5~10년을 묶여 있는 만년 저평가주(Dead Money)</b>나 <b>맞혀도 계좌가 안 바뀌는 5~8% 소액 분산</b>은 답이 아닙니다. '
+        '이 메뉴는 <b>반드시 향후 3~12개월 안에 숫자와 공시로 시장의 오해가 강제 해소될 미개화 종목에 집중자본의 30%~75%를 싣고, '
+        '예상 기한(6개월) 내 촉매가 안 터지면 본전이어도 즉시 시간손절(Time-Stop)로 회전</b>하는 고속 복리 엔진입니다.</p>'
         f'<div class="era-grid">{"".join(cards)}</div>'
-        '<details open><summary>왜 5%~8% 분산 대신 30%~75% 집중인가? · 학술 논문 &amp; 펀드 전수 실증 연구 (4대 원전)</summary>'
-        '<div class="comparison"><table><thead><tr><th>논문 · 연구 원전</th><th>핵심 실증 결론 (과잉분산의 함정 vs 최고 확신 1종목의 알파)</th><th>출처</th></tr></thead>'
-        f'<tbody>{paper_rows}</tbody></table></div></details></section>'
+        '<details open><summary>학술 논문 &amp; 헤지펀드 실증 연구 · 왜 ‘12개월 내 촉매 + 1종목 초집중 + 시간손절’인가? (4대 원전)</summary>'
+        '<div class="comparison"><table><thead><tr><th>논문 · 실증 원전</th><th>핵심 결론 (첫 6~12개월 알파 집중 현상 &amp; 자본 회전속도 f)</th><th>출처</th></tr></thead>'
+        f'<tbody>{paper_rows}</tbody></table></div></details>'
+        + _cot_guardrail_section()
+        + "</section>"
     )
 
 
@@ -101,19 +125,19 @@ def _validation_section():
         f'<tr><td><b>{e(c["name"])}</b><br><small>{e(c["archetype"])}</small></td>'
         f'<td><span class="{"badge-warn" if "함정" in c["verdict"] else "badge-pass"}">{e(c["verdict"])}</span></td>'
         f'<td>{e(c["trough"])}<br>→ <b>{e(c["peak_or_now"])}</b></td>'
-        f'<td><small><b>당시 대중 시선:</b> {e(c["crowd_then"])}<br><b>차세대 발굴에 이식할 초기 DNA:</b> {e(c["variant_edge"])}</small></td></tr>'
+        f'<td><small><b>당시 대중 시선:</b> {e(c["crowd_then"])}<br><b>1년 내 승부 핵심 교훈:</b> {e(c["variant_edge"])}</small></td></tr>'
         for c in vm["cases"]
     )
     return (
-        '<details open><summary>2. 전략·검증 · ‘이미 텐베거 난 종목 뒷북 금지(Anti-Hindsight)’ 원칙 및 초기 씨앗 DNA 추출</summary>'
+        '<details open><summary>2. 전략·검증 · ‘기성 텐베거 뒷북’과 ‘촉매 없는 만년 저평가 시간함정(Time Trap)’ 동시 배제 원칙</summary>'
         f'<p>{e(vm["summary"])}</p>'
-        '<div class="comparison"><table><thead><tr><th>비교 축</th><th>기존 다수결·추세 전략 (/discover)</th><th>역발상·미개화 1종목 초집중 전략 (/contrarian)</th></tr></thead>'
+        '<div class="comparison"><table><thead><tr><th>비교 축</th><th>기존 다수결·추세 전략 (/discover)</th><th>12개월 촉매 · 미개화 1종목 초집중 전략 (/contrarian)</th></tr></thead>'
         f'<tbody>{comp_rows}</tbody></table></div>'
-        '<h3>실시간 레이더에서 영구 제외(졸업)시킨 기성 텐베거·초대형주 목록</h3>'
-        '<div class="comparison"><table><thead><tr><th>기성 성공 종목</th><th>누적 상승 배수·시총 한계</th><th>실전 신규 발굴에서 제외한 이유</th></tr></thead>'
+        '<h3>실시간 레이더에서 영구 제외된 2대 기피군 (기성 텐베거 &amp; 무촉매 만년 저PBR 시간함정)</h3>'
+        '<div class="comparison"><table><thead><tr><th>제외 유형 · 종목 예시</th><th>상태</th><th>1년 승부 레이더에서 제외한 이유</th></tr></thead>'
         f'<tbody>{grad_rows}</tbody></table></div>'
-        '<h3>과거 대박 사례에서 추출한 ‘차세대 텐베거 초기 씨앗 DNA’ vs 가치함정 반증</h3>'
-        '<div class="comparison"><table><thead><tr><th>교본 사례</th><th>결과</th><th>초기 미개화 바닥 → 이후 결과</th><th>우리가 지금 새 종목에서 찾아야 할 초기 DNA</th></tr></thead>'
+        '<h3>역사적 ‘첫 12개월 폭발 구간’ 해부 vs 시간함정 반증</h3>'
+        '<div class="comparison"><table><thead><tr><th>사례</th><th>1년 내 결과</th><th>진입 시점 촉매 → 12개월 성과</th><th>신규 종목 발굴에 적용할 기준</th></tr></thead>'
         f'<tbody>{case_rows}</tbody></table></div></details>'
     )
 
@@ -121,8 +145,8 @@ def _validation_section():
 def _gap_bars(scores):
     meta = (
         ("essence", "본질 해자·독점 병목 (함정방어)", 35),
-        ("gap", "미개화 바닥·군중 외면 깊이", 35),
-        ("asymmetry", "상방/하방 비대칭 볼록성", 30),
+        ("gap", "미개화 낙폭 + 12개월 촉매 임박도", 35),
+        ("asymmetry", "1년 내 상방/하방 비대칭성", 30),
     )
     rows = []
     for k, lbl, cap in meta:
@@ -142,13 +166,13 @@ def _candidate_card(rank, item, is_held, base):
     overheated = item.get("overheated", False)
     ex_tb = item.get("ex_tenbagger", False)
     if ex_tb:
-        shield_badge = '<span class="badge-warn">기성 급등주 제외 (5년 저점 대비 과열)</span>'
+        shield_badge = '<span class="badge-warn">기성 급등주 제외 (5년저점 &gt;3.6배)</span>'
     elif overheated:
         shield_badge = '<span class="badge-warn">단기 과열 구간 (조정 대기)</span>'
     elif item["trap_shield_ok"]:
-        shield_badge = '<span class="badge-pass">미개화 시선괴리 · 초집중 적격</span>'
+        shield_badge = '<span class="badge-pass">1년 내 촉매 확정 · 초집중 적격</span>'
     else:
-        shield_badge = '<span class="badge-muted">괴리 심화 관찰 후보</span>'
+        shield_badge = '<span class="badge-muted">촉매·괴리 관찰 후보</span>'
     held_badge = ' <span class="badge-warn">내 보유 중</span>' if is_held else ""
     t1, t2, t3 = item["tranches"]
     sz = item.get("sizing") or contrarian.compute_position_sizing(
@@ -159,7 +183,9 @@ def _candidate_card(rank, item, is_held, base):
     solv_lbl = item.get("solvency_label", contrarian.SOLVENCY_TIERS["backlog_float"]["label"])
     mult5 = item.get("mult_5y_low", 1.5)
     dd5y = item.get("dd5y", item["dd52"])
-    seed_txt = item.get("seed_analogy", "")
+    cat_m = item.get("catalyst_months", 9)
+    cat_txt = item.get("catalyst_12m", "")
+    tstop_txt = item.get("time_stop", "")
     prefill = _research_prefill(
         base,
         name=item["name"],
@@ -170,8 +196,9 @@ def _candidate_card(rank, item, is_held, base):
         target=item["target_price"],
         bull=item["bull_price"],
         url=item["source_url"],
-        catalyst=f"[1종목 초집중·{item['archetype_badge']}] {item['moat_essence']}",
-        kill_switch=item["kill_switch"],
+        catalyst=f"[{cat_m}개월 내 촉매] {cat_txt}",
+        kill_switch=f"[Time-Stop] {tstop_txt} / [본질훼손] {item['kill_switch']}",
+        months=cat_m,
     )
     builder_params = urlencode(dict(
         pb_market=item["market"],
@@ -182,47 +209,49 @@ def _candidate_card(rank, item, is_held, base):
         pb_entry=str(item["price"]),
         pb_floor=str(item["floor_price"]),
         pb_target=str(item["target_price"]),
-        pb_horizon=item["horizon"],
-        pb_crowd=item["crowd_fear"][:280],
-        pb_insight=item["moat_essence"],
-        pb_kill=item["kill_switch"],
+        pb_horizon=f"{max(3, cat_m - 3)}~{cat_m}개월",
+        pb_catalyst=cat_txt[:260],
+        pb_tstop=tstop_txt[:220],
+        pb_crowd=item["crowd_fear"][:240],
+        pb_insight=item["moat_essence"][:260],
+        pb_kill=item["kill_switch"][:220],
         pb_url=item["source_url"],
     ))
     builder_href = e(base + "/contrarian?" + builder_params + "#playbook-builder")
     tranche_line = (
-        f'<b>④ 과열·기성급등 브레이크 ({e(item["horizon"])}):</b> 지금 추격 금지 · '
-        f'2차 조정선({_fmt_px(t2, ccy)})·3차 공포 바닥({_fmt_px(t3, ccy)}) 도달 시에만 재점검'
+        f'<b>⑤ 과열·기성급등 브레이크:</b> 지금 추격 금지 · 2차 조정선({_fmt_px(t2, ccy)}) 도달 대기'
         if (overheated or ex_tb)
-        else f'<b>④ 1종목 초집중 매집 공식 ({e(item["horizon"])}):</b> '
-        f'목표 집중비중 <b>{sz["recommended_pct"]:.0f}%</b>를 3회 압축 투입 — '
+        else f'<b>⑤ 1종목 초집중 매집 공식 ({e(item["horizon"])}):</b> '
+        f'목표 비중 <b>{sz["recommended_pct"]:.0f}%</b>를 3회 압축 투입 — '
         f'1차 {_fmt_px(t1, ccy)}(35%) &gt; 2차 투매 {_fmt_px(t2, ccy)}(40%) &gt; 3차 바닥 {_fmt_px(t3, ccy)}(25%)'
     )
     return (
         f'<article class="era-card">'
-        f'<div class="spread"><div><span class="badge-info">#{rank} · {e(item["market"])}:{e(item["venue"])} · {e(item["archetype_badge"])}</span> '
+        f'<div class="spread"><div><span class="badge-info">#{rank} · {e(item["market"])}:{e(item["venue"])} · {cat_m}개월 내 승부</span> '
         f'{shield_badge}{held_badge}</div>'
-        f'<strong>괴리 총점 {item["total"]:.1f} / 100</strong></div>'
-        f'<h3>{e(item["name"])} <small>({e(item["symbol"])})</small></h3>'
+        f'<strong>괴리·촉매 총점 {item["total"]:.1f} / 100</strong></div>'
+        f'<h3>{e(item["name"])} <small>({e(item["symbol"])} · {e(item["archetype_badge"])})</small></h3>'
         f'<p><b>현재가 {_fmt_px(item["price"], ccy)}</b> '
-        f'<small>(<b>5년 저점 대비 {mult5:.2f}배 미개화</b> · 52주고점 {item["dd52"]:+.1f}% · 5년고점 {dd5y:+.1f}% · RSI {item["rsi"]:.0f})</small><br>'
-        f'하방 청산·순현금 바닥 <b>{_fmt_px(item["floor_price"], ccy)}</b>(-{item["downside_pct"]:.1f}%) vs '
-        f'1차 리레이팅 목표 <b>{_fmt_px(item["target_price"], ccy)}</b>(+{item["upside_pct"]:.1f}%) · '
-        f'슈퍼사이클 <b>{_fmt_px(item["bull_price"], ccy)}</b> → '
+        f'<small>(<b>5년저점 대비 {mult5:.2f}배 미개화</b> · 52주고점 {item["dd52"]:+.1f}% · 5년고점 {dd5y:+.1f}% · RSI {item["rsi"]:.0f})</small><br>'
+        f'하방 콘크리트 바닥 <b>{_fmt_px(item["floor_price"], ccy)}</b>(-{item["downside_pct"]:.1f}%) vs '
+        f'<b>12개월 내 목표가 {_fmt_px(item["target_price"], ccy)}</b>(+{item["upside_pct"]:.1f}%) · '
+        f'강세 오버슈팅 <b>{_fmt_px(item["bull_price"], ccy)}</b> → '
         f'<b>비대칭 손익배수 {item["asymmetry"]:.2f}배</b> · 안전마진 <b>{item["margin_pct"]:.1f}%</b><br>'
         f'<span class="badge-pass">권장 집중 비중: <b>{e(sz["grade_label"])}</b></span> '
         f'<small>(순수 켈리 최적치 {sz["kelly_full_pct"]:.1f}% · {e(sz["portfolio_guide"])})</small></p>'
         + _gap_bars(item["scores"])
         + '<div class="era-lesson">'
-        + (f'<b>★ 차세대 씨앗 DNA:</b> {e(seed_txt)}<br>' if seed_txt else "")
-        + f'<b>① 다수의 현재 편견·공포:</b> {e(item["crowd_fear"])}<br>'
-        f'<b>② 대중이 놓친 독점 본질·변곡점:</b> {e(item["moat_essence"])}<br>'
+        f'<b>★ [필수] 향후 {cat_m}개월 내 강제 재평가 촉매:</b> {e(cat_txt)}<br>'
+        f'<b>① 다수의 현재 편견·공포:</b> {e(item["crowd_fear"])}<br>'
+        f'<b>② 대중이 놓친 독점 본질:</b> {e(item["moat_essence"])}<br>'
         f'<b>③ 무차입 집중 생존력:</b> {e(solv_lbl)}<br>'
+        f'<b>④ 시간손절(Time-Stop · 자금 묶임 방지):</b> {e(tstop_txt)}<br>'
         f'{tranche_line}<br>'
-        f'<b>⑤ 유일한 전량 철회 조건(Kill-Switch):</b> {e(item["kill_switch"])}'
+        f'<b>⑥ 본질 훼손 즉시 철회(Kill-Switch):</b> {e(item["kill_switch"])}'
         '</div>'
         f'<div class="spread"><a href="{e(item["source_url"])}" target="_blank" rel="noreferrer noopener">원문 시세·공시 확인 ↗</a>'
-        f'<div><a class="chip" href="{builder_href}">이 종목으로 1종목 집중계약서 설계 ↓</a> '
-        f'<a class="chip" href="{prefill}">가설 연구장 공식 등록 →</a></div></div></article>'
+        f'<div><a class="chip" href="{builder_href}">1년 승부 집중계약서 설계 ↓</a> '
+        f'<a class="chip" href="{prefill}">가설 연구장(만기 ≤1년) 등록 →</a></div></div></article>'
     )
 
 
@@ -230,7 +259,7 @@ def _builder_section(base, csrf, query, saved):
     q = query or {}
     open_attr = " open" if (q.get("pb_symbol") or q.get("done") == "saved" or not saved) else ""
     arch_opts = "".join(
-        f'<option value="{e(k)}"{" selected" if q.get("pb_arch") == k else ""}>{e(v["badge"])} (권장 집중 {e(v["target_weight_range"])})</option>'
+        f'<option value="{e(k)}"{" selected" if q.get("pb_arch") == k else ""}>{e(v["badge"])} ({e(v["horizon"])} · 집중 {e(v["target_weight_range"])})</option>'
         for k, v in contrarian.ARCHETYPES.items()
     )
     def_solv = q.get("pb_solvency", "net_cash")
@@ -253,11 +282,14 @@ def _builder_section(base, csrf, query, saved):
             blocked=(solv_key == "distressed_block"),
         )
         if solv_key == "distressed_block":
-            status_badge = '<span class="badge-warn">집중 부적격 (차환·희석 위험 · 5% 정찰도 금지, 0% 기각)</span>'
+            status_badge = '<span class="badge-warn">집중 부적격 (시간함정·희석 위험 · 0% 기각)</span>'
         elif p["passes"]:
-            status_badge = '<span class="badge-pass">1종목 초집중 승부 적격 (Best Idea 통과)</span>'
+            status_badge = '<span class="badge-pass">12개월 내 승부 · 초집중 적격 통과</span>'
         else:
-            status_badge = '<span class="badge-warn">비대칭 우위 부족 · 어중간한 진입 대신 추가 할인 대기</span>'
+            status_badge = '<span class="badge-warn">비대칭 우위 부족 · 추가 할인 대기</span>'
+        grade_lbl = sz.get("grade_label") or f"{sz['recommended_pct']:.0f}%"
+        cat_line = p.get("catalyst_12m", p["variant_insight"])
+        tstop_line = p.get("time_stop", "진입 후 6개월 내 핵심 촉매 미발생 시 본전이어도 전량 교체")
         prefill = _research_prefill(
             base,
             name=p["name"],
@@ -268,51 +300,54 @@ def _builder_section(base, csrf, query, saved):
             target=p["target"],
             bull=p["bull"],
             url=p["url"],
-            catalyst=f"[1종목 초집중·{p['archetype_badge']}] {p['variant_insight']}",
-            kill_switch=p["kill_switch"],
+            catalyst=f"[{p['horizon']} 촉매] {cat_line}",
+            kill_switch=f"[Time-Stop] {tstop_line} / {p['kill_switch']}",
+            months=p.get("horizon_months", 9),
         )
-        grade_lbl = sz.get("grade_label") or f"{sz['recommended_pct']:.0f}%"
         saved_cards.append(
             f'<article class="investment-report">'
             f'<div class="spread"><h3>{e(p["name"])} ({e(p["market"])}:{e(p["symbol"])}) · <small>{e(p["archetype_badge"])}</small></h3>'
             f'{status_badge}</div>'
             f'<p><b>진입 기준가 {_fmt_px(p["entry"], ccy)}</b> · 하방 바닥 <b>{_fmt_px(p["floor"], ccy)}</b>(-{p["downside_pct"]:.1f}%) · '
-            f'본질 복원 목표 <b>{_fmt_px(p["target"], ccy)}</b>(+{p["upside_pct"]:.1f}%) → '
-            f'<b>비대칭 배수 {p["asymmetry"]:.2f}배</b> · 안전마진 <b>{p["margin_pct"]:.1f}%</b> · 호흡 <b>{e(p["horizon"])}</b><br>'
+            f'<b>12개월 내 목표가 {_fmt_px(p["target"], ccy)}</b>(+{p["upside_pct"]:.1f}%) → '
+            f'<b>비대칭 배수 {p["asymmetry"]:.2f}배</b> · 안전마진 <b>{p["margin_pct"]:.1f}%</b> · 승부 기한 <b>{e(p["horizon"])}</b><br>'
             f'<span class="badge-pass">권장 집중 비중: <b>{e(grade_lbl)}</b></span> '
             f'<small>(순수 켈리 최적치 {sz.get("kelly_full_pct", 0):.1f}% · 재무생존: {e(solv_lbl)})</small></p>'
             f'<p><b>내림차순 3단 집중매집표:</b> 1차 진입(35%) <b>{_fmt_px(t1, ccy)}</b> &gt; 2차 군중투매(40%) <b>{_fmt_px(t2, ccy)}</b> &gt; 3차 바닥완성(25%) <b>{_fmt_px(t3, ccy)}</b></p>'
-            f'<p><b>대중의 오해:</b> {e(p["crowd_view"])}<br>'
-            f'<b>나만의 독점 인사이트(빈틈):</b> {e(p["variant_insight"])}<br>'
-            f'<b>유일한 전량 철회 조건(Kill-Switch):</b> {e(p["kill_switch"])}</p>'
+            f'<p><b>★ 12개월 내 확정 촉매:</b> {e(cat_line)}<br>'
+            f'<b>시간손절(Time-Stop):</b> {e(tstop_line)}<br>'
+            f'<b>대중의 오해:</b> {e(p["crowd_view"])} / <b>독점 인사이트:</b> {e(p["variant_insight"])}<br>'
+            f'<b>본질 훼손 철회 조건(Kill-Switch):</b> {e(p["kill_switch"])}</p>'
             f'<div class="spread"><small>설계 시각 {e(p["created"][:16].replace("T", " "))} · {chat_page.source_link(p["url"])}</small>'
-            f'<a class="chip" href="{prefill}">이 집중 설계안 그대로 가설 연구장(/research) 등록 →</a></div></article>'
+            f'<a class="chip" href="{prefill}">이 1년 승부안 그대로 가설 연구장(/research) 등록 →</a></div></article>'
         )
 
     return (
-        f'<section id="playbook-builder"><h2>4. 1종목 1투자 초집중 승부 설계기 (Best Idea 켈리 집중 계약서)</h2>'
-        '<p>어설프게 5%씩 여러 종목 찔러보는 습관을 버리고, <b>정말 내 전 재산의 30%~75%를 무차입으로 실을 수 있는 단 하나의 미개화 종목인지</b> '
-        '켈리 수학 공식과 재무생존 기준으로 끝장 검증하세요. 확신이 미달하면 소액 매수도 하지 않고 0%로 기각합니다.</p>'
-        f'<details{open_attr}><summary>1종목 초집중 비대칭 시나리오 작성·검증하기</summary>'
+        f'<section id="playbook-builder"><h2>4. 12개월 이내 승부 · 1종목 초집중 계약서 설계기 (Time-Stop 강제 내장)</h2>'
+        '<p><b>13개월을 초과하는 막연한 장기보유(예: 24개월·3년·5년) 입력은 코드에서 자동으로 거부됩니다.</b> '
+        '향후 3~12개월 안에 주가를 강제로 재평가시킬 확정 촉매와 6개월 무반응 시간손절(Time-Stop)이 있는 종목에만 30%~75% 집중 승부를 거세요.</p>'
+        f'<details{open_attr}><summary>1년 내 승부 · 1종목 초집중 시나리오 작성·검증하기</summary>'
         f'<form class="research-form" method="post" action="{e(base)}/desk/manager/contrarian-plan">'
         f'<input type="hidden" name="csrf" value="{e(csrf)}">'
         f'<label>시장<select name="market"><option value="KR"{mkt_kr_sel}>한국 (KRW)</option><option value="US"{mkt_us_sel}>미국 (USD)</option></select></label>'
-        f'<label>종목코드·티커 (기성 텐베거 아닌 미개화 후보 권장)<input name="symbol" required maxlength="12" value="{e(q.get("pb_symbol", ""))}" placeholder="예: 214150, 058470, ACLS, LULU"></label>'
-        f'<label>종목명<input name="name" required maxlength="80" value="{e(q.get("pb_name", ""))}" placeholder="예: 클래시스, 리노공업, Axcelis"></label>'
-        f'<label>적용할 집중투자 대가 아키타입 (6종)<select name="archetype">{arch_opts}</select></label>'
-        f'<label>무차입 고비중 집중을 버틸 재무생존 등급<select name="solvency">{solv_opts}</select></label>'
+        f'<label>종목코드·티커 (미개화·1년 촉매 후보)<input name="symbol" required maxlength="12" value="{e(q.get("pb_symbol", ""))}" placeholder="예: 214150, 058470, CELH, ONTO"></label>'
+        f'<label>종목명<input name="name" required maxlength="80" value="{e(q.get("pb_name", ""))}" placeholder="예: 클래시스, 리노공업, Celsius"></label>'
+        f'<label>적용할 1년 승부 대가 아키타입 (6종)<select name="archetype">{arch_opts}</select></label>'
+        f'<label>무차입 고비중 집중 재무생존 등급<select name="solvency">{solv_opts}</select></label>'
         f'<label>현재 진입 기준가격<input name="entry" type="number" min="0" step="any" required value="{e(q.get("pb_entry", ""))}"></label>'
-        f'<label>하방 콘크리트 바닥가 (순현금·청산가치·대체원가 근거)<input name="floor" type="number" min="0" step="any" required value="{e(q.get("pb_floor", ""))}"></label>'
-        f'<label>본질 복원 목표가치 (시선 괴리 해소 시 1차 리레이팅)<input name="target" type="number" min="0" step="any" required value="{e(q.get("pb_target", ""))}"></label>'
-        f'<label>내 독점 인사이트 적중 확신도 (%, 기본 60%)<input name="win_prob" type="number" min="25" max="85" step="any" value="{e(q.get("pb_prob", "60"))}"></label>'
-        f'<label>목표 보유 호흡 (Time Horizon)<input name="horizon" required maxlength="40" value="{e(q.get("pb_horizon", "18~36개월"))}"></label>'
-        f'<label>① 지금 대중·기관 다수가 착각하거나 혐오에 빠진 이유<textarea name="crowd_view" rows="2" required placeholder="예: 단기 합병 비용·전통 업종 선입견으로 고점 대비 반토막 투매">{e(q.get("pb_crowd", ""))}</textarea></label>'
-        f'<label>② 대중이 못 보는 나만의 미개화 독점 병목·수출 변곡점 인사이트<textarea name="variant_insight" rows="2" required placeholder="예: 고마진 반복 소모품 구조 + 미·중 신규 시장 인허가 초입">{e(q.get("pb_insight", ""))}</textarea></label>'
-        f'<label>③ 주가 흔들림 대신 이 집중투자를 즉시 0%로 철회할 유일한 본질 훼손 조건<textarea name="kill_switch" rows="2" required placeholder="예: 핵심 소모품 출하 역성장 또는 대규모 주주배정 유상증자">{e(q.get("pb_kill", ""))}</textarea></label>'
+        f'<label>하방 콘크리트 바닥가 (순현금·청산가치·수주 근거)<input name="floor" type="number" min="0" step="any" required value="{e(q.get("pb_floor", ""))}"></label>'
+        f'<label>12개월 이내 복원 목표가치<input name="target" type="number" min="0" step="any" required value="{e(q.get("pb_target", ""))}"></label>'
+        f'<label>내 인사이트 적중 확신도 (%, 기본 60%)<input name="win_prob" type="number" min="25" max="85" step="any" value="{e(q.get("pb_prob", "60"))}"></label>'
+        f'<label>목표 승부 기한 (최대 12개월 이내만 허용 · 13개월↑ 입력 차단)<input name="horizon" required maxlength="40" value="{e(q.get("pb_horizon", "6~12개월"))}" placeholder="예: 6~9개월, 6~12개월"></label>'
+        f'<label>★ [필수] 향후 12개월 내 주가를 깨울 확정 촉매·일정 (Dated Catalyst)<textarea name="catalyst_12m" rows="2" required maxlength="320" placeholder="예: 2분기 내 미국 FDA 허가 본선적 / 하반기 신규 팹 장비 반입">{e(q.get("pb_catalyst", ""))}</textarea></label>'
+        f'<label>★ [필수] 자금 묶임 방지 시간손절 데드라인 (Time-Stop)<input name="time_stop" required maxlength="260" value="{e(q.get("pb_tstop", "진입 후 2개 분기(6개월) 내 핵심 촉매·실적 반전 미확인 시 본전이어도 즉시 전량 교체"))}"></label>'
+        f'<label>① 지금 대중이 착각하거나 공포에 빠진 이유<textarea name="crowd_view" rows="2" required maxlength="300" placeholder="예: 일회성 재고조정·합병비용을 구조적 쇠퇴로 오인해 반토막 투매">{e(q.get("pb_crowd", ""))}</textarea></label>'
+        f'<label>② 대중이 놓친 독점 본질·병목 구조<textarea name="variant_insight" rows="2" required maxlength="400" placeholder="예: 영업이익률 50% 소모품 반복 매출 해자 및 무차입 순현금">{e(q.get("pb_insight", ""))}</textarea></label>'
+        f'<label>③ 즉시 0%로 철수할 본질 훼손 조건 (Kill-Switch)<textarea name="kill_switch" rows="2" required maxlength="300" placeholder="예: 인허가 거절, 핵심 수주 해지, 주주배정 유상증자">{e(q.get("pb_kill", ""))}</textarea></label>'
         f'<label>검증 원문 URL (DART·SEC·IR·가격 출처 HTTPS)<input name="url" type="url" required value="{e(q.get("pb_url", ""))}" placeholder="https://dart.fss.or.kr/..."></label>'
-        '<button>1종목 초집중 전략 검증 및 저장</button></form></details>'
+        '<button>12개월 이내 초집중 전략 검증 및 저장</button></form></details>'
         '<div id="my-playbooks">'
-        + ("".join(saved_cards) if saved_cards else "<p><small>아직 저장한 1종목 초집중 전략이 없습니다. 위 미개화 후보 카드를 불러오거나 직접 작성해 보세요.</small></p>")
+        + ("".join(saved_cards) if saved_cards else "<p><small>아직 저장한 12개월 승부 초집중 전략이 없습니다. 위 후보 카드를 불러오거나 직접 작성해 보세요.</small></p>")
         + "</div></section>"
     )
 
@@ -357,48 +392,49 @@ def render(directory, package, base, csrf, query, css):
 
     saved_plans = contrarian.playbooks(package)
     pass_count = sum(1 for c in filtered if c.get("trap_shield_ok"))
+    fast_6m_count = sum(1 for c in filtered if c.get("trap_shield_ok") and c.get("catalyst_months", 12) <= 6)
 
     out = [
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>역발상 · 미개화 1종목 초집중 전략실 · Whale Tracking</title><style>{css}</style></head><body>"
-        "<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 미개화 시선괴리 발굴 &amp; 1~3종목 초집중(30~75%) 설계</small></div></header>",
+        f"<title>역발상 · 12개월 촉매 1종목 초집중 전략실 · Whale Tracking</title><style>{css}</style></head><body>"
+        "<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 12개월 이내 확정촉매 &amp; 1종목 초집중(30~75%) 승부실</small></div></header>",
         chat_page.navigation(base, "contrarian"),
         '<main class="desk-main">',
-        '<div class="spread"><div><h1>역발상 · 미개화 시선괴리 발굴 &amp; 1종목 초집중 전략실</h1>'
-        "<p>이미 10~70배 올라 전 국민이 다 아는 기성 텐베거(SK하이닉스·삼양식품·HD현대일렉·NVDA 등) 뒷북 매매를 배제하고, "
-        "<b>아직 5년 바닥권(1.1~3.4배)에 숨어 있는 차세대 독점·병목 씨앗을 찾아 무차입 30%~75% 초집중 승부를 설계합니다.</b></p></div>"
+        '<div class="spread"><div><h1>역발상 · 12개월 촉매 미개화 발굴 &amp; 1종목 초집중 전략실</h1>'
+        "<p><b>5~10년 막연한 장기 홀딩(시간함정)과 5%~8% 백화점식 분산을 모두 거부합니다.</b> "
+        "기성 텐베거를 배제하고 아직 5년 바닥권(≤3.6배)에 머문 독점 기업 중 <b>향후 3~12개월 안에 확정 촉매로 폭발할 종목에만 30%~75%를 실어 빠르게 복리 회전</b>합니다.</p></div>"
         f'<form method="post" action="{e(base)}/desk/manager/contrarian-run">'
         f'<input type="hidden" name="csrf" value="{e(csrf)}">'
-        "<button>차세대 미개화 괴리 새로 스캔하기</button></form></div>",
+        "<button>12개월 촉매 · 미개화 괴리 스캔</button></form></div>",
     ]
     if done == "refreshed":
-        out.append('<p role="status" class="badge-pass">기성 텐베거 제외 필터(5년 저점 대비 ≤3.6배)와 최신 5개년 낙폭·해자 데이터를 대조해 차세대 미개화 후보를 갱신했습니다.</p>')
+        out.append('<p role="status" class="badge-pass">3중 CoT 불변식(≤12개월 촉매 · 기성텐베거 제외 · 30~75% 집중비중) 검증을 통과한 후보군을 갱신했습니다.</p>')
     elif done == "saved":
-        out.append('<p role="status" class="badge-pass">1종목 초집중 비대칭 전략을 켈리 공식으로 검증·저장했습니다. 아래 설계 카드에서 확인하세요.</p>')
+        out.append('<p role="status" class="badge-pass">12개월 이내 승부 1종목 초집중 계약서를 검증·저장했습니다.</p>')
 
     out.append(
-        '<div class="rebalance-bar"><b>이 메뉴의 운용 헌장 (한 자릿수 5%~8% 백화점식 분산 금지!):</b> '
-        '5% 비중으로 3배를 맞혀도 계좌는 고작 +10% 늘어날 뿐입니다. 이 메뉴는 기관식 추적오차 방어용 분산 메뉴가 아닙니다. '
-        '<b>무차입 현물 100%(신용·레버리지 0%) + 순현금·독점 병목 바닥 확인</b>을 전제로, 집중투자 전용 계좌(승부 시드)의 '
-        '<b>30%~75%를 최고 확신 1~3종목(Best Ideas)에만 실어 자본 계급을 바꾸는 대가형 독립 엔진</b>입니다. (확신이 부족한 종목은 5% 정찰도 하지 않고 0%로 패스합니다.)</div>'
+        '<div class="rebalance-bar"><b>1년 승부 초집중 3대 철칙 (CoT 재발방지 코드 잠금 완료):</b> '
+        '① <b>시간함정(Dead Money) 배제:</b> 12개월 안에 숫자로 찍힐 강제 촉매가 없는 만년 저PBR 주식은 제외하며, 진입 후 <b>2개 분기(6개월) 내 촉매 미발생 시 본전이어도 시간손절(Time-Stop)</b>합니다. '
+        '② <b>기성 텐베거 배제:</b> 이미 5년 저점 대비 3.6배를 넘긴 기성 급등주는 자동 차단합니다. '
+        '③ <b>30%~75% 초집중:</b> 무차입 현물 100% 전제 아래 최고 확신 1~3종목에만 30%~75%를 싣고, 애매한 종목은 5% 정찰도 없이 0% 기각합니다.</div>'
     )
 
     out.append(_archetype_section())
     out.append(_validation_section())
 
-    # Section 3: Next-Inflection Uncrowded Variant-Perception Radar
-    out.append('<section id="contrarian-radar"><h2>3. 실시간 ‘차세대 미개화 시선괴리’ 발굴 레이더 (기성 텐베거 전면 제외)</h2>')
+    # Section 3: 12-Month Catalyst Uncrowded Radar
+    out.append('<section id="contrarian-radar"><h2>3. 실시간 ‘3~12개월 내 촉매 임박’ 미개화 발굴 레이더</h2>')
     out.append('<div class="chips"><small>시장:</small>')
-    for m_code, m_lbl in (("all", "한·미 미개화 전체 (20선)"), ("KR", "한국 차세대 씨앗 (KRX·KOSDAQ)"), ("US", "미국 중형병목·딥밸류 (US)")):
+    for m_code, m_lbl in (("all", "한·미 12개월 촉매 전체 (20선)"), ("KR", "한국 1년 승부 씨앗 (10선)"), ("US", "미국 1년 승부 씨앗 (10선)")):
         cls = "chip active" if market_filter == m_code else "chip"
         out.append(f'<a class="{cls}" href="{link(m_val=m_code)}">{m_lbl}</a>')
     inc_cls = "chip active" if include_held else "chip"
     out.append(
         f'<a class="{inc_cls}" href="{link(inc=not include_held)}">'
-        f'{"내 보유 종목 숨기기" if include_held else "내 보유 종목도 미개화 기준 점검"}</a></div>'
+        f'{"내 보유 종목 숨기기" if include_held else "내 보유 종목도 12개월 촉매 점검"}</a></div>'
     )
-    out.append('<div class="chips"><small>6대 대가 아키타입 필터:</small>')
+    out.append('<div class="chips"><small>6대 1년 승부 아키타입:</small>')
     out.append(f'<a class="{"chip active" if arch_filter == "all" else "chip"}" href="{link(a_val="all")}">전체 유형 (6종)</a>')
     for k, v in contrarian.ARCHETYPES.items():
         cls = "chip active" if arch_filter == k else "chip"
@@ -407,26 +443,25 @@ def render(directory, package, base, csrf, query, css):
 
     if not all_cands:
         out.append(
-            '<div class="rebalance-bar">우측 상단 <b>차세대 미개화 괴리 새로 스캔하기</b> 버튼을 누르거나 '
-            '<code>python3 -m private_accounts contrarian --refresh</code>를 실행하면 미개화 후보 레이더가 생성됩니다.</div>'
+            '<div class="rebalance-bar">우측 상단 <b>12개월 촉매 · 미개화 괴리 스캔</b> 버튼을 누르거나 '
+            '<code>python3 -m private_accounts contrarian --refresh</code>를 실행하세요.</div>'
         )
     else:
         out.append(
             '<div class="kpi-strip">'
-            f'<div class="kpi-box info"><small>최근 미개화 스캔 시각</small><strong>{e(doc.get("updated", "")[:16].replace("T", " "))}</strong></div>'
-            f'<div class="kpi-box pass"><small>초집중 적격 통과 (30~75%)</small><strong>{pass_count}종목</strong></div>'
-            f'<div class="kpi-box info"><small>미개화 추적 후보 (5년저점 ≤3.6x)</small><strong>{len(filtered)}종목</strong></div>'
-            f'<div class="kpi-box warn"><small>저장된 내 집중 승부안</small><strong>{len(saved_plans)}건</strong></div>'
+            f'<div class="kpi-box info"><small>최근 스캔 시각</small><strong>{e(doc.get("updated", "")[:16].replace("T", " "))}</strong></div>'
+            f'<div class="kpi-box pass"><small>12개월 내 초집중 적격</small><strong>{pass_count}종목</strong></div>'
+            f'<div class="kpi-box pass"><small>6개월 이내 임박 촉매</small><strong>{fast_6m_count}종목</strong></div>'
+            f'<div class="kpi-box warn"><small>저장된 내 1년 승부안</small><strong>{len(saved_plans)}건</strong></div>'
             '</div><div class="era-grid">'
         )
         for idx, item in enumerate(filtered, 1):
             out.append(_candidate_card(idx, item, is_held(item), base))
         if not filtered:
-            out.append("<p>선택한 필터에 해당하는 미개화 시선 괴리 종목이 없습니다.</p>")
+            out.append("<p>선택한 필터에 해당하는 미개화 12개월 촉매 종목이 없습니다.</p>")
         out.append("</div>")
     out.append("</section>")
 
-    # Section 4: Interactive 1-Stock Bespoke High-Conviction Builder
     out.append(_builder_section(base, csrf, query, saved_plans))
     out.append("</main></body></html>")
     return "".join(out).encode()
