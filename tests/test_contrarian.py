@@ -36,7 +36,7 @@ def test_contrarian_half_kelly_piotroski_and_dual_time_stop(tmp_path):
         "000660", "003230", "267260", "298040", "012450", "NVDA", "MSFT", "AVGO", "LLY", "TSM",
         "111770", "086280", "241560", "383220", "DECK", "ENTG",
     })
-    assert {"214150", "058470", "240810", "000100", "ACLS", "ONTO", "CELH", "FOUR", "LULU", "MOH"} <= universe_syms
+    assert {"214150", "058470", "240810", "000100", "012330", "ACLS", "ONTO", "CELH", "FOUR", "LULU", "MOH"} <= universe_syms
 
     with store.database(directory, True) as db:
         store.save(db, "kis", "main", (now - timedelta(days=1)).isoformat(), [("214150", "KRW", "50", "1135000")])
