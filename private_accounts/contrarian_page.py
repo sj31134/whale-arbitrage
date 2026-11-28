@@ -98,13 +98,13 @@ def _archetype_section():
         for p in contrarian.ACADEMIC_RESEARCH
     )
     return (
-        '<section><h2>1. 조사·이론 · ‘5~10년 존버’와 ‘5% 백화점 분산’을 모두 거부하는 1년 승부형 6대 대가 &amp; 학술 원전</h2>'
-        '<p>시드를 빠르게 점프시켜야 할 때 <b>촉매 없이 5~10년을 묶여 있는 만년 저평가주(Dead Money)</b>나 <b>맞혀도 계좌가 안 바뀌는 5~8% 소액 분산</b>은 답이 아닙니다. '
-        '이 메뉴는 <b>반드시 향후 3~12개월 안에 숫자와 공시로 시장의 오해가 강제 해소될 미개화 종목에 집중자본의 30%~75%를 싣고, '
-        '예상 기한(6개월) 내 촉매가 안 터지면 본전이어도 즉시 시간손절(Time-Stop)로 회전</b>하는 고속 복리 엔진입니다.</p>'
+        '<section><h2>1. 조사·이론 · Half-Kelly(25~50% × 2종목 압축) · 3M/6M 2단계 Time-Stop · Piotroski 6대 대가 &amp; 학술 원전</h2>'
+        '<p>선행 재무·계량 논문 12편 실증 결과, <b>① 무작위 1종목 보유는 73% 확률로 국채에 패배(Bessembinder 2018)하며 Full Kelly(75%)는 추정오차 시 타격이 10~20배 치명적(MacLean·Thorp·Ziemba)</b>이고, '
+        '<b>② Half-Kelly(k=0.5)는 성장률 75%를 보존하면서 변동성을 50% 줄입니다.</b> 따라서 이 메뉴는 <b>Piotroski 기대오차(가치함정 57% 차단)와 12개월 확정 촉매가 검증된 최선호 2축(각 ≤50%)만 압축 배팅</b>하며, '
+        '<b>3개월(1분기) 1차 숫자 점검(역주행 시 즉시 컷) + 6개월(2개 분기) 본 Time-Stop(Frazzini·PEAD 3분기 표류 반영)</b>으로 고속 복리 회전합니다.</p>'
         f'<div class="era-grid">{"".join(cards)}</div>'
-        '<details open><summary>학술 논문 &amp; 헤지펀드 실증 연구 · 왜 ‘12개월 내 촉매 + 1종목 초집중 + 시간손절’인가? (4대 원전)</summary>'
-        '<div class="comparison"><table><thead><tr><th>논문 · 실증 원전</th><th>핵심 결론 (첫 6~12개월 알파 집중 현상 &amp; 자본 회전속도 f)</th><th>출처</th></tr></thead>'
+        '<details open><summary>선행 학술 논문 실증 · 왜 ‘Half-Kelly 2종목(≤50%) + 3M/6M Time-Stop + Piotroski 기대오차’인가? (핵심 4군 · 12편)</summary>'
+        '<div class="comparison"><table><thead><tr><th>논문 · 실증 원전</th><th>핵심 계량 근거 (성장 75%·분산 -50% / 가치함정 57% 차단 / PEAD 3개 분기)</th><th>출처</th></tr></thead>'
         f'<tbody>{paper_rows}</tbody></table></div></details>'
         + _cot_guardrail_section()
         + "</section>"
@@ -178,12 +178,19 @@ def _candidate_card(rank, item, is_held, base):
     sz = item.get("sizing") or contrarian.compute_position_sizing(
         upside_pct=item["upside_pct"],
         downside_pct=item["downside_pct"],
+        piotroski_3=item.get("piotroski_3", 2),
         blocked=overheated or ex_tb,
     )
     solv_lbl = item.get("solvency_label", contrarian.SOLVENCY_TIERS["backlog_float"]["label"])
     mult5 = item.get("mult_5y_low", 1.5)
     dd5y = item.get("dd5y", item["dd52"])
     cat_m = item.get("catalyst_months", 9)
+    p3 = int(item.get("piotroski_3", 2))
+    p3_badge = (
+        f'<span class="badge-pass">Piotroski {p3}/3 · 기대오차 우위</span>'
+        if p3 >= 3
+        else f'<span class="badge-warn">Piotroski {p3}/3 · 3개월 확인 필수</span>'
+    )
     cat_txt = item.get("catalyst_12m", "")
     tstop_txt = item.get("time_stop", "")
     prefill = _research_prefill(
@@ -196,7 +203,7 @@ def _candidate_card(rank, item, is_held, base):
         target=item["target_price"],
         bull=item["bull_price"],
         url=item["source_url"],
-        catalyst=f"[{cat_m}개월 내 촉매] {cat_txt}",
+        catalyst=f"[{cat_m}개월 내 촉매 · Piotroski {p3}/3] {cat_txt}",
         kill_switch=f"[Time-Stop] {tstop_txt} / [본질훼손] {item['kill_switch']}",
         months=cat_m,
     )
@@ -206,6 +213,7 @@ def _candidate_card(rank, item, is_held, base):
         pb_name=item["name"],
         pb_arch=item["archetype"],
         pb_solvency=item.get("solvency_tier", "backlog_float"),
+        pb_fscore=str(p3),
         pb_entry=str(item["price"]),
         pb_floor=str(item["floor_price"]),
         pb_target=str(item["target_price"]),
@@ -221,14 +229,14 @@ def _candidate_card(rank, item, is_held, base):
     tranche_line = (
         f'<b>⑤ 과열·기성급등 브레이크:</b> 지금 추격 금지 · 2차 조정선({_fmt_px(t2, ccy)}) 도달 대기'
         if (overheated or ex_tb)
-        else f'<b>⑤ 1종목 초집중 매집 공식 ({e(item["horizon"])}):</b> '
-        f'목표 비중 <b>{sz["recommended_pct"]:.0f}%</b>를 3회 압축 투입 — '
+        else f'<b>⑤ Half-Kelly 2축 압축 매집 ({e(item["horizon"])}):</b> '
+        f'단독 상한 50% 내 배정 비중 <b>{sz["recommended_pct"]:.0f}%</b> (Half-Kelly 수식 {sz.get("kelly_half_pct", 0):.1f}%) 3회 투입 — '
         f'1차 {_fmt_px(t1, ccy)}(35%) &gt; 2차 투매 {_fmt_px(t2, ccy)}(40%) &gt; 3차 바닥 {_fmt_px(t3, ccy)}(25%)'
     )
     return (
         f'<article class="era-card">'
         f'<div class="spread"><div><span class="badge-info">#{rank} · {e(item["market"])}:{e(item["venue"])} · {cat_m}개월 내 승부</span> '
-        f'{shield_badge}{held_badge}</div>'
+        f'{shield_badge} {p3_badge}{held_badge}</div>'
         f'<strong>괴리·촉매 총점 {item["total"]:.1f} / 100</strong></div>'
         f'<h3>{e(item["name"])} <small>({e(item["symbol"])} · {e(item["archetype_badge"])})</small></h3>'
         f'<p><b>현재가 {_fmt_px(item["price"], ccy)}</b> '
@@ -237,8 +245,8 @@ def _candidate_card(rank, item, is_held, base):
         f'<b>12개월 내 목표가 {_fmt_px(item["target_price"], ccy)}</b>(+{item["upside_pct"]:.1f}%) · '
         f'강세 오버슈팅 <b>{_fmt_px(item["bull_price"], ccy)}</b> → '
         f'<b>비대칭 손익배수 {item["asymmetry"]:.2f}배</b> · 안전마진 <b>{item["margin_pct"]:.1f}%</b><br>'
-        f'<span class="badge-pass">권장 집중 비중: <b>{e(sz["grade_label"])}</b></span> '
-        f'<small>(순수 켈리 최적치 {sz["kelly_full_pct"]:.1f}% · {e(sz["portfolio_guide"])})</small></p>'
+        f'<span class="badge-pass">권장 Half-Kelly 비중: <b>{e(sz["grade_label"])}</b></span> '
+        f'<small>(Half-Kelly 수식 {sz.get("kelly_half_pct", 0):.1f}% · Full {sz["kelly_full_pct"]:.1f}% · {e(sz["portfolio_guide"])})</small></p>'
         + _gap_bars(item["scores"])
         + '<div class="era-lesson">'
         f'<b>★ [필수] 향후 {cat_m}개월 내 강제 재평가 촉매:</b> {e(cat_txt)}<br>'
@@ -267,6 +275,15 @@ def _builder_section(base, csrf, query, saved):
         f'<option value="{e(k)}"{" selected" if def_solv == k else ""}>{e(v["label"])}</option>'
         for k, v in contrarian.SOLVENCY_TIERS.items()
     )
+    def_fscore = str(q.get("pb_fscore", "3"))
+    fscore_opts = "".join(
+        f'<option value="{v}"{" selected" if def_fscore == v else ""}>{lbl}</option>'
+        for v, lbl in (
+            ("3", "3/3점 · 수익성·현금·백로그 동시 개선 (Piotroski 기대오차 최고등급)"),
+            ("2", "2/3점 · 마진/수주 과도기 (3개월 1차 숫자 반등 확인 조건)"),
+            ("1", "1/3점 · 턴어라운드 초기 (신규 진입 보류 권장)"),
+        )
+    )
     mkt_kr_sel = " selected" if q.get("pb_market", "KR") == "KR" else ""
     mkt_us_sel = " selected" if q.get("pb_market") == "US" else ""
 
@@ -275,21 +292,23 @@ def _builder_section(base, csrf, query, saved):
         ccy = p["currency"]
         t1, t2, t3 = p["tranches"]
         solv_key = p.get("solvency", "backlog_float")
+        p3_val = int(p.get("piotroski_3", 2))
         solv_lbl = p.get("solvency_label", contrarian.SOLVENCY_TIERS.get(solv_key, contrarian.SOLVENCY_TIERS["backlog_float"])["label"])
         sz = p.get("sizing") or contrarian.compute_position_sizing(
             upside_pct=p["upside_pct"],
             downside_pct=p["downside_pct"],
+            piotroski_3=p3_val,
             blocked=(solv_key == "distressed_block"),
         )
         if solv_key == "distressed_block":
             status_badge = '<span class="badge-warn">집중 부적격 (시간함정·희석 위험 · 0% 기각)</span>'
         elif p["passes"]:
-            status_badge = '<span class="badge-pass">12개월 내 승부 · 초집중 적격 통과</span>'
+            status_badge = '<span class="badge-pass">Half-Kelly 2축 적격 · 12M 촉매 통과</span>'
         else:
-            status_badge = '<span class="badge-warn">비대칭 우위 부족 · 추가 할인 대기</span>'
+            status_badge = '<span class="badge-warn">기대오차/비대칭 우위 부족 · 추가 할인 대기</span>'
         grade_lbl = sz.get("grade_label") or f"{sz['recommended_pct']:.0f}%"
         cat_line = p.get("catalyst_12m", p["variant_insight"])
-        tstop_line = p.get("time_stop", "진입 후 6개월 내 핵심 촉매 미발생 시 본전이어도 전량 교체")
+        tstop_line = p.get("time_stop", "3M 1차 점검(역주행 즉시 컷) / 6M 본 Time-Stop(무반응 시 전량 교체)")
         prefill = _research_prefill(
             base,
             name=p["name"],
@@ -300,7 +319,7 @@ def _builder_section(base, csrf, query, saved):
             target=p["target"],
             bull=p["bull"],
             url=p["url"],
-            catalyst=f"[{p['horizon']} 촉매] {cat_line}",
+            catalyst=f"[{p['horizon']} 촉매 · Piotroski {p3_val}/3] {cat_line}",
             kill_switch=f"[Time-Stop] {tstop_line} / {p['kill_switch']}",
             months=p.get("horizon_months", 9),
         )
@@ -310,9 +329,9 @@ def _builder_section(base, csrf, query, saved):
             f'{status_badge}</div>'
             f'<p><b>진입 기준가 {_fmt_px(p["entry"], ccy)}</b> · 하방 바닥 <b>{_fmt_px(p["floor"], ccy)}</b>(-{p["downside_pct"]:.1f}%) · '
             f'<b>12개월 내 목표가 {_fmt_px(p["target"], ccy)}</b>(+{p["upside_pct"]:.1f}%) → '
-            f'<b>비대칭 배수 {p["asymmetry"]:.2f}배</b> · 안전마진 <b>{p["margin_pct"]:.1f}%</b> · 승부 기한 <b>{e(p["horizon"])}</b><br>'
-            f'<span class="badge-pass">권장 집중 비중: <b>{e(grade_lbl)}</b></span> '
-            f'<small>(순수 켈리 최적치 {sz.get("kelly_full_pct", 0):.1f}% · 재무생존: {e(solv_lbl)})</small></p>'
+            f'<b>비대칭 배수 {p["asymmetry"]:.2f}배</b> · 안전마진 <b>{p["margin_pct"]:.1f}%</b> · 승부 기한 <b>{e(p["horizon"])}</b> · <b>Piotroski {p3_val}/3</b><br>'
+            f'<span class="badge-pass">권장 Half-Kelly 비중: <b>{e(grade_lbl)}</b></span> '
+            f'<small>(Half-Kelly {sz.get("kelly_half_pct", 0):.1f}% · Full {sz.get("kelly_full_pct", 0):.1f}% · 재무생존: {e(solv_lbl)})</small></p>'
             f'<p><b>내림차순 3단 집중매집표:</b> 1차 진입(35%) <b>{_fmt_px(t1, ccy)}</b> &gt; 2차 군중투매(40%) <b>{_fmt_px(t2, ccy)}</b> &gt; 3차 바닥완성(25%) <b>{_fmt_px(t3, ccy)}</b></p>'
             f'<p><b>★ 12개월 내 확정 촉매:</b> {e(cat_line)}<br>'
             f'<b>시간손절(Time-Stop):</b> {e(tstop_line)}<br>'
@@ -323,24 +342,25 @@ def _builder_section(base, csrf, query, saved):
         )
 
     return (
-        f'<section id="playbook-builder"><h2>4. 12개월 이내 승부 · 1종목 초집중 계약서 설계기 (Time-Stop 강제 내장)</h2>'
-        '<p><b>13개월을 초과하는 막연한 장기보유(예: 24개월·3년·5년) 입력은 코드에서 자동으로 거부됩니다.</b> '
-        '향후 3~12개월 안에 주가를 강제로 재평가시킬 확정 촉매와 6개월 무반응 시간손절(Time-Stop)이 있는 종목에만 30%~75% 집중 승부를 거세요.</p>'
-        f'<details{open_attr}><summary>1년 내 승부 · 1종목 초집중 시나리오 작성·검증하기</summary>'
+        f'<section id="playbook-builder"><h2>4. Half-Kelly 2축 압축(≤50%) · 12개월 승부 계약서 설계기</h2>'
+        '<p><b>13개월 초과 장기보유·5% 분산·단일 50% 초과 과베팅은 코드에서 모두 차단됩니다.</b> '
+        'Piotroski 기대오차(2점 이상)와 12개월 확정 촉매, 그리고 <b>3개월 1차 숫자 점검 + 6개월 본 Time-Stop</b>이 결합된 최선호 2종목(각 ≤50%)만 설계하세요.</p>'
+        f'<details{open_attr}><summary>1년 내 승부 · Half-Kelly 2축 압축 계약서 작성·검증하기</summary>'
         f'<form class="research-form" method="post" action="{e(base)}/desk/manager/contrarian-plan">'
         f'<input type="hidden" name="csrf" value="{e(csrf)}">'
         f'<label>시장<select name="market"><option value="KR"{mkt_kr_sel}>한국 (KRW)</option><option value="US"{mkt_us_sel}>미국 (USD)</option></select></label>'
-        f'<label>종목코드·티커 (미개화·1년 촉매 후보)<input name="symbol" required maxlength="12" value="{e(q.get("pb_symbol", ""))}" placeholder="예: 214150, 058470, CELH, ONTO"></label>'
-        f'<label>종목명<input name="name" required maxlength="80" value="{e(q.get("pb_name", ""))}" placeholder="예: 클래시스, 리노공업, Celsius"></label>'
+        f'<label>종목코드·티커 (미개화·1년 촉매 후보)<input name="symbol" required maxlength="12" value="{e(q.get("pb_symbol", ""))}" placeholder="예: 058470, 240810, ONTO, MOH"></label>'
+        f'<label>종목명<input name="name" required maxlength="80" value="{e(q.get("pb_name", ""))}" placeholder="예: 리노공업, 원익IPS, Onto Innovation"></label>'
         f'<label>적용할 1년 승부 대가 아키타입 (6종)<select name="archetype">{arch_opts}</select></label>'
-        f'<label>무차입 고비중 집중 재무생존 등급<select name="solvency">{solv_opts}</select></label>'
+        f'<label>무차입 Half-Kelly 재무생존 등급<select name="solvency">{solv_opts}</select></label>'
+        f'<label>Piotroski 기대오차 관문 (가치함정 57% 차단)<select name="piotroski_3">{fscore_opts}</select></label>'
         f'<label>현재 진입 기준가격<input name="entry" type="number" min="0" step="any" required value="{e(q.get("pb_entry", ""))}"></label>'
         f'<label>하방 콘크리트 바닥가 (순현금·청산가치·수주 근거)<input name="floor" type="number" min="0" step="any" required value="{e(q.get("pb_floor", ""))}"></label>'
         f'<label>12개월 이내 복원 목표가치<input name="target" type="number" min="0" step="any" required value="{e(q.get("pb_target", ""))}"></label>'
         f'<label>내 인사이트 적중 확신도 (%, 기본 60%)<input name="win_prob" type="number" min="25" max="85" step="any" value="{e(q.get("pb_prob", "60"))}"></label>'
         f'<label>목표 승부 기한 (최대 12개월 이내만 허용 · 13개월↑ 입력 차단)<input name="horizon" required maxlength="40" value="{e(q.get("pb_horizon", "6~12개월"))}" placeholder="예: 6~9개월, 6~12개월"></label>'
-        f'<label>★ [필수] 향후 12개월 내 주가를 깨울 확정 촉매·일정 (Dated Catalyst)<textarea name="catalyst_12m" rows="2" required maxlength="320" placeholder="예: 2분기 내 미국 FDA 허가 본선적 / 하반기 신규 팹 장비 반입">{e(q.get("pb_catalyst", ""))}</textarea></label>'
-        f'<label>★ [필수] 자금 묶임 방지 시간손절 데드라인 (Time-Stop)<input name="time_stop" required maxlength="260" value="{e(q.get("pb_tstop", "진입 후 2개 분기(6개월) 내 핵심 촉매·실적 반전 미확인 시 본전이어도 즉시 전량 교체"))}"></label>'
+        f'<label>★ [필수] 향후 12개월 내 주가를 깨울 확정 촉매·일정 (Dated Catalyst)<textarea name="catalyst_12m" rows="2" required maxlength="320" placeholder="예: 4Q 이연물량 인식 / 부산 EDC 신공장 가동">{e(q.get("pb_catalyst", ""))}</textarea></label>'
+        f'<label>★ [필수] 2단계 시간손절 (3M 숫자 점검 + 6M 본 Time-Stop)<input name="time_stop" required maxlength="260" value="{e(q.get("pb_tstop", "3M 1차 점검: 영업익·수주 방향 역주행 시 조기 철수 / 6M 본 Time-Stop: 미확인 시 본전이어도 전량 교체"))}"></label>'
         f'<label>① 지금 대중이 착각하거나 공포에 빠진 이유<textarea name="crowd_view" rows="2" required maxlength="300" placeholder="예: 일회성 재고조정·합병비용을 구조적 쇠퇴로 오인해 반토막 투매">{e(q.get("pb_crowd", ""))}</textarea></label>'
         f'<label>② 대중이 놓친 독점 본질·병목 구조<textarea name="variant_insight" rows="2" required maxlength="400" placeholder="예: 영업이익률 50% 소모품 반복 매출 해자 및 무차입 순현금">{e(q.get("pb_insight", ""))}</textarea></label>'
         f'<label>③ 즉시 0%로 철수할 본질 훼손 조건 (Kill-Switch)<textarea name="kill_switch" rows="2" required maxlength="300" placeholder="예: 인허가 거절, 핵심 수주 해지, 주주배정 유상증자">{e(q.get("pb_kill", ""))}</textarea></label>'
@@ -397,27 +417,27 @@ def render(directory, package, base, csrf, query, css):
     out = [
         '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>역발상 · 12개월 촉매 1종목 초집중 전략실 · Whale Tracking</title><style>{css}</style></head><body>"
-        "<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 12개월 이내 확정촉매 &amp; 1종목 초집중(30~75%) 승부실</small></div></header>",
+        f"<title>역발상 · Half-Kelly 2축 압축 12개월 촉매 전략실 · Whale Tracking</title><style>{css}</style></head><body>"
+        "<header><div><strong>Whale Tracking</strong><small>로컬 투자 관리 · 12개월 확정촉매 &amp; Half-Kelly 2축 압축(25~50%) 승부실</small></div></header>",
         chat_page.navigation(base, "contrarian"),
         '<main class="desk-main">',
-        '<div class="spread"><div><h1>역발상 · 12개월 촉매 미개화 발굴 &amp; 1종목 초집중 전략실</h1>'
-        "<p><b>5~10년 막연한 장기 홀딩(시간함정)과 5%~8% 백화점식 분산을 모두 거부합니다.</b> "
-        "기성 텐베거를 배제하고 아직 5년 바닥권(≤3.6배)에 머문 독점 기업 중 <b>향후 3~12개월 안에 확정 촉매로 폭발할 종목에만 30%~75%를 실어 빠르게 복리 회전</b>합니다.</p></div>"
+        '<div class="spread"><div><h1>역발상 · 12개월 촉매 미개화 발굴 &amp; Half-Kelly 2종목 압축 전략실</h1>'
+        "<p><b>5~10년 존버, 5%~8% 백화점 분산, 그리고 Full Kelly(75%) 단일 몰빵을 모두 거부합니다.</b> "
+        "Piotroski 기대오차(가치함정 57% 차단)와 5년 바닥권(≤3.6배)이 검증된 <b>서로 다른 12개월 확정 촉매 2종목에 Half-Kelly 각 25%~50%를 압축 배팅</b>하고 3M/6M Time-Stop으로 회전합니다.</p></div>"
         f'<form method="post" action="{e(base)}/desk/manager/contrarian-run">'
         f'<input type="hidden" name="csrf" value="{e(csrf)}">'
         "<button>12개월 촉매 · 미개화 괴리 스캔</button></form></div>",
     ]
     if done == "refreshed":
-        out.append('<p role="status" class="badge-pass">3중 CoT 불변식(≤12개월 촉매 · 기성텐베거 제외 · 30~75% 집중비중) 검증을 통과한 후보군을 갱신했습니다.</p>')
+        out.append('<p role="status" class="badge-pass">Half-Kelly(25~50%) · Piotroski 기대오차 · ≤12개월 촉매 불변식 검증을 통과한 후보군을 갱신했습니다.</p>')
     elif done == "saved":
-        out.append('<p role="status" class="badge-pass">12개월 이내 승부 1종목 초집중 계약서를 검증·저장했습니다.</p>')
+        out.append('<p role="status" class="badge-pass">12개월 승부 · Half-Kelly 2축 압축 계약서를 검증·저장했습니다.</p>')
 
     out.append(
-        '<div class="rebalance-bar"><b>1년 승부 초집중 3대 철칙 (CoT 재발방지 코드 잠금 완료):</b> '
-        '① <b>시간함정(Dead Money) 배제:</b> 12개월 안에 숫자로 찍힐 강제 촉매가 없는 만년 저PBR 주식은 제외하며, 진입 후 <b>2개 분기(6개월) 내 촉매 미발생 시 본전이어도 시간손절(Time-Stop)</b>합니다. '
-        '② <b>기성 텐베거 배제:</b> 이미 5년 저점 대비 3.6배를 넘긴 기성 급등주는 자동 차단합니다. '
-        '③ <b>30%~75% 초집중:</b> 무차입 현물 100% 전제 아래 최고 확신 1~3종목에만 30%~75%를 싣고, 애매한 종목은 5% 정찰도 없이 0% 기각합니다.</div>'
+        '<div class="rebalance-bar"><b>Half-Kelly 2축 압축 &amp; 2단계 Time-Stop 3대 철칙 (선행연구 12편 반영):</b> '
+        '① <b>3M 숫자 점검 + 6M 본 Time-Stop:</b> 3개월 차에 선행지표(OPM·수주·통관)가 정반대 역주행이면 즉시 컷하고, 2개 분기(6개월) 내 무반응이면 본전이어도 전량 교체합니다. '
+        '② <b>Piotroski 3점 &amp; 미개화 배제:</b> 5년 저점 대비 3.6배 초과 기성주와 마진·현금흐름 악화 가치함정(57%)을 차단합니다. '
+        '③ <b>Half-Kelly 2종목 압축(25%~50%):</b> Full Kelly(75%) 추정오차·1종목 왜도 리스크를 막기 위해 성장률 75%를 지키는 Half-Kelly 기반 서로 다른 촉매 2종목(각 ≤50%)에 배정합니다.</div>'
     )
 
     out.append(_archetype_section())

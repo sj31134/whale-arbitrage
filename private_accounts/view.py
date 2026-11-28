@@ -185,7 +185,7 @@ def server(directory, port=8765, package=None, *, identity_key=None):
                                  '실행하면 현재 세션의 투자 매니저가 열립니다.</p></html>').encode())
                 return
             try:
-                query = {k: v[0] for k,v in parse_qs(parts.query, max_num_fields=16).items()}
+                query = {k: v[0] for k,v in parse_qs(parts.query, max_num_fields=24).items()}
                 if home and not {"position", "agent", "provider", "category"}.intersection(query):
                     room = research_chat.MANAGER
                 if self.headers.get("X-Live-Sections") == "1" and (details or room == research_chat.MANAGER):
